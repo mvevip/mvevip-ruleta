@@ -88,6 +88,14 @@ aws cloudformation deploy `
     --profile $Profile `
     --region $Region
 
+Write-Host "[*] Actualizando codigo de la funcion Lambda..." -ForegroundColor Cyan
+aws lambda update-function-code `
+    --function-name "MarketingVIP-Roulette-Api-prod" `
+    --s3-bucket $deployBucket `
+    --s3-key "marketingvip-roulette/api.zip" `
+    --profile $Profile `
+    --region $Region | Out-Null
+
 # 6. Obtener Recursos Creados
 Write-Host "[*] Consultando recursos del Stack..." -ForegroundColor Cyan
 $outputs = aws cloudformation describe-stacks `

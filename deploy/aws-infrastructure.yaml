@@ -306,14 +306,6 @@ Resources:
             CachePolicyId: '4135ea2d-6df8-44a3-9df3-4b5a84be39ad'
             OriginRequestPolicyId: 'b689b0a8-53d0-40ab-baf2-68738e2966ac'
 
-        CustomErrorResponses:
-          - ErrorCode: 404
-            ResponseCode: 200
-            ResponsePagePath: /index.html
-          - ErrorCode: 403
-            ResponseCode: 200
-            ResponsePagePath: /index.html
-
 Outputs:
   CloudFrontDistributionId:
     Description: 'ID de la distribución de CloudFront'
