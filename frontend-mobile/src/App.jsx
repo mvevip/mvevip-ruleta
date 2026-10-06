@@ -53,6 +53,23 @@ export default function App() {
   const socketRef = useRef(null);
   const deviceIdRef = useRef(getOrCreateDeviceId());
 
+  // Notificar al stand que un usuario escaneó el QR / abrió la app
+  const pingScreenActivity = () => {
+    try {
+      if (socketRef.current && socketRef.current.connected) {
+        socketRef.current.emit('USER_ENGAGED', { screenId });
+      }
+      fetch(`${API_URL}/api/screen/activity?screen_id=${screenId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      }).catch(() => {});
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    pingScreenActivity();
+  }, [screenId]);
+
   useEffect(() => {
     const socket = io(WS_URL, {
       reconnectionAttempts: 5,
@@ -63,6 +80,7 @@ export default function App() {
     socket.on('connect', () => {
       console.log('[Mobile] Conectado a socket:', socket.id);
       socket.emit('JOIN_ROOM', { screenId, role: 'mobile' });
+      socket.emit('USER_ENGAGED', { screenId });
     });
 
     return () => {
@@ -76,6 +94,7 @@ export default function App() {
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: null }));
     }
+    pingScreenActivity();
   };
 
   const validate = () => {

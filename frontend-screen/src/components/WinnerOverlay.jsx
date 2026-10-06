@@ -1,8 +1,28 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import confetti from 'canvas-confetti';
-import { Trophy, Gift, Sparkles, Ticket, X } from 'lucide-react';
+import { Trophy, Gift, Sparkles, Ticket, X, Clock } from 'lucide-react';
 
 export default function WinnerOverlay({ winnerData, onClose }) {
+  const [countdown, setCountdown] = useState(10);
+
+  // Cuenta regresiva automática de 10 segundos
+  useEffect(() => {
+    if (!winnerData) return;
+    setCountdown(10);
+
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          onClose();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [winnerData, onClose]);
   useEffect(() => {
     if (!winnerData) return;
 
@@ -96,9 +116,23 @@ export default function WinnerOverlay({ winnerData, onClose }) {
           </span>
         </div>
 
-        <p className="text-sm text-zinc-400 max-w-md mx-auto">
+        <p className="text-sm text-zinc-400 max-w-md mx-auto mb-3">
           Presenta tu celular en el stand de <strong className="text-[#9AC31C]">Marketing VIP</strong> para activar tus beneficios exclusivos y planear tu próximo viaje.
         </p>
+
+        {/* Barra de Cuenta Regresiva de Cierre Automático (10s) */}
+        <div className="pt-3 border-t border-zinc-800 flex flex-col items-center gap-1.5">
+          <div className="flex items-center gap-2 text-xs font-racing font-bold text-zinc-400">
+            <Clock className="w-3.5 h-3.5 text-[#9AC31C]" />
+            <span>Cerrando automáticamente en <span className="text-[#9AC31C] text-sm font-black">{countdown}s</span></span>
+          </div>
+          <div className="w-full bg-zinc-800/80 h-2 rounded-full overflow-hidden border border-zinc-700/50">
+            <div
+              className="bg-gradient-to-r from-[#84A816] to-[#9AC31C] h-full transition-all duration-1000 ease-linear shadow-[0_0_12px_rgba(154,195,28,0.9)]"
+              style={{ width: `${(countdown / 10) * 100}%` }}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

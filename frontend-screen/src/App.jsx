@@ -5,6 +5,7 @@ import Tachometer from './components/Tachometer';
 import QRCodeCard from './components/QRCodeCard';
 import WinnerOverlay from './components/WinnerOverlay';
 import AttractBanner from './components/AttractBanner';
+import VideoAttractOverlay from './components/VideoAttractOverlay';
 import { Radio } from 'lucide-react';
 
 const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
@@ -29,6 +30,7 @@ export default function App() {
   const [rotationAngle, setRotationAngle] = useState(0);
   const [winner, setWinner] = useState(null);
   const [socketConnected, setSocketConnected] = useState(false);
+  const [showVideo, setShowVideo] = useState(true);
 
   const socketRef = useRef(null);
   const currentAngleRef = useRef(0);
@@ -36,9 +38,36 @@ export default function App() {
   const isSpinningRef = useRef(false);
   const lastSpinIdRef = useRef(null);
   const handledTicketsRef = useRef(new Set());
+  const idleTimerRef = useRef(null);
+  const lastLeadActivityRef = useRef(0);
 
   prizesRef.current = prizes;
   isSpinningRef.current = isSpinning;
+
+  const dismissVideo = () => {
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = null;
+    }
+    setShowVideo(false);
+  };
+
+  const startIdleTimer = (delay = 5000) => {
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+    }
+    idleTimerRef.current = setTimeout(() => {
+      if (!isSpinningRef.current) {
+        setShowVideo(true);
+      }
+    }, delay);
+  };
+
+  const handleCloseWinner = () => {
+    setWinner(null);
+    // Esperar 5 segundos mostrando la ruleta y el resultado antes de volver al video
+    startIdleTimer(5000);
+  };
 
   // Cargar lista de premios desde la API
   const fetchPrizes = async () => {
@@ -85,8 +114,24 @@ export default function App() {
       setSocketConnected(false);
     });
 
+    // Despertar la pantalla al detectar conexión de móvil o inicio de registro
+    socket.on('USER_CONNECTED', () => {
+      console.log('[Pantalla] Usuario conectado en móvil -> Mostrando ruleta');
+      dismissVideo();
+    });
+
+    socket.on('USER_ENGAGED', () => {
+      console.log('[Pantalla] Interacción de usuario en móvil -> Mostrando ruleta');
+      dismissVideo();
+    });
+
+    socket.on('DRIVER_READY', () => {
+      dismissVideo();
+    });
+
     socket.on('TRIGGER_SPIN', (data) => {
       console.log('[Pantalla] Disparo de giro recibido por socket:', data);
+      dismissVideo();
       handleTriggerSpin(data);
     });
 
@@ -126,39 +171,51 @@ export default function App() {
         const res = await fetch(`${API_URL}/api/spin/latest?screen_id=${SCREEN_ID}`);
         if (!res.ok) return;
         const json = await res.json();
-        if (json.success && json.data && json.data.id) {
+        if (json.success) {
           setSocketConnected(true);
-          const spin = json.data;
 
-          const isNewSpin = (lastSpinIdRef.current === null)
-            ? (Date.now() - new Date(spin.created_at).getTime() < 20000)
-            : (spin.id > lastSpinIdRef.current);
+          // Si el lead está activo en el móvil (escaneó o escribe), despertar pantalla
+          if (json.lastActivityAt && json.lastActivityAt > lastLeadActivityRef.current) {
+            const ageActivity = Date.now() - json.lastActivityAt;
+            lastLeadActivityRef.current = json.lastActivityAt;
+            if (ageActivity < 25000) {
+              dismissVideo();
+            }
+          }
 
-          if (isNewSpin && !handledTicketsRef.current.has(spin.ticket_code)) {
-            lastSpinIdRef.current = spin.id;
-            console.log('[Pantalla] ¡Nuevo giro recibido en vivo!', spin);
+          if (json.data && json.data.id) {
+            const spin = json.data;
+            const isNewSpin = (lastSpinIdRef.current === null)
+              ? (Date.now() - new Date(spin.created_at).getTime() < 20000)
+              : (spin.id > lastSpinIdRef.current);
 
-            const currentPrizes = prizesRef.current.length > 0 ? prizesRef.current : prizes;
-            const sliceIndex = currentPrizes.findIndex(p => p.id === spin.prize_id);
-
-            handleTriggerSpin({
-              leadName: spin.leadName,
-              prize: {
-                id: spin.prize_id,
-                name: spin.prize_name,
-                color_hex: spin.color_hex,
-                text_color: spin.text_color,
-                category: spin.category,
-                description: spin.description
-              },
-              sliceIndex: sliceIndex >= 0 ? sliceIndex : 0,
-              totalSlices: currentPrizes.length || 8,
-              ticketCode: spin.ticket_code,
-              destination: spin.destination
-            });
-          } else {
-            if (lastSpinIdRef.current === null || spin.id > lastSpinIdRef.current) {
+            if (isNewSpin && !handledTicketsRef.current.has(spin.ticket_code)) {
               lastSpinIdRef.current = spin.id;
+              console.log('[Pantalla] ¡Nuevo giro recibido en vivo!', spin);
+              dismissVideo();
+
+              const currentPrizes = prizesRef.current.length > 0 ? prizesRef.current : prizes;
+              const sliceIndex = currentPrizes.findIndex(p => p.id === spin.prize_id);
+
+              handleTriggerSpin({
+                leadName: spin.leadName,
+                prize: {
+                  id: spin.prize_id,
+                  name: spin.prize_name,
+                  color_hex: spin.color_hex,
+                  text_color: spin.text_color,
+                  category: spin.category,
+                  description: spin.description
+                },
+                sliceIndex: sliceIndex >= 0 ? sliceIndex : 0,
+                totalSlices: currentPrizes.length || 8,
+                ticketCode: spin.ticket_code,
+                destination: spin.destination
+              });
+            } else {
+              if (lastSpinIdRef.current === null || spin.id > lastSpinIdRef.current) {
+                lastSpinIdRef.current = spin.id;
+              }
             }
           }
         }
@@ -176,6 +233,7 @@ export default function App() {
     if (data.ticketCode && handledTicketsRef.current.has(data.ticketCode)) return;
     if (data.ticketCode) handledTicketsRef.current.add(data.ticketCode);
 
+    dismissVideo();
     setIsSpinning(true);
     setWinner(null);
 
@@ -210,7 +268,12 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen w-screen carbon-bg text-white flex flex-col justify-between overflow-hidden select-none">
+    <div
+      className="min-h-screen w-screen carbon-bg text-white flex flex-col justify-between overflow-hidden select-none relative"
+      onClick={() => {
+        if (showVideo) dismissVideo();
+      }}
+    >
       <AttractBanner />
 
       <div className="flex-1 flex items-center justify-between px-6 lg:px-12 py-4 max-w-[1920px] mx-auto w-full">
@@ -252,10 +315,19 @@ export default function App() {
         <span className="font-racing text-[#9AC31C] font-bold">Feria del Automóvil 2026 • Stand #{SCREEN_ID}</span>
       </footer>
 
+      {/* Video Corporativo en Bucle Persistente (2x2 Metros) */}
+      <VideoAttractOverlay
+        isVisible={showVideo && !isSpinning && !winner}
+        onDismiss={dismissVideo}
+        mobileUrl={MOBILE_BASE_URL}
+        screenId={SCREEN_ID}
+      />
+
+      {/* Modal de Ganador con Cierre Automático (10s) */}
       {winner && (
         <WinnerOverlay
           winnerData={winner}
-          onClose={() => setWinner(null)}
+          onClose={handleCloseWinner}
         />
       )}
     </div>

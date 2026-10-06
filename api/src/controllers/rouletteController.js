@@ -360,9 +360,27 @@ async function redeemTicket(req, res) {
   }
 }
 
+// Mapa en memoria para registrar actividad reciente de leads por pantalla
+const screenActivityMap = new Map();
+
+// Registrar actividad de un lead (escaneo de QR o llenado de formulario)
+function recordScreenActivity(req, res) {
+  const screenId = req.query.screen_id || (req.body && req.body.screen_id) || 'STAND_01';
+  screenActivityMap.set(screenId, Date.now());
+
+  if (req.io) {
+    req.io.to(screenId).emit('USER_ENGAGED', { screenId, timestamp: Date.now() });
+    req.io.emit('USER_ENGAGED', { screenId, timestamp: Date.now() });
+  }
+
+  res.json({ success: true, timestamp: Date.now() });
+}
+
 // Obtener último tiro registrado para una pantalla específica (Sincronización en vivo / Polling)
 async function getLatestSpin(req, res) {
   const { screen_id = 'STAND_01' } = req.query;
+  const lastActivityAt = screenActivityMap.get(screen_id) || 0;
+
   try {
     const [rows] = await pool.query(
       `SELECT s.id, s.ticket_code, s.screen_id, s.created_at,
@@ -378,10 +396,10 @@ async function getLatestSpin(req, res) {
     );
 
     if (rows.length === 0) {
-      return res.json({ success: true, data: null });
+      return res.json({ success: true, data: null, lastActivityAt });
     }
 
-    res.json({ success: true, data: rows[0] });
+    res.json({ success: true, data: rows[0], lastActivityAt });
   } catch (error) {
     console.error('Error al consultar último tiro:', error);
     res.status(500).json({ success: false, message: 'Error interno consultando estado del stand' });
@@ -396,5 +414,6 @@ module.exports = {
   processSpin,
   verifyTicket,
   redeemTicket,
-  getLatestSpin
+  getLatestSpin,
+  recordScreenActivity
 };

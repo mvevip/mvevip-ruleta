@@ -24,6 +24,15 @@ function setupSocket(io) {
       }
     });
 
+    // El móvil notifica que el usuario escaneó o está activo en el formulario
+    socket.on('USER_ENGAGED', (data) => {
+      const roomId = data?.screenId || 'STAND_01';
+      io.to(roomId).emit('USER_ENGAGED', {
+        socketId: socket.id,
+        timestamp: new Date().toISOString()
+      });
+    });
+
     // El móvil notifica que el usuario está escribiendo o listo para presionar Start
     socket.on('USER_READY_TO_START', (data) => {
       const roomId = data?.screenId || 'STAND_01';

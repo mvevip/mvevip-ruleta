@@ -10,6 +10,7 @@ const { verifyTurnstile } = require('../middlewares/turnstileMiddleware');
 router.get('/prizes', rouletteController.getPrizes);
 router.post('/spin', spinLimiter, verifyTurnstile, rouletteController.processSpin);
 router.get('/spin/latest', rouletteController.getLatestSpin);
+router.post('/screen/activity', rouletteController.recordScreenActivity);
 router.get('/ticket/:code', rouletteController.verifyTicket);
 
 // Rutas Administrativas de Premios y Canjes (Protegidas con PIN y Rate Limit)
