@@ -17,11 +17,11 @@ import {
   Clock
 } from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL
+const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+const API_URL = isLocal && import.meta.env.VITE_API_URL
   ? import.meta.env.VITE_API_URL
-  : (window.location.port && ['5500', '5501', '5502', '5503', '5504'].includes(window.location.port))
-    ? `${window.location.protocol}//${window.location.hostname}:5500`
-    : window.location.origin;
+  : (typeof window !== 'undefined' ? window.location.origin : '');
 
 export default function App() {
   const [pin, setPin] = useState('');

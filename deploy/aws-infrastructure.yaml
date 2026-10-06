@@ -39,6 +39,19 @@ Parameters:
   DatabasePort:
     Type: Number
     Default: 3306
+  AdminPin:
+    Type: String
+    Default: 'VIP2026'
+    Description: 'PIN de acceso administrativo'
+  TurnstileSecretKey:
+    Type: String
+    Default: '0x4AAAAAAFPvP9yThsuTvoNqFp-osuhEe1E'
+    NoEcho: true
+    Description: 'Secret Key de Cloudflare Turnstile'
+  AllowedOrigins:
+    Type: String
+    Default: 'https://autos.mvevip.com,https://mvevip.com'
+    Description: 'Orígenes permitidos por CORS'
 
 Resources:
   # 1. Bucket S3 para Frontend Unificado (Mobile, Pantalla y Admin)
@@ -155,6 +168,9 @@ Resources:
           COMPANY_NAME: 'Marketing VIP'
           COMPANY_SLOGAN: 'Especialistas en sueños'
           WHATSAPP_NUMBER: '593999999999'
+          ADMIN_PIN: !Ref AdminPin
+          TURNSTILE_SECRET_KEY: !Ref TurnstileSecretKey
+          ALLOWED_ORIGINS: !Ref AllowedOrigins
 
   # 7. API Gateway HTTP API
   HttpApi:

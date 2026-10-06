@@ -7,23 +7,19 @@ import WinnerOverlay from './components/WinnerOverlay';
 import AttractBanner from './components/AttractBanner';
 import { Radio } from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL
+const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+const API_URL = isLocal && import.meta.env.VITE_API_URL
   ? import.meta.env.VITE_API_URL
-  : (window.location.port && ['5500', '5501', '5502', '5503', '5504'].includes(window.location.port))
-    ? `${window.location.protocol}//${window.location.hostname}:5500`
-    : window.location.origin;
+  : (typeof window !== 'undefined' ? window.location.origin : '');
 
-const WS_URL = import.meta.env.VITE_WS_URL
+const WS_URL = isLocal && import.meta.env.VITE_WS_URL
   ? import.meta.env.VITE_WS_URL
-  : (window.location.port && ['5500', '5501', '5502', '5503', '5504'].includes(window.location.port))
-    ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}:5500`
-    : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}`;
+  : (typeof window !== 'undefined' ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}` : '');
 
-const MOBILE_BASE_URL = import.meta.env.VITE_MOBILE_URL
+const MOBILE_BASE_URL = isLocal && import.meta.env.VITE_MOBILE_URL
   ? import.meta.env.VITE_MOBILE_URL
-  : (window.location.port && ['5500', '5501', '5502', '5503', '5504'].includes(window.location.port))
-    ? `${window.location.protocol}//${window.location.hostname}:5503`
-    : `${window.location.origin}/`;
+  : (typeof window !== 'undefined' ? `${window.location.origin}/` : 'https://autos.mvevip.com/');
 
 const SCREEN_ID = 'STAND_01';
 

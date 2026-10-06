@@ -28,14 +28,21 @@ try {
     exit 1
 }
 
-# 2. Obtener contrasena de Base de Datos de .env si no se proveyo
-if (-not $DbPassword) {
-    if (Test-Path ".env") {
-        $envLines = Get-Content ".env"
-        foreach ($line in $envLines) {
-            if ($line -match "^\s*DB_PASSWORD\s*=\s*(.+)$") {
-                $DbPassword = $matches[1].Trim()
-            }
+# 2. Obtener contraseñas y claves de .env
+$TurnstileSecret = "0x4AAAAAAFPvP9yThsuTvoNqFp-osuhEe1E"
+$AdminPin = "VIP2026"
+
+if (Test-Path ".env") {
+    $envLines = Get-Content ".env"
+    foreach ($line in $envLines) {
+        if ($line -match "^\s*DB_PASSWORD\s*=\s*(.+)$") {
+            $DbPassword = $matches[1].Trim()
+        }
+        if ($line -match "^\s*TURNSTILE_SECRET_KEY\s*=\s*(.+)$") {
+            $TurnstileSecret = $matches[1].Trim()
+        }
+        if ($line -match "^\s*ADMIN_PIN\s*=\s*(.+)$") {
+            $AdminPin = $matches[1].Trim()
         }
     }
 }
@@ -75,6 +82,8 @@ aws cloudformation deploy `
         LambdaCodeBucket=$deployBucket `
         LambdaCodeKey="marketingvip-roulette/api.zip" `
         DatabasePassword=$DbPassword `
+        AdminPin=$AdminPin `
+        TurnstileSecretKey=$TurnstileSecret `
     --capabilities CAPABILITY_NAMED_IAM `
     --profile $Profile `
     --region $Region
