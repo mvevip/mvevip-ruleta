@@ -171,6 +171,25 @@ docker compose up -d --build
 
 ---
 
-## 🔒 Seguridad
+## 🔒 Seguridad & Buenas Prácticas
 * Las credenciales de producción y archivos `.env` están protegidos e ignorados por [.gitignore](file:///.gitignore).
 * Se provee [.env.example](file:///.env.example) como plantilla para nuevas configuraciones.
+
+---
+
+## 📌 Pendientes y Tareas Futuras (Roadmap)
+
+### 🚨 [PRIORITARIO] Hardening de Seguridad & Prevención de Ataques de Fuerza Bruta
+Para blindar la API y la base de datos de producción ante posibles ataques forzados, inyecciones o saturación malintencionada durante y después de la feria, se debe implementar:
+1. **Rate Limiting & Throttling Estricto:**
+   * Configurar cuotas máximas de peticiones por IP/dispositivo en endpoints críticos como `POST /api/spin` y `PUT /api/admin/*` mediante API Gateway Throttling o middleware `express-rate-limit`.
+2. **AWS WAF (Web Application Firewall):**
+   * Asociar una regla de AWS WAF a la distribución de CloudFront (`autos.mvevip.com`) con reglas gestionadas de AWS contra bots, peticiones maliciosas (SQL injection, XSS) e inundaciones HTTP.
+3. **Restricción de Acceso a MySQL RDS:**
+   * Cerrar la accesibilidad pública de la instancia RDS (`PubliclyAccessible: false`) o restringir estrictamente las reglas del Security Group (`sg-0fc22e9b9ea3d0c2d` / `sg-0130d7d6c8f7d4b9b`) para permitir conexiones únicamente desde la VPC/subredes autorizadas de la Lambda.
+4. **Protección Anti-Bot en Formulario de Leads:**
+   * Integrar Cloudflare Turnstile o Google reCAPTCHA v3 invisible en la app móvil para evitar que scripts automatizados agoten el stock de premios.
+5. **CORS Restringido en Producción:**
+   * Limitar los orígenes permitidos en Express y API Gateway a `https://autos.mvevip.com` y `https://mvevip.com`, eliminando el comodín `*`.
+6. **Autenticación Administrativa Robusta:**
+   * Migrar la validación del PIN de asesores a JWT con expiración de sesión y almacenamiento seguro de credenciales con hashing (bcrypt) o AWS Secrets Manager.
