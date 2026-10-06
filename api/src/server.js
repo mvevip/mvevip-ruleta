@@ -10,19 +10,48 @@ const apiRoutes = require('./routes/apiRoutes');
 const app = express();
 const server = http.createServer(app);
 
-// Configuración de CORS
-app.use(cors({
-  origin: '*',
+const { globalLimiter } = require('./middlewares/rateLimiter');
+
+// Configuración de CORS restringida por entorno y dominio
+const allowedOrigins = config.SECURITY.allowedOrigins;
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Permitir peticiones sin header Origin (server-to-server, curl o health checks locales)
+    if (!origin) return callback(null, true);
+    if (
+      config.NODE_ENV !== 'production' ||
+      allowedOrigins.includes(origin) ||
+      origin.endsWith('.mvevip.com')
+    ) {
+      return callback(null, true);
+    }
+    return callback(new Error('Acceso bloqueado por política CORS'));
+  },
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
-}));
+};
+
+app.use(cors(corsOptions));
+app.use(globalLimiter);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Configurar WebSockets
+// Configurar WebSockets con CORS seguro
 const io = new Server(server, {
   cors: {
-    origin: '*',
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (
+        config.NODE_ENV !== 'production' ||
+        allowedOrigins.includes(origin) ||
+        origin.endsWith('.mvevip.com')
+      ) {
+        return callback(null, true);
+      }
+      return callback(new Error('WebSocket no permitido por CORS'));
+    },
     methods: ['GET', 'POST']
   }
 });

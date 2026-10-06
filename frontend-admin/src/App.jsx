@@ -53,12 +53,21 @@ export default function App() {
     }
   }, [isAuthenticated]);
 
+  const getAdminHeaders = () => {
+    const storedPin = localStorage.getItem('vip_admin_pin') || 'VIP2026';
+    return {
+      'Content-Type': 'application/json',
+      'x-admin-pin': storedPin
+    };
+  };
+
   const handleLogin = (e) => {
     e.preventDefault();
     const cleanPin = pin.trim().toUpperCase();
     if (cleanPin === 'VIP2026' || cleanPin === 'ADMIN') {
       setIsAuthenticated(true);
       localStorage.setItem('vip_admin_auth', 'true');
+      localStorage.setItem('vip_admin_pin', cleanPin);
       setPin('');
     } else {
       alert('PIN de seguridad incorrecto.');
@@ -68,16 +77,25 @@ export default function App() {
   const handleLogout = () => {
     setIsAuthenticated(false);
     localStorage.removeItem('vip_admin_auth');
+    localStorage.removeItem('vip_admin_pin');
   };
 
   const loadData = async () => {
     setLoading(true);
     try {
+      const headers = getAdminHeaders();
       const [resP, resL, resM] = await Promise.all([
-        fetch(`${API_URL}/api/admin/prizes`),
-        fetch(`${API_URL}/api/leads`),
-        fetch(`${API_URL}/api/metrics`)
+        fetch(`${API_URL}/api/admin/prizes`, { headers }),
+        fetch(`${API_URL}/api/leads`, { headers }),
+        fetch(`${API_URL}/api/metrics`, { headers })
       ]);
+
+      if (resP.status === 401 || resL.status === 401) {
+        handleLogout();
+        alert('Sesión expirada o PIN inválido. Por favor ingresa nuevamente.');
+        return;
+      }
+
       const jsonP = await resP.json();
       const jsonL = await resL.json();
       const jsonM = await resM.json();
@@ -105,7 +123,7 @@ export default function App() {
     try {
       const res = await fetch(`${API_URL}/api/admin/prizes/${prize.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAdminHeaders(),
         body: JSON.stringify(prize)
       });
       const json = await res.json();
@@ -113,6 +131,8 @@ export default function App() {
         setSavedMsg(`"${prize.name}" actualizado`);
         loadData();
         setTimeout(() => setSavedMsg(''), 2500);
+      } else {
+        alert(json.message || 'Error guardando premio');
       }
     } catch (e) {
       alert('Error guardando premio');
@@ -128,7 +148,9 @@ export default function App() {
 
     try {
       const code = ticketInput.trim().toUpperCase();
-      const res = await fetch(`${API_URL}/api/ticket/${code}`);
+      const res = await fetch(`${API_URL}/api/ticket/${code}`, {
+        headers: getAdminHeaders()
+      });
       const json = await res.json();
       if (json.success) {
         setTicketData(json.data);
@@ -144,7 +166,8 @@ export default function App() {
   const handleRedeemTicket = async (code) => {
     try {
       const res = await fetch(`${API_URL}/api/ticket/${code}/redeem`, {
-        method: 'POST'
+        method: 'POST',
+        headers: getAdminHeaders()
       });
       const json = await res.json();
       if (json.success) {

@@ -19,6 +19,8 @@ const WS_URL = import.meta.env.VITE_WS_URL
     ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}:5500`
     : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}`;
 
+import TurnstileWidget from './components/TurnstileWidget';
+
 // Obtener o generar identificador único de dispositivo persistente
 function getOrCreateDeviceId() {
   try {
@@ -48,6 +50,7 @@ export default function App() {
   const [spinResult, setSpinResult] = useState(null);
   const [apiError, setApiError] = useState(null);
   const [alreadyPlayedNotice, setAlreadyPlayedNotice] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState(null);
 
   const socketRef = useRef(null);
   const deviceIdRef = useRef(getOrCreateDeviceId());
@@ -101,6 +104,13 @@ export default function App() {
 
   const handleStartSpin = async () => {
     if (!validate()) return;
+    
+    // Si hay llave de Turnstile configurada pero aún no se ha obtenido el token
+    if (import.meta.env.VITE_TURNSTILE_SITE_KEY && !turnstileToken) {
+      setApiError('Por favor verifica el comprobante anti-bot antes de continuar.');
+      return;
+    }
+
     setApiError(null);
 
     try {
@@ -110,7 +120,8 @@ export default function App() {
         body: JSON.stringify({
           ...formData,
           screen_id: screenId,
-          device_id: deviceIdRef.current
+          device_id: deviceIdRef.current,
+          turnstile_token: turnstileToken
         })
       });
 
@@ -163,6 +174,14 @@ export default function App() {
               formData={formData}
               onChange={handleInputChange}
               errors={errors}
+            />
+
+            <TurnstileWidget
+              onVerify={(token) => {
+                setTurnstileToken(token);
+                setApiError(null);
+              }}
+              onError={() => setTurnstileToken(null)}
             />
 
             <EngineStartButton
