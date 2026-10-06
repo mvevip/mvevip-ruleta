@@ -1,0 +1,16 @@
+{
+  "short_name": "VIP Ruleta",
+  "name": "Marketing VIP - Ruleta Feria Automotriz",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192 512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0d0d11",
+  "theme_color": "#dc2626",
+  "display": "standalone",
+  "orientation": "portrait"
+}

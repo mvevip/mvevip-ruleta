@@ -1,0 +1,319 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Marketing VIP - Plataforma Ruleta: CloudFront (autos.mvevip.com) + S3 + API Gateway + Lambda + MySQL RDS'
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: 'prod'
+  DomainName:
+    Type: String
+    Default: 'autos.mvevip.com'
+    Description: 'Subdominio público para la plataforma'
+  AcmCertificateArn:
+    Type: String
+    Default: 'arn:aws:acm:us-east-1:021891594659:certificate/1dae9056-0687-434c-a4ca-c20c76a9462f'
+    Description: 'Certificado SSL Wildcard (*.mvevip.com) en us-east-1'
+  LambdaCodeBucket:
+    Type: String
+    Description: 'Bucket S3 donde se almacena el zip de la Lambda'
+  LambdaCodeKey:
+    Type: String
+    Default: 'api.zip'
+    Description: 'Ruta del archivo zip de la Lambda en el bucket'
+  DatabaseHost:
+    Type: String
+    Default: 'database-mvevip.c98k2yme6fe6.us-west-2.rds.amazonaws.com'
+    Description: 'Host de MySQL RDS'
+  DatabaseName:
+    Type: String
+    Default: 'marketingvip_roulette'
+    Description: 'Nombre de la base de datos'
+  DatabaseUser:
+    Type: String
+    Default: 'admin'
+    Description: 'Usuario de MySQL'
+  DatabasePassword:
+    Type: String
+    NoEcho: true
+    Description: 'Contraseña de MySQL RDS'
+  DatabasePort:
+    Type: Number
+    Default: 3306
+
+Resources:
+  # 1. Bucket S3 para Frontend Unificado (Mobile, Pantalla y Admin)
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'marketingvip-autos-frontend-${AWS::AccountId}-${AWS::Region}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # 2. Origin Access Control (OAC) para CloudFront hacia S3
+  CloudFrontOAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub 'MarketingVIP-Autos-OAC-${AWS::Region}'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # 3. Política de Bucket S3 permitiendo acceso exclusivo a CloudFront
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyDocument:
+        Statement:
+          - Action: s3:GetObject
+            Effect: Allow
+            Resource: !Sub '${FrontendBucket.Arn}/*'
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}'
+
+  # 4. Función de CloudFront para enrutamiento SPA (/pantalla y /admin)
+  CloudFrontRouterFunction:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: !Sub 'MarketingVIP-Router-${AWS::Region}'
+      AutoPublish: true
+      FunctionConfig:
+        Comment: 'Enrutador SPA para autos.mvevip.com (/pantalla, /admin, /)'
+        Runtime: cloudfront-js-2.0
+      FunctionCode: |
+        function handler(event) {
+          var request = event.request;
+          var uri = request.uri;
+
+          // Si la ruta es exactamente /pantalla o /pantalla/
+          if (uri === '/pantalla' || uri === '/pantalla/') {
+            request.uri = '/pantalla/index.html';
+          }
+          // Si la ruta es exactamente /admin o /admin/
+          else if (uri === '/admin' || uri === '/admin/') {
+            request.uri = '/admin/index.html';
+          }
+          // Rutas hijas de /pantalla/ sin punto (ej: navegación SPA interna)
+          else if (uri.startsWith('/pantalla/') && !uri.includes('.')) {
+            request.uri = '/pantalla/index.html';
+          }
+          // Rutas hijas de /admin/ sin punto
+          else if (uri.startsWith('/admin/') && !uri.includes('.')) {
+            request.uri = '/admin/index.html';
+          }
+          // Rutas de la raíz sin extensión y que no sean API
+          else if (!uri.includes('.') && !uri.startsWith('/api') && uri !== '/health') {
+            request.uri = '/index.html';
+          }
+
+          return request;
+        }
+
+  # 5. Rol IAM para ejecución de Lambda
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'MarketingVIP-Roulette-LambdaRole-${AWS::Region}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  # 6. Función Lambda de la API REST
+  ApiLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'MarketingVIP-Roulette-Api-${EnvironmentName}'
+      Runtime: nodejs20.x
+      Handler: src/lambda.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      MemorySize: 512
+      Code:
+        S3Bucket: !Ref LambdaCodeBucket
+        S3Key: !Ref LambdaCodeKey
+      Environment:
+        Variables:
+          NODE_ENV: production
+          DB_HOST: !Ref DatabaseHost
+          DB_PORT: !Sub '${DatabasePort}'
+          DB_NAME: !Ref DatabaseName
+          DB_USER: !Ref DatabaseUser
+          DB_PASSWORD: !Ref DatabasePassword
+          COMPANY_NAME: 'Marketing VIP'
+          COMPANY_SLOGAN: 'Especialistas en sueños'
+          WHATSAPP_NUMBER: '593999999999'
+
+  # 7. API Gateway HTTP API
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub 'MarketingVIP-Roulette-HttpApi-${EnvironmentName}'
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins: ['*']
+        AllowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+        AllowHeaders: ['*']
+
+  # 8. Integración Lambda con API Gateway
+  HttpApiLambdaIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt ApiLambda.Arn
+      PayloadFormatVersion: '2.0'
+
+  # 9. Rutas en API Gateway
+  HttpApiDefaultRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: '$default'
+      Target: !Sub 'integrations/${HttpApiLambdaIntegration}'
+
+  # 10. Etapa (Stage) con despliegue automático
+  HttpApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref HttpApi
+      StageName: '$default'
+      AutoDeploy: true
+
+  # 11. Permiso para que API Gateway invoque la Lambda
+  LambdaApiGatewayPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ApiLambda
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*'
+
+  # 12. Distribución CloudFront Global (autos.mvevip.com)
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: 'Marketing VIP - Ruleta autos.mvevip.com'
+        DefaultRootObject: index.html
+        Aliases:
+          - !Ref DomainName
+        ViewerCertificate:
+          AcmCertificateArn: !Ref AcmCertificateArn
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+        Origins:
+          # Origen 1: Bucket S3 para Frontends
+          - Id: S3FrontendOrigin
+            DomainName: !GetAtt FrontendBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt CloudFrontOAC.Id
+            S3OriginConfig: {}
+
+          # Origen 2: API Gateway HTTP API para /api y /health
+          - Id: ApiGatewayOrigin
+            DomainName: !Sub '${HttpApi}.execute-api.${AWS::Region}.amazonaws.com'
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols:
+                - TLSv1.2
+
+        # Comportamiento por Defecto: Móvil PWA (/*)
+        DefaultCacheBehavior:
+          TargetOriginId: S3FrontendOrigin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          CachedMethods: [GET, HEAD]
+          Compress: true
+          CachePolicyId: '658327ea-f89d-4fab-a63d-7e88639e58f6' # Managed-CachingOptimized
+          FunctionAssociations:
+            - EventType: viewer-request
+              FunctionARN: !GetAtt CloudFrontRouterFunction.FunctionMetadata.FunctionARN
+
+        # Comportamientos específicos
+        CacheBehaviors:
+          # Pantalla Gigante Ruleta (/pantalla*)
+          - PathPattern: '/pantalla*'
+            TargetOriginId: S3FrontendOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS]
+            CachedMethods: [GET, HEAD]
+            Compress: true
+            CachePolicyId: '658327ea-f89d-4fab-a63d-7e88639e58f6'
+            FunctionAssociations:
+              - EventType: viewer-request
+                FunctionARN: !GetAtt CloudFrontRouterFunction.FunctionMetadata.FunctionARN
+
+          # PWA Asesores (/admin*)
+          - PathPattern: '/admin*'
+            TargetOriginId: S3FrontendOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS]
+            CachedMethods: [GET, HEAD]
+            Compress: true
+            CachePolicyId: '658327ea-f89d-4fab-a63d-7e88639e58f6'
+            FunctionAssociations:
+              - EventType: viewer-request
+                FunctionARN: !GetAtt CloudFrontRouterFunction.FunctionMetadata.FunctionARN
+
+          # API REST (/api/*) -> Hacia API Gateway + Lambda sin caché
+          - PathPattern: '/api/*'
+            TargetOriginId: ApiGatewayOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+            CachedMethods: [GET, HEAD]
+            Compress: true
+            CachePolicyId: '4135ea2d-6df8-44a3-9df3-4b5a84be39ad' # Managed-CachingDisabled
+            OriginRequestPolicyId: 'b689b0a8-53d0-40ab-baf2-68738e2966ac' # Managed-AllViewerExceptHostHeader
+
+          # Health Check (/health)
+          - PathPattern: '/health'
+            TargetOriginId: ApiGatewayOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS]
+            CachedMethods: [GET, HEAD]
+            Compress: true
+            CachePolicyId: '4135ea2d-6df8-44a3-9df3-4b5a84be39ad'
+            OriginRequestPolicyId: 'b689b0a8-53d0-40ab-baf2-68738e2966ac'
+
+        CustomErrorResponses:
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+
+Outputs:
+  CloudFrontDistributionId:
+    Description: 'ID de la distribución de CloudFront'
+    Value: !Ref CloudFrontDistribution
+  CloudFrontDomainName:
+    Description: 'Dominio de CloudFront para crear el CNAME en GoDaddy'
+    Value: !GetAtt CloudFrontDistribution.DomainName
+  PublicUrl:
+    Description: 'URL pública de la aplicación'
+    Value: !Sub 'https://${DomainName}'
+  FrontendBucketName:
+    Description: 'Nombre del Bucket S3 para frontends'
+    Value: !Ref FrontendBucket
+  HttpApiUrl:
+    Description: 'URL directa de API Gateway'
+    Value: !Sub 'https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com'
+  ApiLambdaArn:
+    Description: 'ARN de la función Lambda'
+    Value: !GetAtt ApiLambda.Arn

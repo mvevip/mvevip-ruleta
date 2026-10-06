@@ -1,0 +1,98 @@
+services:
+  # 1. Base de Datos MySQL (Puerto Host 5501)
+  db:
+    image: mysql:8.0
+    container_name: marketingvip_db
+    restart: always
+    env_file:
+      - .env
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "${PORT_DB}:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./deploy/init_db.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+    networks:
+      - vip_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 2. API REST + WebSockets (Puerto Host 5500)
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: marketingvip_api
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "${PORT_API}:5500"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - vip_network
+
+  # 3. Frontend Pantalla Gigante - Ruleta Rin Deportivo (Puerto Host 5502)
+  screen:
+    build:
+      context: ./frontend-screen
+      dockerfile: Dockerfile
+    container_name: marketingvip_screen
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "${PORT_SCREEN}:5502"
+    depends_on:
+      - api
+    networks:
+      - vip_network
+
+  # 4. Frontend Celular PWA - Formulario & Botón START (Puerto Host 5503)
+  mobile:
+    build:
+      context: ./frontend-mobile
+      dockerfile: Dockerfile
+    container_name: marketingvip_mobile
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "${PORT_MOBILE}:5503"
+    depends_on:
+      - api
+    networks:
+      - vip_network
+
+  # 5. Frontend Celular PWA - Administración Stand para Asesores (Puerto Host 5504)
+  admin:
+    build:
+      context: ./frontend-admin
+      dockerfile: Dockerfile
+    container_name: marketingvip_admin
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "${PORT_ADMIN}:5504"
+    depends_on:
+      - api
+    networks:
+      - vip_network
+
+volumes:
+  db_data:
+    driver: local
+
+networks:
+  vip_network:
+    driver: bridge
