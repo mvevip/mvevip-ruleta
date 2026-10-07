@@ -8,12 +8,21 @@ import React, { useEffect, useState, useMemo } from 'react';
  * - Las letras y números se iluminan con el color corporativo #9AC31C conforme sube la aguja
  * - Display LCD digital en la parte inferior con odómetro activo
  */
-export default function Tachometer({ isSpinning = false }) {
+export default function Tachometer({ isSpinning = false, isTestMode = false }) {
   const [speed, setSpeed] = useState(0);
 
   useEffect(() => {
     let interval;
-    if (isSpinning) {
+    if (isTestMode) {
+      const startTime = Date.now();
+      interval = setInterval(() => {
+        const elapsed = (Date.now() - startTime) / 1000;
+        // Oscilación dinámica continua: la aguja sube y baja entre 35 y 195 km/h simulando aceleración y cambios de marcha
+        const wave = Math.sin(elapsed * 1.8) * 0.55 + Math.sin(elapsed * 0.75) * 0.35;
+        const target = Math.round(115 + wave * 75 + (Math.sin(elapsed * 6) * 4));
+        setSpeed(Math.max(30, Math.min(195, target)));
+      }, 45);
+    } else if (isSpinning) {
       const startTime = Date.now();
       interval = setInterval(() => {
         const elapsed = (Date.now() - startTime) / 1000;
@@ -36,7 +45,7 @@ export default function Tachometer({ isSpinning = false }) {
     }
 
     return () => clearInterval(interval);
-  }, [isSpinning]);
+  }, [isSpinning, isTestMode]);
 
   const cx = 200;
   const cy = 200;

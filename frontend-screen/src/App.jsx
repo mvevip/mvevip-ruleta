@@ -6,7 +6,7 @@ import QRCodeCard from './components/QRCodeCard';
 import WinnerOverlay from './components/WinnerOverlay';
 import AttractBanner from './components/AttractBanner';
 import VideoAttractOverlay from './components/VideoAttractOverlay';
-import { Radio } from 'lucide-react';
+import { Radio, FlaskConical } from 'lucide-react';
 
 const isLocal = typeof window !== 'undefined' && (
   window.location.hostname === 'localhost' ||
@@ -37,6 +37,8 @@ export default function App() {
   const [socketConnected, setSocketConnected] = useState(false);
   const [showVideo, setShowVideo] = useState(true);
 
+  const [isTestSpinning, setIsTestSpinning] = useState(false);
+
   const socketRef = useRef(null);
   const currentAngleRef = useRef(0);
   const prizesRef = useRef([]);
@@ -45,6 +47,7 @@ export default function App() {
   const handledTicketsRef = useRef(new Set());
   const idleTimerRef = useRef(null);
   const lastLeadActivityRef = useRef(0);
+  const testTimerRef = useRef(null);
 
   prizesRef.current = prizes;
   isSpinningRef.current = isSpinning;
@@ -56,7 +59,7 @@ export default function App() {
       clearTimeout(idleTimerRef.current);
     }
     idleTimerRef.current = setTimeout(() => {
-      if (!isSpinningRef.current) {
+      if (!isSpinningRef.current && !isTestSpinning) {
         setShowVideo(true);
       }
     }, delay);
@@ -66,6 +69,32 @@ export default function App() {
     setShowVideo(false);
     // Iniciar temporizador de inactividad de 4 minutos: si no se gira la ruleta, vuelve al video
     startIdleTimer(INACTIVITY_FALLBACK_MS);
+  };
+
+  // Modo Prueba: Gira la ruleta y mueve odómetro dinámicamente por 1 minuto
+  const handleToggleTestSpin = () => {
+    if (isTestSpinning) {
+      if (testTimerRef.current) {
+        clearTimeout(testTimerRef.current);
+        testTimerRef.current = null;
+      }
+      setIsTestSpinning(false);
+      setShowVideo(true);
+      return;
+    }
+
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = null;
+    }
+
+    setIsTestSpinning(true);
+
+    testTimerRef.current = setTimeout(() => {
+      setIsTestSpinning(false);
+      testTimerRef.current = null;
+      setShowVideo(true); // Tras 1 minuto completo regresa el video
+    }, 60000);
   };
 
   const handleCloseWinner = () => {
@@ -238,6 +267,12 @@ export default function App() {
     if (data.ticketCode && handledTicketsRef.current.has(data.ticketCode)) return;
     if (data.ticketCode) handledTicketsRef.current.add(data.ticketCode);
 
+    if (testTimerRef.current) {
+      clearTimeout(testTimerRef.current);
+      testTimerRef.current = null;
+    }
+    setIsTestSpinning(false);
+
     if (idleTimerRef.current) {
       clearTimeout(idleTimerRef.current);
       idleTimerRef.current = null;
@@ -277,18 +312,13 @@ export default function App() {
   };
 
   return (
-    <div
-      className="min-h-screen w-screen carbon-bg text-white flex flex-col justify-between overflow-hidden select-none relative"
-      onClick={() => {
-        if (showVideo) dismissVideo();
-      }}
-    >
+    <div className="min-h-screen w-screen carbon-bg text-white flex flex-col justify-between overflow-hidden select-none relative">
       <AttractBanner />
 
       <div className="flex-1 flex items-center justify-between px-6 lg:px-12 py-4 max-w-[1920px] mx-auto w-full">
         {/* Panel Izquierdo: Telemetría de Carreras */}
         <div className="flex flex-col items-center gap-4">
-          <Tachometer isSpinning={isSpinning} />
+          <Tachometer isSpinning={isSpinning} isTestMode={isTestSpinning} />
           
           <div className="bg-zinc-900/90 border border-zinc-800 p-3 rounded-2xl w-72 text-center shadow-lg">
             <div className="flex items-center justify-center gap-2 text-xs font-racing text-zinc-400">
@@ -307,6 +337,7 @@ export default function App() {
             prizes={prizes}
             rotationAngle={rotationAngle}
             isSpinning={isSpinning}
+            isTestMode={isTestSpinning}
           />
         </div>
 
@@ -331,6 +362,20 @@ export default function App() {
         mobileUrl={MOBILE_BASE_URL}
         screenId={SCREEN_ID}
       />
+
+      {/* Botón Flotante Discreto de Modo Prueba (Giro de 1 Minuto) */}
+      {!showVideo && !winner && (
+        <button
+          type="button"
+          onClick={handleToggleTestSpin}
+          className={`fixed bottom-4 right-4 z-30 w-9 h-9 rounded-full bg-zinc-900/60 hover:bg-zinc-800 border border-zinc-800/80 flex items-center justify-center transition-all cursor-pointer shadow-lg backdrop-blur-sm active:scale-95 ${
+            isTestSpinning ? 'text-[#9AC31C] border-[#9AC31C]/40 animate-pulse' : 'text-zinc-500 hover:text-zinc-300'
+          }`}
+          title={isTestSpinning ? 'Detener prueba (Giro de 1 min activo)' : 'Modo prueba (Giro de 1 minuto)'}
+        >
+          <FlaskConical className="w-4 h-4" />
+        </button>
+      )}
 
       {/* Modal de Ganador con Cierre Automático (10s) */}
       {winner && (

@@ -25,7 +25,7 @@ function splitTextForSlice(name = '') {
  * Componente de la Ruleta estilizada como Rin Deportivo de Alta Gama
  * Con acentos corporativos #9AC31C y textos multilínea adaptativos
  */
-export default function AlloyWheel({ prizes = [], rotationAngle = 0, isSpinning = false }) {
+export default function AlloyWheel({ prizes = [], rotationAngle = 0, isSpinning = false, isTestMode = false }) {
   const totalSlices = prizes.length || 8;
   const sliceAngle = 360 / totalSlices;
 
@@ -87,8 +87,10 @@ export default function AlloyWheel({ prizes = [], rotationAngle = 0, isSpinning 
 
       {/* 3. La Ruleta Giratoria (Rin Deportivo de Aleación) */}
       <div
-        className="relative z-10 transition-transform duration-[6000ms]"
-        style={{
+        className={`relative z-10 ${isTestMode ? '' : 'transition-transform duration-[6000ms]'}`}
+        style={isTestMode ? {
+          animation: 'spin 1.4s linear infinite'
+        } : {
           transform: `rotate(${rotationAngle}deg)`,
           transitionTimingFunction: 'cubic-bezier(0.12, 0.95, 0.2, 1)'
         }}

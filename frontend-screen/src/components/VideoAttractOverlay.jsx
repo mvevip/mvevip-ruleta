@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Smartphone, Sparkles, Play, Hand, Volume2, VolumeX } from 'lucide-react';
+import { Smartphone, Sparkles, Volume2, VolumeX, X } from 'lucide-react';
 
 const YOUTUBE_VIDEO_ID = 'AzQlHkHx6HI';
 
@@ -128,32 +128,26 @@ export default function VideoAttractOverlay({
             <span className="w-2.5 h-2.5 rounded-full bg-[#9AC31C] animate-ping" />
             <span>Stand #{screenId}</span>
           </div>
+
+          {/* Botón Discreto de Cerrar Video en la esquina superior derecha */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDismiss();
+            }}
+            className="w-8 h-8 rounded-full bg-zinc-900/60 hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300 border border-zinc-800/80 flex items-center justify-center transition-all cursor-pointer backdrop-blur-sm shadow-md active:scale-95 ml-1"
+            title="Cerrar video y mostrar ruleta"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
-      {/* 3. Botón Flotante Central/Inferior: "Toca para Jugar" */}
-      <div className="absolute bottom-8 left-8 z-50">
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDismiss();
-          }}
-          className="group flex items-center gap-3 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-racing font-bold text-sm tracking-wider uppercase shadow-[0_0_30px_rgba(239,68,68,0.6)] border-2 border-red-400/80 transition-all transform hover:scale-105 active:scale-95 backdrop-blur-sm"
-        >
-          <Hand className="w-5 h-5 text-white animate-bounce" />
-          <span>Toca la pantalla para jugar</span>
-          <Play className="w-4 h-4 fill-white" />
-        </button>
-      </div>
-
-      {/* 4. Tarjeta Flotante con Código QR en Esquina Inferior Derecha */}
+      {/* 3. Tarjeta Flotante con Código QR en Esquina Inferior Derecha (Solo informativa para escaneo con móvil) */}
       <div
-        className="absolute bottom-8 right-8 z-50 brushed-metal p-4 rounded-3xl border-2 border-[#9AC31C] shadow-[0_0_40px_rgba(154,195,28,0.5)] flex flex-col items-center w-72 text-center backdrop-blur-xl animate-pulse hover:animate-none cursor-pointer transform hover:scale-105 transition-transform"
-        onClick={(e) => {
-          e.stopPropagation();
-          onDismiss();
-        }}
+        className="absolute bottom-8 right-8 z-50 brushed-metal p-4 rounded-3xl border-2 border-[#9AC31C] shadow-[0_0_40px_rgba(154,195,28,0.5)] flex flex-col items-center w-72 text-center backdrop-blur-xl animate-pulse hover:animate-none"
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2 mb-2">
           <Smartphone className="w-4 h-4 text-[#9AC31C]" />
@@ -174,7 +168,7 @@ export default function VideoAttractOverlay({
         </div>
 
         <p className="text-[11px] text-zinc-300 font-semibold leading-tight">
-          Apunta tu cámara al QR o toca aquí para activar la ruleta
+          Apunta la cámara de tu celular para registrarte y jugar
         </p>
       </div>
     </div>
