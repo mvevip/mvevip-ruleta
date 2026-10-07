@@ -22,10 +22,15 @@ import {
   Star
 } from 'lucide-react';
 
-const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const isLocal = typeof window !== 'undefined' && (
+  window.location.hostname === 'localhost' ||
+  window.location.hostname === '127.0.0.1' ||
+  window.location.hostname.startsWith('192.168.') ||
+  window.location.hostname.startsWith('10.')
+);
 
-const API_URL = isLocal && import.meta.env.VITE_API_URL
-  ? import.meta.env.VITE_API_URL
+const API_URL = isLocal
+  ? (import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:5500`)
   : (typeof window !== 'undefined' ? window.location.origin : '');
 
 export default function App() {

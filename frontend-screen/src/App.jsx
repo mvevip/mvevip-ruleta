@@ -8,18 +8,23 @@ import AttractBanner from './components/AttractBanner';
 import VideoAttractOverlay from './components/VideoAttractOverlay';
 import { Radio } from 'lucide-react';
 
-const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const isLocal = typeof window !== 'undefined' && (
+  window.location.hostname === 'localhost' ||
+  window.location.hostname === '127.0.0.1' ||
+  window.location.hostname.startsWith('192.168.') ||
+  window.location.hostname.startsWith('10.')
+);
 
-const API_URL = isLocal && import.meta.env.VITE_API_URL
-  ? import.meta.env.VITE_API_URL
+const API_URL = isLocal
+  ? (import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:5500`)
   : (typeof window !== 'undefined' ? window.location.origin : '');
 
-const WS_URL = isLocal && import.meta.env.VITE_WS_URL
-  ? import.meta.env.VITE_WS_URL
+const WS_URL = isLocal
+  ? (import.meta.env.VITE_WS_URL || `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}:5500`)
   : (typeof window !== 'undefined' ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}` : '');
 
-const MOBILE_BASE_URL = isLocal && import.meta.env.VITE_MOBILE_URL
-  ? import.meta.env.VITE_MOBILE_URL
+const MOBILE_BASE_URL = isLocal
+  ? (import.meta.env.VITE_MOBILE_URL || `${window.location.protocol}//${window.location.hostname}:5503/`)
   : (typeof window !== 'undefined' ? `${window.location.origin}/` : 'https://autos.mvevip.com/');
 
 const SCREEN_ID = 'STAND_01';

@@ -55,12 +55,20 @@ export default function VideoAttractOverlay({
     }
   };
 
+  const handleVideoClick = () => {
+    // Al tocar el video o pantalla de fondo, reproducir y activar sonido sin cerrar el video
+    sendIframeCommand('playVideo');
+    sendIframeCommand('unMute');
+    sendIframeCommand('setVolume', [100]);
+    setIsMuted(false);
+  };
+
   return (
     <div
-      className={`fixed inset-0 bg-black overflow-hidden flex items-center justify-center transition-opacity duration-700 select-none ${
+      className={`fixed inset-0 bg-black overflow-hidden flex items-center justify-center transition-opacity duration-700 select-none cursor-pointer ${
         isVisible ? 'opacity-100 pointer-events-auto z-40' : 'opacity-0 pointer-events-none -z-10'
       }`}
-      onClick={onDismiss}
+      onClick={handleVideoClick}
     >
       {/* 1. Contenedor del Video en Proporción Adaptativa (Cubre 100% de pantalla cuadrada 2x2m) */}
       <div className="absolute inset-0 w-full h-full overflow-hidden flex items-center justify-center pointer-events-none">
