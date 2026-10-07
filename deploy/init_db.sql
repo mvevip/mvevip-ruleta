@@ -72,3 +72,27 @@ ON DUPLICATE KEY UPDATE
     weight=VALUES(weight),
     stock=VALUES(stock),
     max_daily_wins=VALUES(max_daily_wins);
+
+-- 4. Tabla de Destinos Soñados (Gestionable desde Admin)
+CREATE TABLE IF NOT EXISTS destinations (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    is_default BOOLEAN DEFAULT FALSE,
+    active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_active (active)
+) ENGINE=InnoDB;
+
+-- Inserción inicial de destinos
+INSERT INTO destinations (id, name, is_default, active) VALUES
+(1, '🌴 Cancún', TRUE, TRUE),
+(2, '🏰 Europa', FALSE, TRUE),
+(3, '🏖️ Punta Cana', FALSE, TRUE),
+(4, '🎢 Orlando / Disney', FALSE, TRUE),
+(5, '🚢 Crucero Caribe', FALSE, TRUE),
+(6, '☀️ Miami Beach', FALSE, TRUE)
+ON DUPLICATE KEY UPDATE 
+    name=VALUES(name),
+    is_default=VALUES(is_default),
+    active=VALUES(active);
+

@@ -10,7 +10,7 @@ const DESTINATIONS = [
   '☀️ Miami Beach'
 ];
 
-export default function LeadForm({ formData, onChange, errors = {} }) {
+export default function LeadForm({ formData, onChange, errors = {}, destinations = [] }) {
   const handlePhoneChange = (e) => {
     let raw = e.target.value;
     let clean = raw.replace(/\D/g, '');
@@ -117,27 +117,61 @@ export default function LeadForm({ formData, onChange, errors = {} }) {
         {errors.email && <p className="text-red-400 text-xs mt-1">{errors.email}</p>}
       </div>
 
-      {/* Pregunta Estratégica: Destino Soñado */}
-      <div>
-        <label className="block text-xs font-semibold text-[#9AC31C] uppercase tracking-wider mb-1.5 flex items-center gap-1.5 font-bold">
-          <Compass className="w-3.5 h-3.5 text-[#9AC31C]" />
-          ¿A qué destino sueñas viajar en tu próximo viaje?
+      {/* Aceptación de Políticas de Privacidad */}
+      <div className="pt-0.5">
+        <label className="flex items-start gap-2.5 cursor-pointer select-none text-xs text-zinc-300">
+          <input
+            type="checkbox"
+            name="accept_privacy"
+            checked={Boolean(formData.accept_privacy)}
+            onChange={(e) => onChange({ target: { name: 'accept_privacy', value: e.target.checked } })}
+            className="mt-0.5 w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-[#9AC31C] accent-[#9AC31C] focus:ring-0 cursor-pointer"
+          />
+          <span className="leading-tight">
+            Acepto las{' '}
+            <a
+              href="https://www.mvevip.com/privacidad"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#9AC31C] font-semibold underline hover:text-[#b4df28] transition-colors"
+              onClick={(e) => e.stopPropagation()}
+            >
+              políticas de privacidad
+            </a>{' '}
+            *
+          </span>
         </label>
+        {errors.accept_privacy && (
+          <p className="text-red-400 text-xs mt-1 ml-6">{errors.accept_privacy}</p>
+        )}
+      </div>
+
+      {/* Pregunta Estratégica: Destino Soñado (Opcional) */}
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="text-xs font-semibold text-[#9AC31C] uppercase tracking-wider flex items-center gap-1.5 font-bold">
+            <Compass className="w-3.5 h-3.5 text-[#9AC31C]" />
+            ¿A qué destino sueñas viajar?
+          </label>
+          <span className="text-[10px] text-zinc-500 uppercase font-semibold">Opcional</span>
+        </div>
         <div className="grid grid-cols-2 gap-2">
-          {DESTINATIONS.map((dest) => {
-            const isSelected = formData.dream_destination === dest;
+          {((destinations && destinations.length > 0) ? destinations : DESTINATIONS).map((dest) => {
+            const destName = typeof dest === 'object' ? dest.name : dest;
+            const destKey = typeof dest === 'object' ? dest.id : dest;
+            const isSelected = formData.dream_destination === destName;
             return (
               <button
                 type="button"
-                key={dest}
-                onClick={() => onChange({ target: { name: 'dream_destination', value: dest } })}
+                key={destKey}
+                onClick={() => onChange({ target: { name: 'dream_destination', value: isSelected ? '' : destName } })}
                 className={`py-2 px-2.5 rounded-xl text-xs font-semibold text-left transition-all border ${
                   isSelected
                     ? 'bg-[#9AC31C]/20 border-[#9AC31C] text-[#9AC31C] shadow-[0_0_12px_rgba(154,195,28,0.3)]'
                     : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-700'
                 }`}
               >
-                {dest}
+                {destName}
               </button>
             );
           })}

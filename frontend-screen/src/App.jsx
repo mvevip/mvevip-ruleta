@@ -44,13 +44,7 @@ export default function App() {
   prizesRef.current = prizes;
   isSpinningRef.current = isSpinning;
 
-  const dismissVideo = () => {
-    if (idleTimerRef.current) {
-      clearTimeout(idleTimerRef.current);
-      idleTimerRef.current = null;
-    }
-    setShowVideo(false);
-  };
+  const INACTIVITY_FALLBACK_MS = 4 * 60 * 1000; // 4 minutos (240,000 ms)
 
   const startIdleTimer = (delay = 5000) => {
     if (idleTimerRef.current) {
@@ -61,6 +55,12 @@ export default function App() {
         setShowVideo(true);
       }
     }, delay);
+  };
+
+  const dismissVideo = () => {
+    setShowVideo(false);
+    // Iniciar temporizador de inactividad de 4 minutos: si no se gira la ruleta, vuelve al video
+    startIdleTimer(INACTIVITY_FALLBACK_MS);
   };
 
   const handleCloseWinner = () => {
@@ -233,7 +233,11 @@ export default function App() {
     if (data.ticketCode && handledTicketsRef.current.has(data.ticketCode)) return;
     if (data.ticketCode) handledTicketsRef.current.add(data.ticketCode);
 
-    dismissVideo();
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = null;
+    }
+    setShowVideo(false);
     setIsSpinning(true);
     setWinner(null);
 

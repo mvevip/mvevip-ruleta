@@ -42,8 +42,10 @@ export default function App() {
     name: '',
     phone: '',
     email: '',
-    dream_destination: '🌴 Cancún'
+    accept_privacy: true,
+    dream_destination: ''
   });
+  const [destinations, setDestinations] = useState([]);
   const [errors, setErrors] = useState({});
   const [spinResult, setSpinResult] = useState(null);
   const [apiError, setApiError] = useState(null);
@@ -53,6 +55,29 @@ export default function App() {
 
   const socketRef = useRef(null);
   const deviceIdRef = useRef(getOrCreateDeviceId());
+
+  // Cargar lista de destinos activos desde la API
+  useEffect(() => {
+    const fetchDestinations = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/destinations`);
+        const json = await res.json();
+        if (json.success && json.data && json.data.length > 0) {
+          setDestinations(json.data);
+          const defaultDest = json.data.find(d => d.is_default);
+          if (defaultDest) {
+            setFormData(prev => ({
+              ...prev,
+              dream_destination: prev.dream_destination || defaultDest.name
+            }));
+          }
+        }
+      } catch (e) {
+        console.warn('Error cargando destinos:', e);
+      }
+    };
+    fetchDestinations();
+  }, []);
 
   // Notificar al stand que un usuario escaneó el QR / abrió la app
   const pingScreenActivity = () => {
@@ -114,6 +139,11 @@ export default function App() {
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!formData.email || !emailRegex.test(formData.email.trim())) {
       newErrors.email = 'Ingresa un correo electrónico válido (ej: usuario@gmail.com).';
+    }
+
+    // Validación obligatoria: aceptación de políticas de privacidad
+    if (!formData.accept_privacy) {
+      newErrors.accept_privacy = 'Debes aceptar las políticas de privacidad para participar.';
     }
 
     setErrors(newErrors);
@@ -202,6 +232,7 @@ export default function App() {
               formData={formData}
               onChange={handleInputChange}
               errors={errors}
+              destinations={destinations}
             />
 
             <TurnstileWidget

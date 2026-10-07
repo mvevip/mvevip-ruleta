@@ -46,6 +46,32 @@ async function checkConnection() {
           ON DUPLICATE KEY UPDATE name=VALUES(name);
         `);
       }
+      // 4. Asegurar tabla destinations
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS destinations (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          name VARCHAR(100) NOT NULL,
+          is_default BOOLEAN DEFAULT FALSE,
+          active BOOLEAN DEFAULT TRUE,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_active (active)
+        ) ENGINE=InnoDB;
+      `).catch(() => {});
+
+      const [destCount] = await connection.query('SELECT COUNT(*) AS count FROM destinations');
+      if (destCount[0].count === 0) {
+        console.log('[Database] Poblando destinos iniciales...');
+        await connection.query(`
+          INSERT INTO destinations (id, name, is_default, active) VALUES
+          (1, '🌴 Cancún', TRUE, TRUE),
+          (2, '🏰 Europa', FALSE, TRUE),
+          (3, '🏖️ Punta Cana', FALSE, TRUE),
+          (4, '🎢 Orlando / Disney', FALSE, TRUE),
+          (5, '🚢 Crucero Caribe', FALSE, TRUE),
+          (6, '☀️ Miami Beach', FALSE, TRUE)
+          ON DUPLICATE KEY UPDATE name=VALUES(name);
+        `);
+      }
     } catch (migErr) {
       console.warn('[Database Migration] Nota durante chequeo de esquema:', migErr.message);
     }

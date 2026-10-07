@@ -231,11 +231,22 @@ async function processSpin(req, res) {
     const winningPrize = selectWeightedPrize(prizes, todayPrizesMap);
     const winningIndex = prizes.findIndex(p => p.id === winningPrize.id);
 
-    // 8. Registrar Lead con device_id
+    // 8. Determinar destino soñado (usar por defecto de base de datos si viene vacío u opcional)
+    let finalDestination = (dream_destination && dream_destination.trim()) ? dream_destination.trim() : null;
+    if (!finalDestination) {
+      try {
+        const [defRows] = await connection.query('SELECT name FROM destinations WHERE is_default = 1 AND active = 1 LIMIT 1');
+        finalDestination = (defRows && defRows.length > 0) ? defRows[0].name : '🌴 Cancún';
+      } catch (e) {
+        finalDestination = '🌴 Cancún';
+      }
+    }
+
+    // Registrar Lead con device_id
     const [leadResult] = await connection.query(
       `INSERT INTO leads (name, email, phone, dream_destination, screen_id, device_id, ip_address, user_agent)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name.trim(), cleanEmail, cleanPhone, dream_destination || '🌴 Cancún', screen_id, device_id, req.ip, req.headers['user-agent']]
+      [name.trim(), cleanEmail, cleanPhone, finalDestination, screen_id, device_id, req.ip, req.headers['user-agent']]
     );
     const leadId = leadResult.insertId;
 
@@ -262,7 +273,7 @@ async function processSpin(req, res) {
       `¡Hola ${config.COMPANY.name}! Acabo de ganar *${winningPrize.name}* en la ruleta de la Feria de Autos 🏎️\n\n` +
       `👤 Mi Nombre: ${name.trim()}\n` +
       `🎟️ Código VIP: ${ticketCode}\n` +
-      `🌴 Mi destino soñado: ${dream_destination || 'Playa paradisíaca'}\n\n` +
+      `🌴 Mi destino soñado: ${finalDestination}\n\n` +
       `¡Quiero reclamar mi premio y asesoría para mi viaje!`
     );
     const whatsappUrl = `https://wa.me/${rawWaNumber}?text=${waText}`;
@@ -276,7 +287,7 @@ async function processSpin(req, res) {
         sliceIndex: winningIndex,
         totalSlices: prizes.length,
         ticketCode: ticketCode,
-        destination: dream_destination
+        destination: finalDestination
       };
       req.io.to(screen_id).emit('TRIGGER_SPIN', payload);
       req.io.emit('TRIGGER_SPIN', payload);
