@@ -45,7 +45,7 @@ Parameters:
     Description: 'PIN de acceso administrativo'
   TurnstileSecretKey:
     Type: String
-    Default: '0x4AAAAAAFPvP9yThsuTvoNqFp-osuhEe1E'
+    Default: ''
     NoEcho: true
     Description: 'Secret Key de Cloudflare Turnstile'
   AllowedOrigins:

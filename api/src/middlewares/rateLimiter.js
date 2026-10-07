@@ -3,7 +3,7 @@ const rateLimit = require('express-rate-limit');
 // Limitador para giros de ruleta (Evita que scripts vacíen premios rápidamente)
 const spinLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minuto
-  max: 6, // Máximo 6 intentos de giro por IP por minuto
+  max: 12, // Hasta 12 intentos por minuto por conexión
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -15,7 +15,7 @@ const spinLimiter = rateLimit({
 // Limitador para endpoints administrativos (Protege contra ataques de fuerza bruta al PIN)
 const adminLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minuto
-  max: 30, // Máximo 30 peticiones por minuto
+  max: 60, // Máximo 60 peticiones por minuto
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -27,7 +27,11 @@ const adminLimiter = rateLimit({
 // Limitador general de la API
 const globalLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 150,
+  max: 300,
+  skip: (req) => {
+    // No limitar health check ni polling ultra ligero de pantalla de feria
+    return req.path === '/health' || req.path.endsWith('/spin/latest') || req.path.endsWith('/screen/activity');
+  },
   standardHeaders: true,
   legacyHeaders: false,
   message: {

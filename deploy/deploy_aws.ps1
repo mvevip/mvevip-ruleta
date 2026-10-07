@@ -29,7 +29,8 @@ try {
 }
 
 # 2. Obtener contraseñas y claves de .env
-$TurnstileSecret = "0x4AAAAAAFPvP9yThsuTvoNqFp-osuhEe1E"
+$TurnstileSecret = ""
+$TurnstileSiteKey = ""
 $AdminPin = "VIP2026"
 
 if (Test-Path ".env") {
@@ -40,6 +41,9 @@ if (Test-Path ".env") {
         }
         if ($line -match "^\s*TURNSTILE_SECRET_KEY\s*=\s*(.+)$") {
             $TurnstileSecret = $matches[1].Trim()
+        }
+        if ($line -match "^\s*VITE_TURNSTILE_SITE_KEY\s*=\s*(.+)$") {
+            $TurnstileSiteKey = $matches[1].Trim()
         }
         if ($line -match "^\s*ADMIN_PIN\s*=\s*(.+)$") {
             $AdminPin = $matches[1].Trim()
@@ -82,8 +86,8 @@ aws cloudformation deploy `
         LambdaCodeBucket=$deployBucket `
         LambdaCodeKey="marketingvip-roulette/api.zip" `
         DatabasePassword=$DbPassword `
-        AdminPin=$AdminPin `
-        TurnstileSecretKey=$TurnstileSecret `
+        AdminPin="$AdminPin" `
+        TurnstileSecretKey="$TurnstileSecret" `
     --capabilities CAPABILITY_NAMED_IAM `
     --profile $Profile `
     --region $Region
@@ -117,7 +121,9 @@ Write-Host "[OK] Bucket S3 Frontend:        $frontendBucket" -ForegroundColor Gr
 # 7. Compilar Frontends con Rutas Base
 Write-Host "[*] Compilando App Movil Clientes (Root /)..." -ForegroundColor Cyan
 Push-Location frontend-mobile
+if ($TurnstileSiteKey) { $env:VITE_TURNSTILE_SITE_KEY = $TurnstileSiteKey }
 npm run build
+if ($TurnstileSiteKey) { Remove-Item Env:\VITE_TURNSTILE_SITE_KEY }
 Write-Host "[*] Subiendo Mobile a s3://$frontendBucket/..." -ForegroundColor DarkCyan
 aws s3 sync dist "s3://$frontendBucket/" --delete --profile $Profile --region $Region
 Pop-Location

@@ -7,6 +7,7 @@ export default defineConfig(({ mode }) => {
   const port = parseInt(env.PORT_ADMIN || '5504', 10);
 
   return {
+    envDir: path.resolve(__dirname, '../'),
     base: process.env.VITE_BASE_PATH || '/',
     plugins: [react()],
     server: {

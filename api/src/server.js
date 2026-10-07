@@ -10,6 +10,9 @@ const apiRoutes = require('./routes/apiRoutes');
 const app = express();
 const server = http.createServer(app);
 
+// Habilitar trust proxy para CloudFront y API Gateway (Requerido por express-rate-limit)
+app.set('trust proxy', 1);
+
 const { globalLimiter } = require('./middlewares/rateLimiter');
 
 // Configuración de CORS restringida por entorno y dominio

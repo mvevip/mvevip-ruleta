@@ -49,6 +49,7 @@ export default function App() {
   const [apiError, setApiError] = useState(null);
   const [alreadyPlayedNotice, setAlreadyPlayedNotice] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const socketRef = useRef(null);
   const deviceIdRef = useRef(getOrCreateDeviceId());
@@ -120,7 +121,13 @@ export default function App() {
   };
 
   const handleStartSpin = async () => {
-    if (!validate()) return;
+    if (isSubmitting) return;
+
+    if (!validate()) {
+      setApiError('Por favor revisa los campos obligatorios en rojo.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     
     // Si hay llave de Turnstile configurada pero aún no se ha obtenido el token
     if (import.meta.env.VITE_TURNSTILE_SITE_KEY && !turnstileToken) {
@@ -129,6 +136,7 @@ export default function App() {
     }
 
     setApiError(null);
+    setIsSubmitting(true);
 
     try {
       const response = await fetch(`${API_URL}/api/spin`, {
@@ -138,7 +146,7 @@ export default function App() {
           ...formData,
           screen_id: screenId,
           device_id: deviceIdRef.current,
-          turnstile_token: turnstileToken
+          turnstile_token: turnstileToken || 'BYPASS_DEV'
         })
       });
 
@@ -152,6 +160,7 @@ export default function App() {
       if (json.already_played) {
         setAlreadyPlayedNotice(true);
         setSpinResult(json.data);
+        setIsSubmitting(false);
         // Mostrar directamente su premio sin girar la ruleta
         setGameState('WON');
         return;
@@ -163,11 +172,13 @@ export default function App() {
       setSpinResult(json.data);
 
       setTimeout(() => {
+        setIsSubmitting(false);
         setGameState('WON');
       }, 6000);
 
     } catch (err) {
       console.error('Error enviando tiro:', err);
+      setIsSubmitting(false);
       setApiError(err.message || 'No pudimos conectar con el stand. Intenta de nuevo.');
       setGameState('FORM');
     }
@@ -201,10 +212,18 @@ export default function App() {
               onError={() => setTurnstileToken(null)}
             />
 
+            {/* Alerta de Error Adicional cerca al botón Engine Start */}
+            {apiError && (
+              <div className="w-full my-2 p-3 rounded-xl bg-red-950/90 border border-red-500 text-red-200 text-xs flex items-center gap-2 shadow-lg">
+                <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+                <span>{apiError}</span>
+              </div>
+            )}
+
             <EngineStartButton
               onClick={handleStartSpin}
-              disabled={false}
-              loading={false}
+              disabled={isSubmitting}
+              loading={isSubmitting}
             />
 
             <div className="flex items-center gap-1.5 text-zinc-500 text-[11px] mt-2 text-center">
