@@ -3,12 +3,12 @@ import confetti from 'canvas-confetti';
 import { Trophy, Gift, Sparkles, Ticket, X, Clock } from 'lucide-react';
 
 export default function WinnerOverlay({ winnerData, onClose }) {
-  const [countdown, setCountdown] = useState(10);
+  const [countdown, setCountdown] = useState(12);
 
-  // Cuenta regresiva automática de 10 segundos
+  // Cuenta regresiva automática de 12 segundos
   useEffect(() => {
     if (!winnerData) return;
-    setCountdown(10);
+    setCountdown(12);
 
     const timer = setInterval(() => {
       setCountdown((prev) => {
@@ -129,7 +129,7 @@ export default function WinnerOverlay({ winnerData, onClose }) {
           <div className="w-full bg-zinc-800/80 h-2 rounded-full overflow-hidden border border-zinc-700/50">
             <div
               className="bg-gradient-to-r from-[#84A816] to-[#9AC31C] h-full transition-all duration-1000 ease-linear shadow-[0_0_12px_rgba(154,195,28,0.9)]"
-              style={{ width: `${(countdown / 10) * 100}%` }}
+              style={{ width: `${(countdown / 12) * 100}%` }}
             />
           </div>
         </div>

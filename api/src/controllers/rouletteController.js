@@ -265,61 +265,329 @@ async function processSpin(req, res) {
       [winningPrize.id]
     );
 
-    await connection.commit();
-
-    // 12. Construir URL de WhatsApp
-    const rawWaNumber = config.COMPANY.whatsapp.replace(/[^0-9]/g, '');
-    const waText = encodeURIComponent(
-      `¡Hola ${config.COMPANY.name}! Acabo de ganar *${winningPrize.name}* en la ruleta de la Feria de Autos 🏎️\n\n` +
-      `👤 Mi Nombre: ${name.trim()}\n` +
-      `🎟️ Código VIP: ${ticketCode}\n` +
-      `🌴 Mi destino soñado: ${finalDestination}\n\n` +
-      `¡Quiero reclamar mi premio y asesoría para mi viaje!`
+    // 12. GESTIÓN DE COLA (QUEUE SYSTEM)
+    // Expirar automáticamente cualquier turno en SPINNING que lleve más de 60 segundos para evitar bloqueos
+    await connection.query(
+      `UPDATE spin_queue 
+       SET status = 'EXPIRED', completed_at = NOW() 
+       WHERE screen_id = ? AND status = 'SPINNING' AND TIMESTAMPDIFF(SECOND, started_at, NOW()) > 60`,
+      [screen_id]
     );
-    const whatsappUrl = `https://wa.me/${rawWaNumber}?text=${waText}`;
 
-    // 13. Emitir evento Socket a la pantalla gigante
-    if (req.io) {
-      const payload = {
-        screenId: screen_id,
-        leadName: name.trim(),
-        prize: winningPrize,
-        sliceIndex: winningIndex,
-        totalSlices: prizes.length,
-        ticketCode: ticketCode,
-        destination: finalDestination
-      };
-      req.io.to(screen_id).emit('TRIGGER_SPIN', payload);
-      req.io.emit('TRIGGER_SPIN', payload);
-    }
+    // Verificar atómicamente si hay algún tiro actualmente en progreso ('SPINNING') o en espera ('WAITING') con bloqueo FOR UPDATE
+    const [activeQueue] = await connection.query(
+      `SELECT id, status FROM spin_queue 
+       WHERE screen_id = ? AND status IN ('SPINNING', 'WAITING')
+       ORDER BY id ASC LIMIT 1 FOR UPDATE`,
+      [screen_id]
+    );
 
-    return res.json({
-      success: true,
-      already_played: false,
-      data: {
-        ticketCode,
-        winner: {
-          id: winningPrize.id,
-          name: winningPrize.name,
-          description: winningPrize.description,
-          category: winningPrize.category,
+    const isStandBusy = activeQueue.length > 0;
+    let queueStatus = 'SPINNING';
+    let queuePosition = 0;
+
+    if (isStandBusy) {
+      // Si el stand está ocupado, entrar a la cola en estado WAITING
+      queueStatus = 'WAITING';
+      const [insertQueue] = await connection.query(
+        `INSERT INTO spin_queue (lead_id, prize_id, ticket_code, screen_id, status)
+         VALUES (?, ?, ?, ?, 'WAITING')`,
+        [leadId, winningPrize.id, ticketCode, screen_id]
+      );
+      const queueId = insertQueue.insertId;
+
+      // Calcular posición en la fila
+      const [[posRow]] = await connection.query(
+        `SELECT COUNT(*) AS pos FROM spin_queue WHERE screen_id = ? AND status = 'WAITING' AND id <= ?`,
+        [screen_id, queueId]
+      );
+      queuePosition = posRow ? posRow.pos : 1;
+
+      await connection.commit();
+
+      // Construir WhatsApp URL
+      const rawWaNumber = config.COMPANY.whatsapp.replace(/[^0-9]/g, '');
+      const waText = encodeURIComponent(
+        `¡Hola ${config.COMPANY.name}! Acabo de ganar *${winningPrize.name}* en la ruleta de la Feria de Autos 🏎️\n\n` +
+        `👤 Mi Nombre: ${name.trim()}\n` +
+        `🎟️ Código VIP: ${ticketCode}\n` +
+        `🌴 Mi destino soñado: ${finalDestination}\n\n` +
+        `¡Quiero reclamar mi premio y asesoría para mi viaje!`
+      );
+      const whatsappUrl = `https://wa.me/${rawWaNumber}?text=${waText}`;
+
+      return res.json({
+        success: true,
+        already_played: false,
+        in_queue: true,
+        queue_id: queueId,
+        queue_position: queuePosition,
+        message: `¡Estás en la fila de salida! Turno #${queuePosition}. Espera tu turno...`,
+        data: {
+          ticketCode,
+          winner: {
+            id: winningPrize.id,
+            name: winningPrize.name,
+            description: winningPrize.description,
+            category: winningPrize.category,
+            sliceIndex: winningIndex,
+            totalSlices: prizes.length
+          },
+          lead: {
+            name: name.trim(),
+            phone: cleanPhone,
+            dream_destination: finalDestination
+          },
+          whatsappUrl,
+          expiresInMinutes: 60
+        }
+      });
+    } else {
+      // La ruleta está LIBRE: jugar inmediatamente
+      const [insertQueue] = await connection.query(
+        `INSERT INTO spin_queue (lead_id, prize_id, ticket_code, screen_id, status, started_at)
+         VALUES (?, ?, ?, ?, 'SPINNING', NOW())`,
+        [leadId, winningPrize.id, ticketCode, screen_id]
+      );
+      const queueId = insertQueue.insertId;
+
+      await connection.commit();
+
+      // Construir WhatsApp URL
+      const rawWaNumber = config.COMPANY.whatsapp.replace(/[^0-9]/g, '');
+      const waText = encodeURIComponent(
+        `¡Hola ${config.COMPANY.name}! Acabo de ganar *${winningPrize.name}* en la ruleta de la Feria de Autos 🏎️\n\n` +
+        `👤 Mi Nombre: ${name.trim()}\n` +
+        `🎟️ Código VIP: ${ticketCode}\n` +
+        `🌴 Mi destino soñado: ${finalDestination}\n\n` +
+        `¡Quiero reclamar mi premio y asesoría para mi viaje!`
+      );
+      const whatsappUrl = `https://wa.me/${rawWaNumber}?text=${waText}`;
+
+      // Emitir evento Socket a la pantalla gigante
+      if (req.io) {
+        const payload = {
+          queueId: queueId,
+          screenId: screen_id,
+          leadName: name.trim(),
+          prize: winningPrize,
           sliceIndex: winningIndex,
-          totalSlices: prizes.length
-        },
-        lead: {
-          name: name.trim(),
-          phone: cleanPhone,
-          dream_destination: dream_destination || '🌴 Cancún'
-        },
-        whatsappUrl,
-        expiresInMinutes: 60
+          totalSlices: prizes.length,
+          ticketCode: ticketCode,
+          destination: finalDestination
+        };
+        req.io.to(screen_id).emit('TRIGGER_SPIN', payload);
+        req.io.emit('TRIGGER_SPIN', payload);
       }
-    });
+
+      return res.json({
+        success: true,
+        already_played: false,
+        in_queue: false,
+        queue_id: queueId,
+        queue_position: 0,
+        data: {
+          ticketCode,
+          winner: {
+            id: winningPrize.id,
+            name: winningPrize.name,
+            description: winningPrize.description,
+            category: winningPrize.category,
+            sliceIndex: winningIndex,
+            totalSlices: prizes.length
+          },
+          lead: {
+            name: name.trim(),
+            phone: cleanPhone,
+            dream_destination: finalDestination
+          },
+          whatsappUrl,
+          expiresInMinutes: 60
+        }
+      });
+    }
 
   } catch (error) {
     await connection.rollback();
     console.error('Error procesando el giro de ruleta:', error);
     res.status(500).json({ success: false, message: 'Ocurrió un error al procesar el tiro.' });
+  } finally {
+    connection.release();
+  }
+}
+
+// Consultar estado de la cola para un usuario en espera (Polling / Sockets)
+async function getQueueStatus(req, res) {
+  const { queue_id, ticket_code, screen_id = 'STAND_01' } = req.query;
+
+  try {
+    // 1. Auto-expirar turnos atascados en SPINNING > 60s
+    await pool.query(
+      `UPDATE spin_queue 
+       SET status = 'EXPIRED', completed_at = NOW() 
+       WHERE screen_id = ? AND status = 'SPINNING' AND TIMESTAMPDIFF(SECOND, started_at, NOW()) > 60`,
+      [screen_id]
+    );
+
+    let query = 'SELECT * FROM spin_queue WHERE ';
+    let params = [];
+    if (queue_id) {
+      query += 'id = ?';
+      params.push(queue_id);
+    } else if (ticket_code) {
+      query += 'ticket_code = ?';
+      params.push(ticket_code);
+    } else {
+      return res.status(400).json({ success: false, message: 'Falta queue_id o ticket_code' });
+    }
+
+    const [rows] = await pool.query(query, params);
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Registro de cola no encontrado.' });
+    }
+
+    const item = rows[0];
+
+    // Si sigue en espera (WAITING), calcular posición actual
+    let position = 0;
+    if (item.status === 'WAITING') {
+      const [[posRow]] = await pool.query(
+        `SELECT COUNT(*) AS pos FROM spin_queue WHERE screen_id = ? AND status = 'WAITING' AND id <= ?`,
+        [item.screen_id, item.id]
+      );
+      position = posRow ? posRow.pos : 1;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        queueId: item.id,
+        ticketCode: item.ticket_code,
+        status: item.status, // 'WAITING' | 'SPINNING' | 'COMPLETED' | 'EXPIRED'
+        position: position,
+        startedAt: item.started_at,
+        completedAt: item.completed_at
+      }
+    });
+  } catch (error) {
+    console.error('Error al consultar estado de cola:', error);
+    res.status(500).json({ success: false, message: 'Error interno consultando cola' });
+  }
+}
+
+// Despachar el siguiente participante de la cola cuando la pantalla termina
+async function nextInQueue(req, res) {
+  const { screen_id = 'STAND_01', ticket_code } = req.body || {};
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // 1. Marcar el tiro previo como COMPLETED
+    if (ticket_code) {
+      await connection.query(
+        `UPDATE spin_queue SET status = 'COMPLETED', completed_at = NOW() WHERE ticket_code = ? AND status = 'SPINNING'`,
+        [ticket_code]
+      );
+    } else {
+      await connection.query(
+        `UPDATE spin_queue SET status = 'COMPLETED', completed_at = NOW() 
+         WHERE screen_id = ? AND status = 'SPINNING'`,
+        [screen_id]
+      );
+    }
+
+    // 2. Verificar atómicamente si aún hay alguien en estado 'SPINNING'
+    const [currentlySpinning] = await connection.query(
+      `SELECT q.id, q.ticket_code FROM spin_queue q 
+       WHERE q.screen_id = ? AND q.status = 'SPINNING' 
+       LIMIT 1 FOR UPDATE`,
+      [screen_id]
+    );
+
+    if (currentlySpinning.length > 0) {
+      // Ya hay un turno activo en ejecución, evitar doble despacho concurrente
+      await connection.commit();
+      return res.json({
+        success: true,
+        message: 'Ya hay un participante girando actualmente.',
+        currentlySpinning: currentlySpinning[0],
+        next: null
+      });
+    }
+
+    // 3. Buscar el siguiente participante en espera (el más antiguo en WAITING)
+    const [nextRows] = await connection.query(
+      `SELECT q.id AS queue_id, q.ticket_code, q.screen_id,
+              l.name AS leadName, l.dream_destination AS destination,
+              p.id AS prize_id, p.name AS prize_name, p.color_hex, p.text_color, p.category, p.description
+       FROM spin_queue q
+       JOIN leads l ON q.lead_id = l.id
+       JOIN prizes p ON q.prize_id = p.id
+       WHERE q.screen_id = ? AND q.status = 'WAITING'
+       ORDER BY q.id ASC
+       LIMIT 1
+       FOR UPDATE`,
+      [screen_id]
+    );
+
+    if (nextRows.length === 0) {
+      await connection.commit();
+      return res.json({ success: true, message: 'No hay participantes en espera.', next: null });
+    }
+
+    const nextParticipant = nextRows[0];
+
+    // 3. Pasar su estado a SPINNING con timestamp de inicio
+    await connection.query(
+      `UPDATE spin_queue SET status = 'SPINNING', started_at = NOW() WHERE id = ?`,
+      [nextParticipant.queue_id]
+    );
+
+    // Obtener premios activos para conocer sliceIndex
+    const [allPrizes] = await connection.query(
+      'SELECT id FROM prizes WHERE active = 1 ORDER BY id ASC'
+    );
+    const sliceIndex = allPrizes.findIndex(p => p.id === nextParticipant.prize_id);
+
+    await connection.commit();
+
+    const payload = {
+      queueId: nextParticipant.queue_id,
+      screenId: screen_id,
+      leadName: nextParticipant.leadName,
+      prize: {
+        id: nextParticipant.prize_id,
+        name: nextParticipant.prize_name,
+        color_hex: nextParticipant.color_hex,
+        text_color: nextParticipant.text_color,
+        category: nextParticipant.category,
+        description: nextParticipant.prize_description
+      },
+      sliceIndex: sliceIndex >= 0 ? sliceIndex : 0,
+      totalSlices: allPrizes.length || 8,
+      ticketCode: nextParticipant.ticket_code,
+      destination: nextParticipant.destination
+    };
+
+    // 4. Emitir eventos a pantalla y móviles
+    if (req.io) {
+      req.io.to(screen_id).emit('TRIGGER_SPIN', payload);
+      req.io.emit('TRIGGER_SPIN', payload);
+
+      // Notificar al móvil específico que llegó su turno
+      req.io.emit('QUEUE_YOUR_TURN', {
+        ticketCode: nextParticipant.ticket_code,
+        queueId: nextParticipant.queue_id,
+        payload
+      });
+    }
+
+    res.json({ success: true, message: 'Siguiente participante despachado.', next: payload });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error al avanzar cola:', error);
+    res.status(500).json({ success: false, message: 'Error interno al avanzar cola' });
   } finally {
     connection.release();
   }
@@ -393,15 +661,16 @@ async function getLatestSpin(req, res) {
   const lastActivityAt = screenActivityMap.get(screen_id) || 0;
 
   try {
+    // Consultar si hay un tiro actualmente en ejecución en la cola ('SPINNING')
     const [rows] = await pool.query(
-      `SELECT s.id, s.ticket_code, s.screen_id, s.created_at,
+      `SELECT q.id, q.ticket_code, q.screen_id, q.created_at, q.started_at,
               l.name AS leadName, l.dream_destination AS destination,
               p.id AS prize_id, p.name AS prize_name, p.color_hex, p.text_color, p.category, p.description
-       FROM spins s
-       JOIN leads l ON s.lead_id = l.id
-       JOIN prizes p ON s.prize_id = p.id
-       WHERE s.screen_id = ?
-       ORDER BY s.id DESC
+       FROM spin_queue q
+       JOIN leads l ON q.lead_id = l.id
+       JOIN prizes p ON q.prize_id = p.id
+       WHERE q.screen_id = ? AND q.status = 'SPINNING'
+       ORDER BY q.id DESC
        LIMIT 1`,
       [screen_id]
     );
@@ -426,5 +695,7 @@ module.exports = {
   verifyTicket,
   redeemTicket,
   getLatestSpin,
-  recordScreenActivity
+  recordScreenActivity,
+  getQueueStatus,
+  nextInQueue
 };

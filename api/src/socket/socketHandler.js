@@ -46,6 +46,7 @@ function setupSocket(io) {
     socket.on('SPIN_COMPLETED', (data) => {
       const roomId = data?.screenId || 'STAND_01';
       io.to(roomId).emit('SPIN_FINISHED', data);
+      console.log(`[Socket] Giro completado para ticket en ${roomId}:`, data?.ticketCode);
     });
 
     // Ping / Pong para mantener conexión viva en redes de feria

@@ -34,6 +34,7 @@ export default function App() {
   const [isSpinning, setIsSpinning] = useState(false);
   const [rotationAngle, setRotationAngle] = useState(0);
   const [winner, setWinner] = useState(null);
+  const [activePilot, setActivePilot] = useState(null);
   const [socketConnected, setSocketConnected] = useState(false);
   const [showVideo, setShowVideo] = useState(true);
 
@@ -48,19 +49,26 @@ export default function App() {
   const idleTimerRef = useRef(null);
   const lastLeadActivityRef = useRef(0);
   const testTimerRef = useRef(null);
+  const lastHandledTicketCodeRef = useRef(null);
+  const winnerRef = useRef(null);
+  const screenQueueRef = useRef([]); // Cola en frontend para asegurar que cada giro espere su turno ordenadamente
+  const isProcessingQueueRef = useRef(false);
 
   prizesRef.current = prizes;
   isSpinningRef.current = isSpinning;
+  winnerRef.current = winner;
 
   const INACTIVITY_FALLBACK_MS = 4 * 60 * 1000; // 4 minutos (240,000 ms)
 
-  const startIdleTimer = (delay = 5000) => {
+  const startIdleTimer = (delay = 10000) => {
     if (idleTimerRef.current) {
       clearTimeout(idleTimerRef.current);
     }
     idleTimerRef.current = setTimeout(() => {
-      if (!isSpinningRef.current && !isTestSpinning) {
+      // Solo regresar al video si nadie está girando, ni en prueba, ni con modal de ganador, ni hay turnos pendientes en cola
+      if (!isSpinningRef.current && !isTestSpinning && !winnerRef.current && screenQueueRef.current.length === 0) {
         setShowVideo(true);
+        setActivePilot(null);
       }
     }, delay);
   };
@@ -98,9 +106,62 @@ export default function App() {
   };
 
   const handleCloseWinner = () => {
+    const finishedTicket = lastHandledTicketCodeRef.current;
+    console.log('[Screen] Cerrando modal de ganador para ticket:', finishedTicket);
     setWinner(null);
-    // Esperar 5 segundos mostrando la ruleta y el resultado antes de volver al video
-    startIdleTimer(5000);
+    winnerRef.current = null;
+    isProcessingQueueRef.current = true;
+
+    // Pausa deportiva de 3.5 segundos con el stand despejado antes de que el siguiente jugador arranque
+    setTimeout(async () => {
+      isProcessingQueueRef.current = false;
+
+      // 1. Notificar socket sobre giro finalizado
+      if (socketRef.current) {
+        socketRef.current.emit('SPIN_COMPLETED', {
+          screenId: SCREEN_ID,
+          ticketCode: finishedTicket
+        });
+      }
+
+      // 2. Si había giros acumulados en la cola local de la pantalla (caso borde)
+      if (screenQueueRef.current.length > 0) {
+        const nextLocalItem = screenQueueRef.current.shift();
+        console.log('[Screen] Procesando turno local encolado:', nextLocalItem?.leadName);
+        executeSpin(nextLocalItem);
+        // Sincronizar finalización en base de datos en segundo plano
+        try {
+          fetch(`${API_URL}/api/spin/queue/next`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ screen_id: SCREEN_ID, ticket_code: finishedTicket })
+          }).catch(() => {});
+        } catch (e) {}
+        return;
+      }
+
+      // 3. Notificar al backend para que despache al siguiente participante en la cola global
+      try {
+        const res = await fetch(`${API_URL}/api/spin/queue/next`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ screen_id: SCREEN_ID, ticket_code: finishedTicket })
+        });
+        const json = await res.json();
+        // Si hay un siguiente jugador despachado y aún no fue tomado por socket
+        if (json.next) {
+          console.log('[Screen] Siguiente participante despachado por backend:', json.next.leadName);
+          handleTriggerSpin(json.next);
+        } else {
+          // Si no hay más jugadores en cola, iniciar temporizador de inactividad de 10s para el video
+          console.log('[Screen] Cola despejada, esperando 10s antes del video attract');
+          startIdleTimer(10000);
+        }
+      } catch (e) {
+        console.warn('[Screen] Error solicitando siguiente turno:', e);
+        startIdleTimer(10000);
+      }
+    }, 3500);
   };
 
   // Cargar lista de premios desde la API
@@ -200,7 +261,7 @@ export default function App() {
     initLatest();
 
     const interval = setInterval(async () => {
-      if (!isSubscribed || isSpinningRef.current) return;
+      if (!isSubscribed || isSpinningRef.current || winnerRef.current || isProcessingQueueRef.current) return;
       try {
         const res = await fetch(`${API_URL}/api/spin/latest?screen_id=${SCREEN_ID}`);
         if (!res.ok) return;
@@ -262,24 +323,18 @@ export default function App() {
     };
   }, []);
 
-  const handleTriggerSpin = (data) => {
-    if (isSpinningRef.current) return;
-    if (data.ticketCode && handledTicketsRef.current.has(data.ticketCode)) return;
-    if (data.ticketCode) handledTicketsRef.current.add(data.ticketCode);
-
-    if (testTimerRef.current) {
-      clearTimeout(testTimerRef.current);
-      testTimerRef.current = null;
-    }
-    setIsTestSpinning(false);
-
-    if (idleTimerRef.current) {
-      clearTimeout(idleTimerRef.current);
-      idleTimerRef.current = null;
-    }
-    setShowVideo(false);
+  // Ejecutar el giro real de ruleta para un participante específico
+  const executeSpin = (data) => {
+    isSpinningRef.current = true;
     setIsSpinning(true);
     setWinner(null);
+    lastHandledTicketCodeRef.current = data.ticketCode;
+
+    // Asignar el piloto activo para mostrar en la cápsula bajo el velocímetro
+    setActivePilot({
+      name: data.leadName,
+      destination: data.destination
+    });
 
     const totalSlices = data.totalSlices || prizes.length || 8;
     const sliceAngle = 360 / totalSlices;
@@ -293,6 +348,7 @@ export default function App() {
     setRotationAngle(newAngle);
 
     setTimeout(() => {
+      isSpinningRef.current = false;
       setIsSpinning(false);
 
       setWinner({
@@ -301,14 +357,50 @@ export default function App() {
         ticketCode: data.ticketCode,
         destination: data.destination
       });
+    }, 8000);
+  };
 
-      if (socketRef.current) {
-        socketRef.current.emit('SPIN_COMPLETED', {
-          screenId: SCREEN_ID,
-          ticketCode: data.ticketCode
-        });
-      }
-    }, 6000);
+  // Procesar cola interna de la pantalla
+  const processNextInScreenQueue = () => {
+    if (isSpinningRef.current || winnerRef.current || isProcessingQueueRef.current) return;
+    if (screenQueueRef.current.length === 0) return;
+
+    isProcessingQueueRef.current = true;
+    const nextItem = screenQueueRef.current.shift();
+
+    // Pausa deportiva de 3.5 segundos entre jugadores para que la pantalla respire antes de acelerar
+    setTimeout(() => {
+      isProcessingQueueRef.current = false;
+      executeSpin(nextItem);
+    }, 3500);
+  };
+
+  const handleTriggerSpin = (data) => {
+    if (!data || !data.ticketCode) return;
+    if (handledTicketsRef.current.has(data.ticketCode)) return;
+    handledTicketsRef.current.add(data.ticketCode);
+
+    if (testTimerRef.current) {
+      clearTimeout(testTimerRef.current);
+      testTimerRef.current = null;
+    }
+    setIsTestSpinning(false);
+
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = null;
+    }
+    setShowVideo(false);
+
+    // Si la ruleta está actualmente girando, celebrando un ganador o en pausa intermedia:
+    if (isSpinningRef.current || winnerRef.current || isProcessingQueueRef.current) {
+      console.log('[Pantalla] La ruleta está ocupada. Encolando tiro para:', data.leadName);
+      screenQueueRef.current.push(data);
+      return;
+    }
+
+    // Si la pantalla está totalmente libre, ejecutar inmediatamente
+    executeSpin(data);
   };
 
   return (
@@ -318,7 +410,11 @@ export default function App() {
       <div className="flex-1 flex items-center justify-between px-6 lg:px-12 py-4 max-w-[1920px] mx-auto w-full">
         {/* Panel Izquierdo: Telemetría de Carreras */}
         <div className="flex flex-col items-center gap-4">
-          <Tachometer isSpinning={isSpinning} isTestMode={isTestSpinning} />
+          <Tachometer
+            isSpinning={isSpinning}
+            isTestMode={isTestSpinning}
+            currentPilot={activePilot}
+          />
           
           <div className="bg-zinc-900/90 border border-zinc-800 p-3 rounded-2xl w-72 text-center shadow-lg">
             <div className="flex items-center justify-center gap-2 text-xs font-racing text-zinc-400">

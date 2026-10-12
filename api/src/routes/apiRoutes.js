@@ -11,6 +11,8 @@ const { verifyTurnstile } = require('../middlewares/turnstileMiddleware');
 router.get('/prizes', rouletteController.getPrizes);
 router.post('/spin', spinLimiter, verifyTurnstile, rouletteController.processSpin);
 router.get('/spin/latest', rouletteController.getLatestSpin);
+router.get('/spin/queue/status', rouletteController.getQueueStatus);
+router.post('/spin/queue/next', rouletteController.nextInQueue);
 router.post('/screen/activity', rouletteController.recordScreenActivity);
 router.get('/ticket/:code', rouletteController.verifyTicket);
 router.get('/destinations', destinationsController.getDestinations);

@@ -77,22 +77,22 @@ export default function AlloyWheel({ prizes = [], rotationAngle = 0, isSpinning 
         <div className="w-[660px] h-[660px] rounded-full border-2 border-dashed border-[#9AC31C]/30" />
       </div>
 
-      {/* 2. Indicador Selector Deportivo Rojo */}
-      <div className="absolute -top-3 z-30 flex flex-col items-center drop-shadow-[0_4px_15px_rgba(220,38,38,0.9)]">
+      {/* 2. Indicador Selector Deportivo Rojo con Efecto Clacker en Giro */}
+      <div className={`absolute -top-3 z-30 flex flex-col items-center drop-shadow-[0_4px_15px_rgba(220,38,38,0.9)] transition-transform ${isSpinning ? 'animate-bounce' : ''}`}>
         <div className="relative bg-gradient-to-b from-red-500 via-red-600 to-red-800 px-4 py-1.5 rounded-full border-2 border-red-400 flex items-center justify-center shadow-lg">
           <span className={`w-3 h-3 rounded-full ${isSpinning ? 'bg-white animate-ping' : 'bg-white shadow-[0_0_8px_#ffffff]'}`} />
         </div>
         <div className="w-0 h-0 border-x-[14px] border-x-transparent border-t-[20px] border-t-red-600 -mt-0.5" />
       </div>
 
-      {/* 3. La Ruleta Giratoria (Rin Deportivo de Aleación) */}
+      {/* 3. La Ruleta Giratoria (Rin Deportivo de Aleación) con Inercia Ultra-Realista */}
       <div
-        className={`relative z-10 ${isTestMode ? '' : 'transition-transform duration-[6000ms]'}`}
+        className={`relative z-10 ${isTestMode ? '' : 'transition-transform duration-[8000ms]'}`}
         style={isTestMode ? {
           animation: 'spin 1.4s linear infinite'
         } : {
           transform: `rotate(${rotationAngle}deg)`,
-          transitionTimingFunction: 'cubic-bezier(0.12, 0.95, 0.2, 1)'
+          transitionTimingFunction: 'cubic-bezier(0.15, 0.99, 0.25, 1.0)'
         }}
       >
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="drop-shadow-2xl">

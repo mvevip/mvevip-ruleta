@@ -8,7 +8,7 @@ import React, { useEffect, useState, useMemo } from 'react';
  * - Las letras y números se iluminan con el color corporativo #9AC31C conforme sube la aguja
  * - Display LCD digital en la parte inferior con odómetro activo
  */
-export default function Tachometer({ isSpinning = false, isTestMode = false }) {
+export default function Tachometer({ isSpinning = false, isTestMode = false, currentPilot = null }) {
   const [speed, setSpeed] = useState(0);
 
   useEffect(() => {
@@ -26,13 +26,15 @@ export default function Tachometer({ isSpinning = false, isTestMode = false }) {
       const startTime = Date.now();
       interval = setInterval(() => {
         const elapsed = (Date.now() - startTime) / 1000;
-        if (elapsed < 3.2) {
-          // Aceleración a fondo hacia 180 - 195 km/h
-          const target = Math.min(195, Math.floor(elapsed * 62 + Math.random() * 8));
+        if (elapsed < 3.8) {
+          // Aceleración a fondo hacia 185 - 198 km/h
+          const target = Math.min(198, Math.floor(elapsed * 52 + Math.random() * 8));
           setSpeed(target);
-        } else if (elapsed < 6.0) {
-          // Desaceleración y frenado
-          const decay = (6.0 - elapsed) / 2.8;
+        } else if (elapsed < 8.0) {
+          // Desaceleración progresiva suave durante los últimos 4.2 segundos
+          const progress = (elapsed - 3.8) / 4.2; // 0 a 1
+          // Easing suave cuadrático para caída de velocidad
+          const decay = Math.pow(1 - progress, 1.8);
           const target = Math.max(0, Math.floor(decay * 195));
           setSpeed(target);
         } else {
@@ -312,13 +314,29 @@ export default function Tachometer({ isSpinning = false, isTestMode = false }) {
         </div>
       </div>
 
-      {/* Indicador de Estado Bajo el Odómetro */}
-      <div className="mt-3 flex items-center gap-2 bg-zinc-900/90 border border-zinc-800 px-4 py-1.5 rounded-full text-xs font-racing shadow-lg">
-        <span className={`w-2.5 h-2.5 rounded-full ${isSpinning ? 'bg-[#9AC31C] animate-ping' : 'bg-zinc-600'}`} />
-        <span className="text-zinc-400">TELEMETRÍA:</span>
-        <span className={`font-bold ${isSpinning ? 'text-[#9AC31C]' : 'text-zinc-300'}`}>
-          {isSpinning ? 'EN PISTA • ACELERANDO' : 'EN STAND • LISTO'}
-        </span>
+      {/* Indicador de Telemetría Dinámico: Nombre de Jugador en Pista en #9AC31C */}
+      <div className="mt-3 w-80 bg-zinc-950/95 border-2 border-zinc-800 rounded-2xl p-2.5 shadow-2xl flex flex-col items-center text-center transition-all">
+        {currentPilot ? (
+          <>
+            <div className="flex items-center gap-1.5 text-[11px] font-racing text-zinc-400 uppercase tracking-widest">
+              <span className="w-2 h-2 rounded-full bg-[#9AC31C] animate-ping" />
+              <span>PILOTO EN PISTA</span>
+            </div>
+            <div className="text-lg font-racing font-black text-[#9AC31C] tracking-wider uppercase truncate max-w-full drop-shadow-[0_0_12px_rgba(154,195,28,0.8)] mt-0.5">
+              {currentPilot.name || currentPilot.leadName}
+            </div>
+            {currentPilot.destination && (
+              <span className="text-[10px] text-zinc-400 font-sans tracking-wide mt-0.5">
+                Rumbo a: <strong className="text-white">{currentPilot.destination}</strong>
+              </span>
+            )}
+          </>
+        ) : (
+          <div className="flex items-center gap-2 py-1 text-xs font-racing text-zinc-400">
+            <span className="w-2 h-2 rounded-full bg-zinc-600" />
+            <span>STAND LISTO • ESCANEA EL QR</span>
+          </div>
+        )}
       </div>
     </div>
   );

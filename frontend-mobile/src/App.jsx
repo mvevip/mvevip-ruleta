@@ -5,6 +5,8 @@ import LeadForm from './components/LeadForm';
 import EngineStartButton from './components/EngineStartButton';
 import SpinningProgress from './components/SpinningProgress';
 import PrizeVoucher from './components/PrizeVoucher';
+import QueueWaitingProgress from './components/QueueWaitingProgress';
+import { mobileAudio } from './utils/mobileSound';
 import { ShieldCheck, AlertTriangle, Info } from 'lucide-react';
 
 const isLocal = typeof window !== 'undefined' && (
@@ -24,13 +26,13 @@ const WS_URL = isLocal
 
 import TurnstileWidget from './components/TurnstileWidget';
 
-// Obtener o generar identificador único de dispositivo persistente
+// Obtener o generar identificador único de sesión/dispositivo aislado
 function getOrCreateDeviceId() {
   try {
-    let id = localStorage.getItem('vip_device_id');
+    let id = sessionStorage.getItem('vip_device_id');
     if (!id) {
       id = 'dev_' + Math.random().toString(36).substring(2, 12) + '_' + Date.now().toString(36);
-      localStorage.setItem('vip_device_id', id);
+      sessionStorage.setItem('vip_device_id', id);
     }
     return id;
   } catch (e) {
@@ -42,7 +44,7 @@ export default function App() {
   const queryParams = new URLSearchParams(window.location.search);
   const screenId = queryParams.get('screen') || 'STAND_01';
 
-  const [gameState, setGameState] = useState('FORM'); // 'FORM' | 'SPINNING' | 'WON'
+  const [gameState, setGameState] = useState('FORM'); // 'FORM' | 'WAITING_QUEUE' | 'SPINNING' | 'WON'
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -57,9 +59,13 @@ export default function App() {
   const [alreadyPlayedNotice, setAlreadyPlayedNotice] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [queueInfo, setQueueInfo] = useState({ queueId: null, position: 1, ticketCode: null });
 
   const socketRef = useRef(null);
   const deviceIdRef = useRef(getOrCreateDeviceId());
+  const queuePollingRef = useRef(null);
+  const queueTicketCodeRef = useRef(null);
+  const isTriggeringTurnRef = useRef(false);
 
   // Cargar lista de destinos activos desde la API
   useEffect(() => {
@@ -103,8 +109,8 @@ export default function App() {
 
   useEffect(() => {
     const socket = io(WS_URL, {
-      reconnectionAttempts: 5,
-      reconnectionDelay: 2000
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000
     });
     socketRef.current = socket;
 
@@ -114,10 +120,82 @@ export default function App() {
       socket.emit('USER_ENGAGED', { screenId });
     });
 
+    // Evento en tiempo real: ¡Es tu turno de acelerar en la pantalla!
+    socket.on('QUEUE_YOUR_TURN', (data) => {
+      console.log('[Mobile] Evento QUEUE_YOUR_TURN recibido:', data?.ticketCode, 'esperando:', queueTicketCodeRef.current);
+      if (data && data.ticketCode && queueTicketCodeRef.current && data.ticketCode === queueTicketCodeRef.current) {
+        console.log('[Mobile] ¡Coincidencia de ticket! Arrancando turno...');
+        triggerPlayerTurn();
+      }
+    });
+
     return () => {
       socket.disconnect();
     };
   }, [screenId]);
+
+  // Transición a disparo de turno: Vibración táctil doble + inicio de ruleta
+  const triggerPlayerTurn = () => {
+    if (isTriggeringTurnRef.current) return;
+    isTriggeringTurnRef.current = true;
+
+    if (queuePollingRef.current) {
+      clearInterval(queuePollingRef.current);
+      queuePollingRef.current = null;
+    }
+
+    // Vibración táctil doble para alertar al usuario que mire la gran pantalla
+    try {
+      if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate([200, 100, 300]);
+      }
+    } catch (e) {}
+
+    setGameState('SPINNING');
+    setIsSubmitting(false);
+
+    // Duración de giro en sincronía con la pantalla: 8 segundos
+    setTimeout(() => {
+      setGameState('WON');
+    }, 8000);
+  };
+
+  // Polling de cola de respaldo cada 1.5s en caso de que el socket esté reconectando
+  useEffect(() => {
+    if (gameState === 'WAITING_QUEUE' && queueInfo.queueId) {
+      queuePollingRef.current = setInterval(async () => {
+        try {
+          const res = await fetch(`${API_URL}/api/spin/queue/status?queue_id=${queueInfo.queueId}&screen_id=${screenId}`);
+          if (!res.ok) return;
+          const json = await res.json();
+          if (json.success && json.data) {
+            const { status, position } = json.data;
+            if (status === 'SPINNING') {
+              console.log('[Mobile Polling] El backend indica que nuestro turno comenzó!');
+              triggerPlayerTurn();
+            } else if (status === 'COMPLETED') {
+              setGameState('WON');
+              if (queuePollingRef.current) clearInterval(queuePollingRef.current);
+            } else if (status === 'WAITING') {
+              setQueueInfo(prev => ({ ...prev, position }));
+            }
+          }
+        } catch (err) {}
+      }, 1500);
+    } else {
+      if (queuePollingRef.current) {
+        clearInterval(queuePollingRef.current);
+        queuePollingRef.current = null;
+      }
+    }
+
+    return () => {
+      if (queuePollingRef.current) {
+        clearInterval(queuePollingRef.current);
+        queuePollingRef.current = null;
+      }
+    };
+  }, [gameState, queueInfo.queueId, screenId]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -201,7 +279,23 @@ export default function App() {
         return;
       }
 
-      // CASO 2: Primer tiro válido -> Sincronizar giro con pantalla gigante
+      // CASO 2: Entró a la COLA de espera porque la ruleta está ocupada
+      if (json.in_queue) {
+        setAlreadyPlayedNotice(false);
+        setSpinResult(json.data);
+        const ticket = json.data?.ticketCode;
+        queueTicketCodeRef.current = ticket;
+        setQueueInfo({
+          queueId: json.queue_id,
+          position: json.queue_position || 1,
+          ticketCode: ticket
+        });
+        setGameState('WAITING_QUEUE');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // CASO 3: Primer tiro válido sin cola -> Sincronizar giro inmediato de 8 segundos
       setAlreadyPlayedNotice(false);
       setGameState('SPINNING');
       setSpinResult(json.data);
@@ -209,7 +303,7 @@ export default function App() {
       setTimeout(() => {
         setIsSubmitting(false);
         setGameState('WON');
-      }, 6000);
+      }, 8000);
 
     } catch (err) {
       console.error('Error enviando tiro:', err);
@@ -267,6 +361,13 @@ export default function App() {
               <span>Stand #{screenId} • Solo 1 participación por persona</span>
             </div>
           </div>
+        )}
+
+        {gameState === 'WAITING_QUEUE' && (
+          <QueueWaitingProgress
+            queuePosition={queueInfo.position}
+            leadName={formData.name}
+          />
         )}
 
         {gameState === 'SPINNING' && (

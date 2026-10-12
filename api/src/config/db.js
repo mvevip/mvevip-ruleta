@@ -72,6 +72,24 @@ async function checkConnection() {
           ON DUPLICATE KEY UPDATE name=VALUES(name);
         `);
       }
+      // 5. Asegurar tabla spin_queue para gestión concurrente de turnos
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS spin_queue (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          lead_id INT NOT NULL,
+          prize_id INT NOT NULL,
+          ticket_code VARCHAR(50) UNIQUE NOT NULL,
+          screen_id VARCHAR(50) DEFAULT 'STAND_01',
+          status ENUM('WAITING', 'SPINNING', 'COMPLETED', 'EXPIRED') DEFAULT 'WAITING',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          started_at TIMESTAMP NULL,
+          completed_at TIMESTAMP NULL,
+          INDEX idx_screen_status (screen_id, status),
+          INDEX idx_created (created_at),
+          FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE CASCADE,
+          FOREIGN KEY (prize_id) REFERENCES prizes(id) ON DELETE RESTRICT
+        ) ENGINE=InnoDB;
+      `).catch(() => {});
     } catch (migErr) {
       console.warn('[Database Migration] Nota durante chequeo de esquema:', migErr.message);
     }
