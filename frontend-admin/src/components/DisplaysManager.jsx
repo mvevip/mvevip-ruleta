@@ -258,6 +258,38 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
     }
   };
 
+  const handleUpdateQrScale = async (screenKey, newScale) => {
+    const scaleNum = Math.max(20, Math.min(100, Number(newScale) || 55));
+    try {
+      const current = displayConfigs[screenKey] || {};
+      const res = await fetch(`${apiUrl}/api/admin/displays/config`, {
+        method: 'PUT',
+        headers: getAdminHeaders(),
+        body: JSON.stringify({
+          screen_key: screenKey,
+          orientation: current.orientation || 'auto',
+          slide_duration: current.slide_duration || 8,
+          layout_ratio: current.layout_ratio || '55/45',
+          video_url: current.video_url || 'AzQlHkHx6HI',
+          qr_scale_percent: scaleNum
+        })
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        setDisplayConfigs(prev => ({
+          ...prev,
+          [screenKey]: { ...prev[screenKey], qr_scale_percent: scaleNum }
+        }));
+        onNotification(`Tamaño del QR (${screenKey}) guardado: ${scaleNum}%`);
+      } else {
+        alert(json.error || 'Error al actualizar tamaño del QR');
+      }
+    } catch (err) {
+      alert('Error al actualizar tamaño del QR');
+    }
+  };
+
   const handleToggleImageActive = async (image) => {
     try {
       const res = await fetch(`${apiUrl}/api/admin/displays/slider-images/${image.id}`, {
@@ -490,6 +522,38 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
                 <option value="portrait">Vertical (Portrait / Tótem)</option>
               </select>
             </div>
+            <div className="flex items-center justify-between gap-2 pt-2 border-t border-zinc-800">
+              <span className="text-[11px] text-zinc-400">Tamaño QR:</span>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="range"
+                  min="40"
+                  max="95"
+                  step="5"
+                  value={displayConfigs.qr?.qr_scale_percent || 75}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setDisplayConfigs(prev => ({
+                      ...prev,
+                      qr: { ...prev.qr, qr_scale_percent: val }
+                    }));
+                  }}
+                  onMouseUp={(e) => handleUpdateQrScale('qr', e.target.value)}
+                  onTouchEnd={(e) => handleUpdateQrScale('qr', e.target.value)}
+                  className="w-20 sm:w-24 accent-[#9AC31C] cursor-pointer"
+                />
+                <span className="text-xs font-mono font-bold text-[#9AC31C] w-8 text-right">
+                  {displayConfigs.qr?.qr_scale_percent || 75}%
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleUpdateQrScale('qr', displayConfigs.qr?.qr_scale_percent || 75)}
+                  className="px-2 py-0.5 bg-[#9AC31C] hover:bg-[#84A816] text-black font-racing font-bold text-[10px] rounded active:scale-95 transition-transform"
+                >
+                  OK
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Pantalla 3: Solo Slider */}
@@ -551,6 +615,38 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
                 <option value="landscape">Horizontal (Landscape)</option>
                 <option value="portrait">Vertical (Portrait / Tótem)</option>
               </select>
+            </div>
+            <div className="flex items-center justify-between gap-2 pt-2 border-t border-zinc-800">
+              <span className="text-[11px] text-zinc-400">Tamaño QR:</span>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="range"
+                  min="30"
+                  max="90"
+                  step="5"
+                  value={displayConfigs.combo?.qr_scale_percent || 55}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setDisplayConfigs(prev => ({
+                      ...prev,
+                      combo: { ...prev.combo, qr_scale_percent: val }
+                    }));
+                  }}
+                  onMouseUp={(e) => handleUpdateQrScale('combo', e.target.value)}
+                  onTouchEnd={(e) => handleUpdateQrScale('combo', e.target.value)}
+                  className="w-20 sm:w-24 accent-[#9AC31C] cursor-pointer"
+                />
+                <span className="text-xs font-mono font-bold text-[#9AC31C] w-8 text-right">
+                  {displayConfigs.combo?.qr_scale_percent || 55}%
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleUpdateQrScale('combo', displayConfigs.combo?.qr_scale_percent || 55)}
+                  className="px-2 py-0.5 bg-[#9AC31C] hover:bg-[#84A816] text-black font-racing font-bold text-[10px] rounded active:scale-95 transition-transform"
+                >
+                  OK
+                </button>
+              </div>
             </div>
           </div>
         </div>

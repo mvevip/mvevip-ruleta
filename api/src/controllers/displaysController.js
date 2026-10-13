@@ -57,6 +57,7 @@ async function getDisplaysConfig(req, res) {
         slide_duration: row.slide_duration || 8,
         layout_ratio: row.layout_ratio || '55/45',
         video_url: row.video_url || 'AzQlHkHx6HI',
+        qr_scale_percent: row.qr_scale_percent ? Number(row.qr_scale_percent) : 55,
         updated_at: row.updated_at
       };
     });
@@ -73,11 +74,11 @@ async function getDisplaysConfig(req, res) {
 }
 
 /**
- * Actualiza la configuración de una pantalla (orientación, duración, proporción, video)
+ * Actualiza la configuración de una pantalla (orientación, duración, proporción, video, escala de QR)
  */
 async function updateDisplayConfig(req, res) {
   try {
-    const { screen_key, orientation, slide_duration, layout_ratio, video_url } = req.body;
+    const { screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent } = req.body;
     if (!screen_key) {
       return res.status(400).json({ success: false, error: 'screen_key es requerido' });
     }
@@ -86,16 +87,20 @@ async function updateDisplayConfig(req, res) {
     const cleanDuration = Number(slide_duration) > 0 ? Number(slide_duration) : 8;
     const cleanRatio = layout_ratio || '55/45';
     const cleanVideo = video_url !== undefined ? extractYouTubeId(video_url) : null;
+    const cleanScale = qr_scale_percent !== undefined && Number(qr_scale_percent) >= 20 && Number(qr_scale_percent) <= 100
+      ? Number(qr_scale_percent)
+      : null;
 
     await pool.query(
-      `INSERT INTO display_configs (screen_key, orientation, slide_duration, layout_ratio, video_url)
-       VALUES (?, ?, ?, ?, COALESCE(?, 'AzQlHkHx6HI'))
+      `INSERT INTO display_configs (screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent)
+       VALUES (?, ?, ?, ?, COALESCE(?, 'AzQlHkHx6HI'), COALESCE(?, 55))
        ON DUPLICATE KEY UPDATE 
          orientation = VALUES(orientation), 
          slide_duration = VALUES(slide_duration), 
          layout_ratio = VALUES(layout_ratio),
-         video_url = IF(VALUES(video_url) IS NOT NULL AND VALUES(video_url) != '', VALUES(video_url), video_url)`,
-      [screen_key, cleanOrientation, cleanDuration, cleanRatio, cleanVideo]
+         video_url = IF(VALUES(video_url) IS NOT NULL AND VALUES(video_url) != '', VALUES(video_url), video_url),
+         qr_scale_percent = IF(VALUES(qr_scale_percent) IS NOT NULL, VALUES(qr_scale_percent), qr_scale_percent)`,
+      [screen_key, cleanOrientation, cleanDuration, cleanRatio, cleanVideo, cleanScale]
     );
 
     const version = await touchSystemSync(`DISPLAY_CONFIG_${screen_key.toUpperCase()}`, req.io);
@@ -104,6 +109,7 @@ async function updateDisplayConfig(req, res) {
       success: true,
       message: `Configuración de ${screen_key} actualizada correctamente`,
       video_url: cleanVideo,
+      qr_scale_percent: cleanScale,
       version
     });
   } catch (error) {

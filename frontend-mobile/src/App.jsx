@@ -22,7 +22,7 @@ const API_URL = isLocal
 
 const WS_URL = isLocal
   ? (import.meta.env.VITE_WS_URL || `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}:5500`)
-  : (typeof window !== 'undefined' ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}` : '');
+  : (import.meta.env.VITE_WS_URL || '');
 
 import TurnstileWidget from './components/TurnstileWidget';
 
@@ -108,9 +108,15 @@ export default function App() {
   }, [screenId]);
 
   useEffect(() => {
+    if (!WS_URL) {
+      return;
+    }
+
     const socket = io(WS_URL, {
-      reconnectionAttempts: 10,
-      reconnectionDelay: 1000
+      transports: ['websocket'],
+      reconnectionAttempts: 2,
+      reconnectionDelay: 5000,
+      timeout: 3000
     });
     socketRef.current = socket;
 

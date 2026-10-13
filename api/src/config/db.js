@@ -122,13 +122,17 @@ async function checkConnection() {
         ALTER TABLE display_configs ADD COLUMN video_url VARCHAR(255) NOT NULL DEFAULT 'AzQlHkHx6HI';
       `).catch(() => {});
 
+      await connection.query(`
+        ALTER TABLE display_configs ADD COLUMN qr_scale_percent INT NOT NULL DEFAULT 55;
+      `).catch(() => {});
+
       // Poblar configuraciones de pantalla iniciales si no existen
       await connection.query(`
-        INSERT INTO display_configs (screen_key, orientation, slide_duration, layout_ratio, video_url) VALUES
-        ('roulette', 'auto', 8, 'default', 'AzQlHkHx6HI'),
-        ('qr', 'auto', 8, 'default', 'AzQlHkHx6HI'),
-        ('slider', 'auto', 8, 'default', 'AzQlHkHx6HI'),
-        ('combo', 'auto', 8, '55/45', 'AzQlHkHx6HI')
+        INSERT INTO display_configs (screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent) VALUES
+        ('roulette', 'auto', 8, 'default', 'AzQlHkHx6HI', 55),
+        ('qr', 'auto', 8, 'default', 'AzQlHkHx6HI', 55),
+        ('slider', 'auto', 8, 'default', 'AzQlHkHx6HI', 55),
+        ('combo', 'auto', 8, '55/45', 'AzQlHkHx6HI', 55)
         ON DUPLICATE KEY UPDATE screen_key=VALUES(screen_key);
       `).catch(() => {});
 
