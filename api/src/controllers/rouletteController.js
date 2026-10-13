@@ -6,6 +6,7 @@ const {
   generateTicketCode
 } = require('../services/rouletteLogic');
 const config = require('../config/env');
+const { touchSystemSync } = require('./displaysController');
 
 // Obtener lista de premios activos para la ruleta visual
 async function getPrizes(req, res) {
@@ -63,6 +64,7 @@ async function createPrize(req, res) {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
       [name, description || '', category, color_hex, text_color, Number(weight), Number(stock), Number(max_daily_wins)]
     );
+    await touchSystemSync('PRIZES_UPDATED', req.io);
     res.json({ success: true, message: 'Premio creado exitosamente', id: result.insertId });
   } catch (error) {
     console.error('Error creando premio:', error);
@@ -95,6 +97,7 @@ async function updatePrize(req, res) {
       return res.status(404).json({ success: false, message: 'Premio no encontrado' });
     }
 
+    await touchSystemSync('PRIZES_UPDATED', req.io);
     res.json({ success: true, message: 'Premio actualizado exitosamente' });
   } catch (error) {
     console.error('Error actualizando premio:', error);

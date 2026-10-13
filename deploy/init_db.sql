@@ -112,3 +112,45 @@ CREATE TABLE IF NOT EXISTS spin_queue (
     FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE CASCADE,
     FOREIGN KEY (prize_id) REFERENCES prizes(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB;
+
+-- 6. Tabla de Imágenes de Slider (Cartelería Digital)
+CREATE TABLE IF NOT EXISTS slider_images (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL DEFAULT '',
+    image_url MEDIUMTEXT NOT NULL,
+    duration_seconds INT NOT NULL DEFAULT 8,
+    sort_order INT NOT NULL DEFAULT 0,
+    active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_active_order (active, sort_order)
+) ENGINE=InnoDB;
+
+-- 7. Tabla de Configuraciones de Pantalla (Orientación y Opciones)
+CREATE TABLE IF NOT EXISTS display_configs (
+    screen_key VARCHAR(50) PRIMARY KEY,
+    orientation VARCHAR(20) NOT NULL DEFAULT 'auto',
+    slide_duration INT NOT NULL DEFAULT 8,
+    layout_ratio VARCHAR(20) NOT NULL DEFAULT '55/45',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+INSERT INTO display_configs (screen_key, orientation, slide_duration, layout_ratio) VALUES
+('roulette', 'auto', 8, 'default'),
+('qr', 'auto', 8, 'default'),
+('slider', 'auto', 8, 'default'),
+('combo', 'auto', 8, '55/45')
+ON DUPLICATE KEY UPDATE screen_key=VALUES(screen_key);
+
+-- 8. Tabla de Sincronización Remota de Sistema (Control Remoto en Tiempo Real)
+CREATE TABLE IF NOT EXISTS system_sync (
+    sync_key VARCHAR(50) PRIMARY KEY,
+    version_timestamp BIGINT NOT NULL,
+    action VARCHAR(50) NOT NULL DEFAULT 'INITIAL',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+INSERT INTO system_sync (sync_key, version_timestamp, action) VALUES
+('global_displays', 1728830000000, 'INITIAL')
+ON DUPLICATE KEY UPDATE sync_key=VALUES(sync_key);
+

@@ -314,15 +314,15 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen carbon-bg text-white flex flex-col justify-between">
+    <div className="min-h-screen bg-gradient-to-b from-zinc-100 via-zinc-200 to-zinc-300 text-zinc-900 flex flex-col justify-between">
       <Header />
 
-      <main className="flex-1 max-w-md w-full mx-auto px-5 py-4 flex flex-col justify-center">
+      <main className="flex-1 max-w-md w-full mx-auto px-4 py-5 flex flex-col justify-center">
         {gameState === 'FORM' && (
-          <div className="flex flex-col items-center">
+          <div className="bg-white/95 border border-zinc-200/80 rounded-3xl p-5 shadow-xl shadow-zinc-400/20 backdrop-blur-md flex flex-col items-center">
             {apiError && (
-              <div className="w-full mb-3 p-3 rounded-xl bg-red-950/80 border border-red-500/80 text-red-200 text-xs flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+              <div className="w-full mb-3 p-3 rounded-xl bg-red-50 border border-red-300 text-red-700 text-xs flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
                 <span>{apiError}</span>
               </div>
             )}
@@ -334,18 +334,20 @@ export default function App() {
               destinations={destinations}
             />
 
-            <TurnstileWidget
-              onVerify={(token) => {
-                setTurnstileToken(token);
-                setApiError(null);
-              }}
-              onError={() => setTurnstileToken(null)}
-            />
+            <div className="my-2 w-full flex justify-center">
+              <TurnstileWidget
+                onVerify={(token) => {
+                  setTurnstileToken(token);
+                  setApiError(null);
+                }}
+                onError={() => setTurnstileToken(null)}
+              />
+            </div>
 
             {/* Alerta de Error Adicional cerca al botón Engine Start */}
             {apiError && (
-              <div className="w-full my-2 p-3 rounded-xl bg-red-950/90 border border-red-500 text-red-200 text-xs flex items-center gap-2 shadow-lg">
-                <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+              <div className="w-full my-2 p-3 rounded-xl bg-red-50 border border-red-300 text-red-700 text-xs flex items-center gap-2 shadow-sm">
+                <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
                 <span>{apiError}</span>
               </div>
             )}
@@ -356,29 +358,33 @@ export default function App() {
               loading={isSubmitting}
             />
 
-            <div className="flex items-center gap-1.5 text-zinc-500 text-[11px] mt-2 text-center">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+            <div className="flex items-center gap-1.5 text-zinc-500 text-[11px] mt-1 text-center font-medium">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
               <span>Stand #{screenId} • Solo 1 participación por persona</span>
             </div>
           </div>
         )}
 
         {gameState === 'WAITING_QUEUE' && (
-          <QueueWaitingProgress
-            queuePosition={queueInfo.position}
-            leadName={formData.name}
-          />
+          <div className="bg-white/95 border border-zinc-200/80 rounded-3xl p-4 shadow-xl shadow-zinc-400/20 backdrop-blur-md">
+            <QueueWaitingProgress
+              queuePosition={queueInfo.position}
+              leadName={formData.name}
+            />
+          </div>
         )}
 
         {gameState === 'SPINNING' && (
-          <SpinningProgress />
+          <div className="bg-white/95 border border-zinc-200/80 rounded-3xl p-4 shadow-xl shadow-zinc-400/20 backdrop-blur-md">
+            <SpinningProgress />
+          </div>
         )}
 
         {gameState === 'WON' && spinResult && (
           <div className="flex flex-col items-center">
             {alreadyPlayedNotice && (
-              <div className="w-full mb-2 p-3 rounded-2xl bg-amber-950/80 border border-amber-400/80 text-amber-200 text-xs flex items-center gap-2 shadow-lg">
-                <Info className="w-4 h-4 text-amber-400 shrink-0" />
+              <div className="w-full mb-3 p-3 rounded-2xl bg-amber-50 border border-amber-300 text-amber-800 text-xs flex items-center gap-2 shadow-sm">
+                <Info className="w-4 h-4 text-amber-600 shrink-0" />
                 <span>¡Ya registraste tu tiro con este contacto! Aquí tienes tu pase para canjear en el stand.</span>
               </div>
             )}
@@ -387,7 +393,7 @@ export default function App() {
         )}
       </main>
 
-      <footer className="w-full py-2.5 px-4 bg-zinc-950/90 border-t border-zinc-900 text-center text-[10px] text-zinc-500 font-sans">
+      <footer className="w-full py-2.5 px-4 bg-white/80 border-t border-zinc-300 text-center text-[10px] text-zinc-500 font-sans">
         Marketing VIP • Especialistas en sueños • Stand Feria Automotriz 2026
       </footer>
     </div>

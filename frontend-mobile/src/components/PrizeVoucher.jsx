@@ -21,45 +21,45 @@ export default function PrizeVoucher({ result }) {
   return (
     <div className="w-full flex flex-col items-center my-4 animate-fadeIn select-none">
       {/* Icono de Victoria con Verde Corporativo */}
-      <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#84A816] to-[#9AC31C] flex items-center justify-center shadow-[0_0_25px_rgba(154,195,28,0.8)] mb-3">
+      <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#84A816] to-[#9AC31C] flex items-center justify-center shadow-lg mb-3">
         <Trophy className="w-9 h-9 text-black" />
       </div>
 
-      <span className="font-racing text-red-500 text-xs font-black tracking-widest uppercase">
+      <span className="font-racing text-red-600 text-xs font-black tracking-widest uppercase">
         ¡TIEMPO RÉCORD EN PISTA!
       </span>
-      <h2 className="text-2xl font-racing font-black text-white uppercase text-center mt-0.5 mb-4">
+      <h2 className="text-2xl font-racing font-black text-zinc-900 uppercase text-center mt-0.5 mb-4">
         ¡PREMIO OBTENIDO!
       </h2>
 
       {/* Tarjeta Tipo Boarding Pass / Pase VIP */}
-      <div className="w-full max-w-sm brushed-metal border-2 border-[#9AC31C]/80 rounded-3xl p-5 shadow-2xl relative overflow-hidden mb-6">
-        <div className="absolute -right-8 -bottom-8 opacity-10 pointer-events-none">
-          <Plane className="w-40 h-40 text-white" />
+      <div className="w-full max-w-sm bg-white border-2 border-[#9AC31C] rounded-3xl p-5 shadow-xl relative overflow-hidden mb-6 text-zinc-900">
+        <div className="absolute -right-8 -bottom-8 opacity-5 pointer-events-none">
+          <Plane className="w-40 h-40 text-black" />
         </div>
 
         {/* Encabezado del Ticket */}
-        <div className="flex items-center justify-between border-b border-zinc-700 pb-3 mb-4">
+        <div className="flex items-center justify-between border-b border-zinc-200 pb-3 mb-4">
           <div className="flex items-center gap-2">
             <span className="w-6 h-6 rounded-lg bg-[#9AC31C] font-racing font-bold text-xs flex items-center justify-center text-black">VIP</span>
-            <span className="font-racing font-bold text-xs text-zinc-300 tracking-wider">PASE DE PREMIO</span>
+            <span className="font-racing font-bold text-xs text-zinc-700 tracking-wider">PASE DE PREMIO</span>
           </div>
-          <span className="font-mono text-xs font-bold text-[#9AC31C] bg-zinc-900 px-2 py-0.5 rounded border border-[#9AC31C]/40">
+          <span className="font-mono text-xs font-bold text-zinc-900 bg-zinc-100 px-2.5 py-1 rounded-md border border-zinc-300">
             {ticketCode}
           </span>
         </div>
 
         {/* Datos del Piloto */}
         <div className="mb-4">
-          <span className="text-[10px] text-zinc-400 uppercase tracking-wider block">Piloto Titular</span>
-          <p className="text-base font-bold text-white uppercase">{lead.name}</p>
-          <span className="text-xs text-[#9AC31C] font-medium flex items-center gap-1 mt-0.5">
-            <Sparkles className="w-3 h-3 text-[#9AC31C]" /> Destino soñado: {lead.dream_destination}
+          <span className="text-[10px] text-zinc-500 uppercase tracking-wider block font-semibold">Piloto Titular</span>
+          <p className="text-base font-bold text-zinc-900 uppercase">{lead.name}</p>
+          <span className="text-xs text-[#7A9E14] font-medium flex items-center gap-1 mt-0.5 font-semibold">
+            <Sparkles className="w-3 h-3 text-[#7A9E14]" /> Destino soñado: {lead.dream_destination}
           </span>
         </div>
 
         {/* Premio Ganado */}
-        <div className="bg-gradient-to-r from-zinc-900 via-zinc-950 to-zinc-900 border border-[#9AC31C]/60 rounded-2xl p-4 text-center mb-4 shadow-inner">
+        <div className="bg-zinc-900 border border-[#9AC31C] rounded-2xl p-4 text-center mb-4 shadow-md text-white">
           <span className="text-[10px] font-racing font-bold text-[#9AC31C] uppercase tracking-widest block mb-1">
             RESULTADO DE LA RULETA
           </span>
@@ -72,8 +72,8 @@ export default function PrizeVoucher({ result }) {
         </div>
 
         {/* Validez de Urgencia */}
-        <div className="flex items-center justify-center gap-1.5 text-xs text-zinc-400 font-medium">
-          <Clock className="w-3.5 h-3.5 text-[#9AC31C]" />
+        <div className="flex items-center justify-center gap-1.5 text-xs text-zinc-600 font-medium">
+          <Clock className="w-3.5 h-3.5 text-[#7A9E14]" />
           <span>Válido para canjear hoy en el stand de Marketing VIP</span>
         </div>
       </div>
@@ -83,13 +83,13 @@ export default function PrizeVoucher({ result }) {
         href={whatsappUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="w-full max-w-sm py-4 px-6 rounded-2xl bg-gradient-to-r from-[#84A816] via-[#9AC31C] to-[#84A816] hover:opacity-95 text-black font-racing font-black text-base uppercase tracking-wider shadow-[0_0_30px_rgba(154,195,28,0.7)] flex items-center justify-center gap-3 transition-transform active:scale-95 text-center group"
+        className="w-full max-w-sm py-4 px-6 rounded-2xl bg-gradient-to-r from-[#84A816] via-[#9AC31C] to-[#84A816] hover:opacity-95 text-black font-racing font-black text-base uppercase tracking-wider shadow-xl flex items-center justify-center gap-3 transition-transform active:scale-95 text-center group"
       >
         <MessageCircle className="w-6 h-6 text-black group-hover:scale-110 transition-transform" />
         <span>¡Reclama tu premio!</span>
       </a>
 
-      <p className="text-xs text-zinc-400 text-center mt-3 max-w-xs">
+      <p className="text-xs text-zinc-600 text-center mt-3 max-w-xs font-medium">
         Presiona el botón para abrir WhatsApp y validar tu premio con nuestros asesores de sueños.
       </p>
     </div>

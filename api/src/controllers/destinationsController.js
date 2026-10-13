@@ -1,4 +1,5 @@
 const { pool } = require('../config/db');
+const { touchSystemSync } = require('./displaysController');
 
 // Obtener destinos activos (Público - para la App Móvil)
 async function getDestinations(req, res) {
@@ -64,6 +65,7 @@ async function createDestination(req, res) {
     );
 
     await connection.commit();
+    await touchSystemSync('DESTINATIONS_UPDATED', req.io);
 
     res.json({
       success: true,
@@ -120,6 +122,7 @@ async function updateDestination(req, res) {
     }
 
     await connection.commit();
+    await touchSystemSync('DESTINATIONS_UPDATED', req.io);
 
     res.json({
       success: true,
@@ -146,6 +149,8 @@ async function deleteDestination(req, res) {
     if (result.affectedRows === 0) {
       return res.status(404).json({ success: false, message: 'Destino no encontrado' });
     }
+
+    await touchSystemSync('DESTINATIONS_UPDATED', req.io);
 
     res.json({
       success: true,

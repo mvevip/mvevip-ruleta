@@ -6,6 +6,10 @@ import QRCodeCard from './components/QRCodeCard';
 import WinnerOverlay from './components/WinnerOverlay';
 import AttractBanner from './components/AttractBanner';
 import VideoAttractOverlay from './components/VideoAttractOverlay';
+import DisplayQRView from './components/DisplayQRView';
+import DisplaySliderView from './components/DisplaySliderView';
+import DisplayComboView from './components/DisplayComboView';
+import useRemoteDisplaySync from './hooks/useRemoteDisplaySync';
 import { Radio, FlaskConical } from 'lucide-react';
 
 const isLocal = typeof window !== 'undefined' && (
@@ -30,6 +34,19 @@ const MOBILE_BASE_URL = isLocal
 const SCREEN_ID = 'STAND_01';
 
 export default function App() {
+  const [currentView, setCurrentView] = useState(() => {
+    if (typeof window === 'undefined') return 'roulette';
+    const path = window.location.pathname.toLowerCase();
+    const search = new URLSearchParams(window.location.search);
+    const hash = window.location.hash.toLowerCase();
+    const mode = search.get('view') || search.get('mode') || '';
+
+    if (mode === 'qr' || path.endsWith('/qr') || hash.includes('/qr')) return 'qr';
+    if (mode === 'slider' || path.endsWith('/slider') || hash.includes('/slider')) return 'slider';
+    if (mode === 'combo' || path.endsWith('/combo') || hash.includes('/combo')) return 'combo';
+    return 'roulette';
+  });
+
   const [prizes, setPrizes] = useState([]);
   const [isSpinning, setIsSpinning] = useState(false);
   const [rotationAngle, setRotationAngle] = useState(0);
@@ -39,6 +56,28 @@ export default function App() {
   const [showVideo, setShowVideo] = useState(true);
 
   const [isTestSpinning, setIsTestSpinning] = useState(false);
+
+  // Escuchar cambios de URL en navegador
+  useEffect(() => {
+    const handleLocationChange = () => {
+      const path = window.location.pathname.toLowerCase();
+      const search = new URLSearchParams(window.location.search);
+      const hash = window.location.hash.toLowerCase();
+      const mode = search.get('view') || search.get('mode') || '';
+
+      if (mode === 'qr' || path.endsWith('/qr') || hash.includes('/qr')) setCurrentView('qr');
+      else if (mode === 'slider' || path.endsWith('/slider') || hash.includes('/slider')) setCurrentView('slider');
+      else if (mode === 'combo' || path.endsWith('/combo') || hash.includes('/combo')) setCurrentView('combo');
+      else setCurrentView('roulette');
+    };
+
+    window.addEventListener('popstate', handleLocationChange);
+    window.addEventListener('hashchange', handleLocationChange);
+    return () => {
+      window.removeEventListener('popstate', handleLocationChange);
+      window.removeEventListener('hashchange', handleLocationChange);
+    };
+  }, []);
 
   const socketRef = useRef(null);
   const currentAngleRef = useRef(0);
@@ -402,6 +441,27 @@ export default function App() {
     // Si la pantalla está totalmente libre, ejecutar inmediatamente
     executeSpin(data);
   };
+
+  // Sincronización remota para actualizar premios automáticamente cuando el admin los modifica
+  const { lastSyncTime } = useRemoteDisplaySync('roulette', socketRef.current);
+  useEffect(() => {
+    if (lastSyncTime) {
+      fetchPrizes();
+    }
+  }, [lastSyncTime]);
+
+  // Vistas dedicadas de Cartelería Digital
+  if (currentView === 'qr') {
+    return <DisplayQRView mobileUrl={MOBILE_BASE_URL} screenId={SCREEN_ID} />;
+  }
+
+  if (currentView === 'slider') {
+    return <DisplaySliderView />;
+  }
+
+  if (currentView === 'combo') {
+    return <DisplayComboView mobileUrl={MOBILE_BASE_URL} screenId={SCREEN_ID} />;
+  }
 
   return (
     <div className="min-h-screen w-screen carbon-bg text-white flex flex-col justify-between overflow-hidden select-none relative">

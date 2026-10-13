@@ -19,8 +19,10 @@ import {
   Trash2,
   Edit2,
   Plus,
-  Star
+  Star,
+  Tv
 } from 'lucide-react';
+import DisplaysManager from './components/DisplaysManager';
 
 const isLocal = typeof window !== 'undefined' && (
   window.location.hostname === 'localhost' ||
@@ -36,7 +38,7 @@ const API_URL = isLocal
 export default function App() {
   const [pin, setPin] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [activeTab, setActiveTab] = useState('prizes'); // 'prizes' | 'leads' | 'redeem' | 'metrics' | 'destinations'
+  const [activeTab, setActiveTab] = useState('prizes'); // 'prizes' | 'leads' | 'destinations' | 'displays' | 'redeem' | 'metrics'
   
   const [prizes, setPrizes] = useState([]);
   const [leads, setLeads] = useState([]);
@@ -401,7 +403,7 @@ export default function App() {
         </main>
       ) : (
         /* Contenido Principal con Pestañas */
-        <main className="flex-1 max-w-md w-full mx-auto p-4 space-y-4 pb-24">
+        <main className={`flex-1 w-full mx-auto p-4 space-y-4 pb-24 ${activeTab === 'displays' ? 'max-w-2xl' : 'max-w-md'}`}>
           
           {/* PESTAÑA 1: GESTIÓN DE PREMIOS */}
           {activeTab === 'prizes' && (
@@ -816,15 +818,27 @@ export default function App() {
             </div>
           )}
 
+          {/* PESTAÑA 4: PANTALLAS & CARTELERÍA DIGITAL */}
+          {activeTab === 'displays' && (
+            <DisplaysManager
+              apiUrl={API_URL}
+              getAdminHeaders={getAdminHeaders}
+              onNotification={(msg) => {
+                setSavedMsg(msg);
+                setTimeout(() => setSavedMsg(''), 3000);
+              }}
+            />
+          )}
+
         </main>
       )}
 
       {/* Barra de Navegación Inferior (Mobile Bottom Navigation Bar) */}
       {isAuthenticated && (
-        <nav className="fixed bottom-0 left-0 right-0 z-30 bg-zinc-950/95 border-t border-zinc-800 py-2 px-2 flex items-center justify-around backdrop-blur-md">
+        <nav className="fixed bottom-0 left-0 right-0 z-30 bg-zinc-950/95 border-t border-zinc-800 py-2 px-1 flex items-center justify-around backdrop-blur-md">
           <button
             onClick={() => setActiveTab('prizes')}
-            className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl transition-all ${
+            className={`flex flex-col items-center gap-0.5 py-1 px-1.5 rounded-xl transition-all ${
               activeTab === 'prizes' ? 'text-[#9AC31C]' : 'text-zinc-500'
             }`}
           >
@@ -834,7 +848,7 @@ export default function App() {
 
           <button
             onClick={() => setActiveTab('leads')}
-            className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl transition-all ${
+            className={`flex flex-col items-center gap-0.5 py-1 px-1.5 rounded-xl transition-all ${
               activeTab === 'leads' ? 'text-[#9AC31C]' : 'text-zinc-500'
             }`}
           >
@@ -844,7 +858,7 @@ export default function App() {
 
           <button
             onClick={() => setActiveTab('destinations')}
-            className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl transition-all ${
+            className={`flex flex-col items-center gap-0.5 py-1 px-1.5 rounded-xl transition-all ${
               activeTab === 'destinations' ? 'text-[#9AC31C]' : 'text-zinc-500'
             }`}
           >
@@ -853,8 +867,18 @@ export default function App() {
           </button>
 
           <button
+            onClick={() => setActiveTab('displays')}
+            className={`flex flex-col items-center gap-0.5 py-1 px-1.5 rounded-xl transition-all ${
+              activeTab === 'displays' ? 'text-[#9AC31C]' : 'text-zinc-500'
+            }`}
+          >
+            <Tv className="w-4 h-4" />
+            <span className="text-[9px] font-racing font-bold uppercase">Pantallas</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('redeem')}
-            className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl transition-all ${
+            className={`flex flex-col items-center gap-0.5 py-1 px-1.5 rounded-xl transition-all ${
               activeTab === 'redeem' ? 'text-[#9AC31C]' : 'text-zinc-500'
             }`}
           >
@@ -864,7 +888,7 @@ export default function App() {
 
           <button
             onClick={() => setActiveTab('metrics')}
-            className={`flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl transition-all ${
+            className={`flex flex-col items-center gap-0.5 py-1 px-1.5 rounded-xl transition-all ${
               activeTab === 'metrics' ? 'text-[#9AC31C]' : 'text-zinc-500'
             }`}
           >

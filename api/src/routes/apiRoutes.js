@@ -3,6 +3,7 @@ const router = express.Router();
 const rouletteController = require('../controllers/rouletteController');
 const leadsController = require('../controllers/leadsController');
 const destinationsController = require('../controllers/destinationsController');
+const displaysController = require('../controllers/displaysController');
 const { spinLimiter, adminLimiter } = require('../middlewares/rateLimiter');
 const { requireAdminAuth } = require('../middlewares/authMiddleware');
 const { verifyTurnstile } = require('../middlewares/turnstileMiddleware');
@@ -17,6 +18,11 @@ router.post('/screen/activity', rouletteController.recordScreenActivity);
 router.get('/ticket/:code', rouletteController.verifyTicket);
 router.get('/destinations', destinationsController.getDestinations);
 
+// Rutas Públicas de Cartelería Digital y Sincronización
+router.get('/displays/config', displaysController.getDisplaysConfig);
+router.get('/displays/slider-images', displaysController.getSliderImages);
+router.get('/displays/sync', displaysController.getSyncStatus);
+
 // Rutas Administrativas de Premios y Canjes (Protegidas con PIN y Rate Limit)
 router.post('/ticket/:code/redeem', adminLimiter, requireAdminAuth, rouletteController.redeemTicket);
 router.get('/admin/prizes', adminLimiter, requireAdminAuth, rouletteController.getAdminPrizes);
@@ -29,8 +35,19 @@ router.post('/admin/destinations', adminLimiter, requireAdminAuth, destinationsC
 router.put('/admin/destinations/:id', adminLimiter, requireAdminAuth, destinationsController.updateDestination);
 router.delete('/admin/destinations/:id', adminLimiter, requireAdminAuth, destinationsController.deleteDestination);
 
+// Rutas Administrativas de Pantallas, Slider y Sincronización Remota
+router.get('/admin/displays/config', adminLimiter, requireAdminAuth, displaysController.getDisplaysConfig);
+router.put('/admin/displays/config', adminLimiter, requireAdminAuth, displaysController.updateDisplayConfig);
+router.get('/admin/displays/slider-images', adminLimiter, requireAdminAuth, displaysController.getAdminSliderImages);
+router.post('/admin/displays/slider-images', adminLimiter, requireAdminAuth, displaysController.createSliderImage);
+router.put('/admin/displays/slider-images/reorder', adminLimiter, requireAdminAuth, displaysController.reorderSliderImages);
+router.put('/admin/displays/slider-images/:id', adminLimiter, requireAdminAuth, displaysController.updateSliderImage);
+router.delete('/admin/displays/slider-images/:id', adminLimiter, requireAdminAuth, displaysController.deleteSliderImage);
+router.post('/admin/displays/reload', adminLimiter, requireAdminAuth, displaysController.triggerRemoteReload);
+
 // Rutas Administrativas de Leads & Estadísticas de feria
 router.get('/leads', adminLimiter, requireAdminAuth, leadsController.getLeads);
 router.get('/metrics', adminLimiter, requireAdminAuth, leadsController.getMetrics);
 
 module.exports = router;
+

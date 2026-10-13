@@ -38,8 +38,8 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(globalLimiter);
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '15mb' }));
+app.use(express.urlencoded({ limit: '15mb', extended: true }));
 
 // Configurar WebSockets con CORS seguro
 const io = new Server(server, {
@@ -58,6 +58,8 @@ const io = new Server(server, {
     methods: ['GET', 'POST']
   }
 });
+
+global.io = io;
 
 // Middleware para inyectar io en las peticiones REST
 app.use((req, res, next) => {

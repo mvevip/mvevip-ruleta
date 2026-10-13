@@ -43,3 +43,9 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# Archivos de prueba temporales
+imagen_slider.*
+images.jpg
+wp13543055.jpg
+
