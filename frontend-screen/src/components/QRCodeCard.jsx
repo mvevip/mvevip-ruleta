@@ -16,23 +16,36 @@ export default function QRCodeCard({
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef({ startX: 0, startY: 0, initialX: 0, initialY: 0 });
 
-  // 1. Cargar posición guardada desde localStorage al montar
-  useEffect(() => {
-    if (!isDraggable) return;
+  const loadSavedPosition = () => {
     try {
       const saved = localStorage.getItem(storageKey);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
-          // Validar que no quede fuera de la pantalla actual
           const safeX = Math.max(10, Math.min(window.innerWidth - 340, parsed.x));
           const safeY = Math.max(10, Math.min(window.innerHeight - 400, parsed.y));
           setPosition({ x: safeX, y: safeY });
+          return;
         }
       }
+      setPosition(null);
     } catch (e) {
       console.warn('Error leyendo posición guardada del QR:', e);
     }
+  };
+
+  // 1. Cargar posición guardada desde localStorage al montar y escuchar sincronizaciones
+  useEffect(() => {
+    if (!isDraggable) return;
+    loadSavedPosition();
+
+    const handleSync = () => loadSavedPosition();
+    window.addEventListener('storage', handleSync);
+    window.addEventListener('qr-position-updated', handleSync);
+    return () => {
+      window.removeEventListener('storage', handleSync);
+      window.removeEventListener('qr-position-updated', handleSync);
+    };
   }, [isDraggable, storageKey]);
 
   // 2. Control de inicio de arrastre (Mouse / Touch)
@@ -87,6 +100,7 @@ export default function QRCodeCard({
     if (position) {
       try {
         localStorage.setItem(storageKey, JSON.stringify(position));
+        window.dispatchEvent(new Event('qr-position-updated'));
       } catch (err) {
         console.warn('Error guardando posición de QR:', err);
       }
@@ -99,6 +113,7 @@ export default function QRCodeCard({
     setPosition(null);
     try {
       localStorage.removeItem(storageKey);
+      window.dispatchEvent(new Event('qr-position-updated'));
     } catch (_) {}
   };
 

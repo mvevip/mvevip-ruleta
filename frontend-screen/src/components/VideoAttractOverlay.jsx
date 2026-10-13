@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Smartphone, Sparkles, Volume2, VolumeX, X } from 'lucide-react';
+import { Smartphone, Sparkles, Volume2, VolumeX, X, Move, RotateCcw } from 'lucide-react';
 
 const YOUTUBE_VIDEO_ID = 'AzQlHkHx6HI';
 
@@ -11,8 +11,115 @@ export default function VideoAttractOverlay({
   screenId = 'STAND_01'
 }) {
   const iframeRef = useRef(null);
+  const cardRef = useRef(null);
   const fullQrUrl = `${mobileUrl}?screen=${screenId}`;
   const [isMuted, setIsMuted] = useState(false);
+
+  // Estados para mover el código QR libremente con memoria de posición
+  const storageKey = 'mvevip_screen_qr_pos';
+  const [position, setPosition] = useState(null); // { x: number, y: number } | null
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef({ startX: 0, startY: 0, initialX: 0, initialY: 0 });
+
+  const loadSavedPosition = () => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
+          const safeX = Math.max(10, Math.min(window.innerWidth - 300, parsed.x));
+          const safeY = Math.max(10, Math.min(window.innerHeight - 360, parsed.y));
+          setPosition({ x: safeX, y: safeY });
+          return;
+        }
+      }
+      setPosition(null);
+    } catch (e) {
+      console.warn('[VideoAttract] Error leyendo posición guardada del QR:', e);
+    }
+  };
+
+  // Cargar y sincronizar posición con el resto de la aplicación
+  useEffect(() => {
+    loadSavedPosition();
+
+    const handleSync = () => loadSavedPosition();
+    window.addEventListener('storage', handleSync);
+    window.addEventListener('qr-position-updated', handleSync);
+    return () => {
+      window.removeEventListener('storage', handleSync);
+      window.removeEventListener('qr-position-updated', handleSync);
+    };
+  }, [isVisible]);
+
+  // Manejadores de arrastre con Pointer Events
+  const handlePointerDown = (e) => {
+    e.stopPropagation();
+    if (e.button !== 0) return;
+    if (e.target.closest('button')) return;
+
+    const rect = cardRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const currentX = position ? position.x : rect.left;
+    const currentY = position ? position.y : rect.top;
+
+    dragStartRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      initialX: currentX,
+      initialY: currentY
+    };
+
+    setIsDragging(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e) => {
+    e.stopPropagation();
+    if (!isDragging) return;
+
+    const deltaX = e.clientX - dragStartRef.current.startX;
+    const deltaY = e.clientY - dragStartRef.current.startY;
+
+    const rawX = dragStartRef.current.initialX + deltaX;
+    const rawY = dragStartRef.current.initialY + deltaY;
+
+    const cardWidth = cardRef.current?.offsetWidth || 288;
+    const cardHeight = cardRef.current?.offsetHeight || 340;
+
+    const clampedX = Math.max(10, Math.min(window.innerWidth - cardWidth - 10, rawX));
+    const clampedY = Math.max(10, Math.min(window.innerHeight - cardHeight - 10, rawY));
+
+    setPosition({ x: clampedX, y: clampedY });
+  };
+
+  const handlePointerUp = (e) => {
+    e.stopPropagation();
+    if (!isDragging) return;
+    setIsDragging(false);
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch (_) {}
+
+    if (position) {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(position));
+        window.dispatchEvent(new Event('qr-position-updated'));
+      } catch (err) {
+        console.warn('[VideoAttract] Error guardando posición de QR:', err);
+      }
+    }
+  };
+
+  const handleResetPosition = (e) => {
+    e.stopPropagation();
+    setPosition(null);
+    try {
+      localStorage.removeItem(storageKey);
+      window.dispatchEvent(new Event('qr-position-updated'));
+    } catch (_) {}
+  };
 
   const sendIframeCommand = (func, args = []) => {
     const iframe = iframeRef.current;
@@ -30,14 +137,12 @@ export default function VideoAttractOverlay({
   // Controlar reproducción/pausa y audio mediante la API de YouTube sin recargar el iframe
   useEffect(() => {
     if (isVisible) {
-      // Reproducir video y reactivar sonido al mostrarse
       sendIframeCommand('playVideo');
       if (!isMuted) {
         sendIframeCommand('unMute');
         sendIframeCommand('setVolume', [100]);
       }
     } else {
-      // Silenciar y pausar inmediatamente al ocultarse para evitar fugas de sonido
       sendIframeCommand('mute');
       sendIframeCommand('pauseVideo');
     }
@@ -56,12 +161,21 @@ export default function VideoAttractOverlay({
   };
 
   const handleVideoClick = () => {
-    // Al tocar el video o pantalla de fondo, reproducir y activar sonido sin cerrar el video
     sendIframeCommand('playVideo');
     sendIframeCommand('unMute');
     sendIframeCommand('setVolume', [100]);
     setIsMuted(false);
   };
+
+  const cardStyle = position
+    ? {
+        position: 'fixed',
+        left: `${position.x}px`,
+        top: `${position.y}px`,
+        zIndex: 60,
+        margin: 0
+      }
+    : {};
 
   return (
     <div
@@ -70,7 +184,7 @@ export default function VideoAttractOverlay({
       }`}
       onClick={handleVideoClick}
     >
-      {/* 1. Contenedor del Video en Proporción Adaptativa (Cubre 100% de pantalla cuadrada 2x2m) */}
+      {/* 1. Contenedor del Video en Proporción Adaptativa */}
       <div className="absolute inset-0 w-full h-full overflow-hidden flex items-center justify-center pointer-events-none">
         <iframe
           ref={iframeRef}
@@ -79,7 +193,6 @@ export default function VideoAttractOverlay({
           allow="autoplay; encrypted-media"
           className="w-[100vw] h-[100vh] min-w-[177.78vh] min-h-[56.25vw] max-w-none border-0 object-cover scale-[1.25] md:scale-[1.4] pointer-events-none"
         />
-        {/* Gradiente sutil para mejorar la legibilidad de textos y QR */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/60 pointer-events-none" />
       </div>
 
@@ -103,7 +216,6 @@ export default function VideoAttractOverlay({
 
         {/* Indicadores: Audio y Stand */}
         <div className="flex items-center gap-2 pointer-events-auto">
-          {/* Botón de Audio */}
           <button
             type="button"
             onClick={toggleSound}
@@ -123,13 +235,11 @@ export default function VideoAttractOverlay({
             )}
           </button>
 
-          {/* Indicador de Stand */}
           <div className="bg-zinc-950/85 backdrop-blur-md border border-zinc-800 px-4 py-2 rounded-xl text-zinc-300 text-xs font-semibold flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-[#9AC31C] animate-ping" />
             <span>Stand #{screenId}</span>
           </div>
 
-          {/* Botón Discreto de Cerrar Video en la esquina superior derecha */}
           <button
             type="button"
             onClick={(e) => {
@@ -144,11 +254,37 @@ export default function VideoAttractOverlay({
         </div>
       </div>
 
-      {/* 3. Tarjeta Flotante con Código QR en Esquina Inferior Derecha (Solo informativa para escaneo con móvil) */}
+      {/* 3. Tarjeta Flotante con Código QR (Arrastrable con memoria de posición) */}
       <div
-        className="absolute bottom-8 right-8 z-50 brushed-metal p-4 rounded-3xl border-2 border-[#9AC31C] shadow-[0_0_40px_rgba(154,195,28,0.5)] flex flex-col items-center w-72 text-center backdrop-blur-xl animate-pulse hover:animate-none"
+        ref={cardRef}
+        style={cardStyle}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
         onClick={(e) => e.stopPropagation()}
+        className={`z-50 brushed-metal p-4 rounded-3xl border-2 border-[#9AC31C] shadow-[0_0_40px_rgba(154,195,28,0.5)] flex flex-col items-center w-72 text-center backdrop-blur-xl cursor-grab active:cursor-grabbing select-none transition-shadow ${
+          position ? '' : 'absolute bottom-8 right-8'
+        } ${isDragging ? 'ring-2 ring-[#9AC31C] shadow-[0_0_60px_rgba(154,195,28,0.7)] scale-[1.02]' : ''}`}
       >
+        {/* Barra superior de Mover y Reset */}
+        <div className="w-full flex items-center justify-between mb-2 text-zinc-400 text-[10px] tracking-wider uppercase font-semibold border-b border-zinc-800/80 pb-1.5">
+          <div className="flex items-center gap-1 text-zinc-400 hover:text-[#9AC31C] transition-colors">
+            <Move className="w-3.5 h-3.5 text-[#9AC31C]" />
+            <span>Mover QR</span>
+          </div>
+          {position && (
+            <button
+              type="button"
+              onClick={handleResetPosition}
+              title="Restablecer a posición original"
+              className="flex items-center gap-1 text-[10px] text-red-400 hover:text-red-300 bg-red-950/40 hover:bg-red-900/60 px-1.5 py-0.5 rounded border border-red-800/50 transition-all cursor-pointer"
+            >
+              <RotateCcw className="w-2.5 h-2.5" />
+              <span>Reset</span>
+            </button>
+          )}
+        </div>
+
         <div className="flex items-center gap-2 mb-2">
           <Smartphone className="w-4 h-4 text-[#9AC31C]" />
           <span className="font-racing text-xs font-black tracking-wider text-[#9AC31C] uppercase">
@@ -158,7 +294,7 @@ export default function VideoAttractOverlay({
         </div>
 
         {/* Código QR Generado */}
-        <div className="bg-white p-2.5 rounded-2xl shadow-[0_0_20px_rgba(154,195,28,0.5)] border border-[#9AC31C] mb-2">
+        <div className="bg-white p-2.5 rounded-2xl shadow-[0_0_20px_rgba(154,195,28,0.5)] border border-[#9AC31C] mb-2 pointer-events-none">
           <QRCodeSVG
             value={fullQrUrl}
             size={140}
