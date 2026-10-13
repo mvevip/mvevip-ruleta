@@ -91,17 +91,35 @@ async function updateDisplayConfig(req, res) {
       ? Number(qr_scale_percent)
       : null;
 
-    await pool.query(
-      `INSERT INTO display_configs (screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent)
-       VALUES (?, ?, ?, ?, COALESCE(?, 'AzQlHkHx6HI'), COALESCE(?, 55))
-       ON DUPLICATE KEY UPDATE 
-         orientation = VALUES(orientation), 
-         slide_duration = VALUES(slide_duration), 
-         layout_ratio = VALUES(layout_ratio),
-         video_url = IF(VALUES(video_url) IS NOT NULL AND VALUES(video_url) != '', VALUES(video_url), video_url),
-         qr_scale_percent = IF(VALUES(qr_scale_percent) IS NOT NULL, VALUES(qr_scale_percent), qr_scale_percent)`,
-      [screen_key, cleanOrientation, cleanDuration, cleanRatio, cleanVideo, cleanScale]
-    );
+    try {
+      await pool.query(
+        `INSERT INTO display_configs (screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent)
+         VALUES (?, ?, ?, ?, COALESCE(?, 'AzQlHkHx6HI'), COALESCE(?, 55))
+         ON DUPLICATE KEY UPDATE 
+           orientation = VALUES(orientation), 
+           slide_duration = VALUES(slide_duration), 
+           layout_ratio = VALUES(layout_ratio),
+           video_url = IF(VALUES(video_url) IS NOT NULL AND VALUES(video_url) != '', VALUES(video_url), video_url),
+           qr_scale_percent = IF(VALUES(qr_scale_percent) IS NOT NULL, VALUES(qr_scale_percent), qr_scale_percent)`,
+        [screen_key, cleanOrientation, cleanDuration, cleanRatio, cleanVideo, cleanScale]
+      );
+    } catch (sqlErr) {
+      console.warn('[Displays] Error SQL en updateDisplayConfig, intentando auto-migración de columnas:', sqlErr.message);
+      await pool.query('ALTER TABLE display_configs ADD COLUMN video_url VARCHAR(255) NOT NULL DEFAULT "AzQlHkHx6HI"').catch(() => {});
+      await pool.query('ALTER TABLE display_configs ADD COLUMN qr_scale_percent INT NOT NULL DEFAULT 55').catch(() => {});
+      // Reintentar
+      await pool.query(
+        `INSERT INTO display_configs (screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent)
+         VALUES (?, ?, ?, ?, COALESCE(?, 'AzQlHkHx6HI'), COALESCE(?, 55))
+         ON DUPLICATE KEY UPDATE 
+           orientation = VALUES(orientation), 
+           slide_duration = VALUES(slide_duration), 
+           layout_ratio = VALUES(layout_ratio),
+           video_url = IF(VALUES(video_url) IS NOT NULL AND VALUES(video_url) != '', VALUES(video_url), video_url),
+           qr_scale_percent = IF(VALUES(qr_scale_percent) IS NOT NULL, VALUES(qr_scale_percent), qr_scale_percent)`,
+        [screen_key, cleanOrientation, cleanDuration, cleanRatio, cleanVideo, cleanScale]
+      );
+    }
 
     const version = await touchSystemSync(`DISPLAY_CONFIG_${screen_key.toUpperCase()}`, req.io);
 
@@ -114,7 +132,7 @@ async function updateDisplayConfig(req, res) {
     });
   } catch (error) {
     console.error('[Displays] Error actualizando configuración:', error);
-    return res.status(500).json({ success: false, error: 'Error al guardar configuración de pantalla' });
+    return res.status(500).json({ success: false, error: 'Error al guardar configuración de pantalla: ' + error.message });
   }
 }
 
