@@ -113,17 +113,22 @@ async function checkConnection() {
           orientation VARCHAR(20) NOT NULL DEFAULT 'auto',
           slide_duration INT NOT NULL DEFAULT 8,
           layout_ratio VARCHAR(20) NOT NULL DEFAULT '55/45',
+          video_url VARCHAR(255) NOT NULL DEFAULT 'AzQlHkHx6HI',
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) ENGINE=InnoDB;
       `).catch(() => {});
 
+      await connection.query(`
+        ALTER TABLE display_configs ADD COLUMN video_url VARCHAR(255) NOT NULL DEFAULT 'AzQlHkHx6HI';
+      `).catch(() => {});
+
       // Poblar configuraciones de pantalla iniciales si no existen
       await connection.query(`
-        INSERT INTO display_configs (screen_key, orientation, slide_duration, layout_ratio) VALUES
-        ('roulette', 'auto', 8, 'default'),
-        ('qr', 'auto', 8, 'default'),
-        ('slider', 'auto', 8, 'default'),
-        ('combo', 'auto', 8, '55/45')
+        INSERT INTO display_configs (screen_key, orientation, slide_duration, layout_ratio, video_url) VALUES
+        ('roulette', 'auto', 8, 'default', 'AzQlHkHx6HI'),
+        ('qr', 'auto', 8, 'default', 'AzQlHkHx6HI'),
+        ('slider', 'auto', 8, 'default', 'AzQlHkHx6HI'),
+        ('combo', 'auto', 8, '55/45', 'AzQlHkHx6HI')
         ON DUPLICATE KEY UPDATE screen_key=VALUES(screen_key);
       `).catch(() => {});
 

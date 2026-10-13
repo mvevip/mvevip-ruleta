@@ -443,7 +443,7 @@ export default function App() {
   };
 
   // Sincronización remota para actualizar premios automáticamente cuando el admin los modifica
-  const { lastSyncTime } = useRemoteDisplaySync('roulette', socketRef.current);
+  const { displayConfig, lastSyncTime } = useRemoteDisplaySync('roulette', socketRef.current);
   useEffect(() => {
     if (lastSyncTime) {
       fetchPrizes();
@@ -517,6 +517,7 @@ export default function App() {
         onDismiss={dismissVideo}
         mobileUrl={MOBILE_BASE_URL}
         screenId={SCREEN_ID}
+        videoId={displayConfig?.video_url || 'AzQlHkHx6HI'}
       />
 
       {/* Botón Flotante Discreto de Modo Prueba (Giro de 1 Minuto) */}

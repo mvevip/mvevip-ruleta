@@ -15,18 +15,23 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Video
 } from 'lucide-react';
 
 export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotification }) {
   const [displayConfigs, setDisplayConfigs] = useState({
-    roulette: { orientation: 'auto', slide_duration: 8, layout_ratio: 'default' },
+    roulette: { orientation: 'auto', slide_duration: 8, layout_ratio: 'default', video_url: 'AzQlHkHx6HI' },
     qr: { orientation: 'auto', slide_duration: 8, layout_ratio: 'default' },
     slider: { orientation: 'auto', slide_duration: 8, layout_ratio: 'default' },
     combo: { orientation: 'auto', slide_duration: 8, layout_ratio: '55/45' }
   });
   const [sliderImages, setSliderImages] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // Video de ruleta
+  const [rouletteVideoInput, setRouletteVideoInput] = useState('AzQlHkHx6HI');
+  const [isSavingVideo, setIsSavingVideo] = useState(false);
 
   // Estados de subida
   const [newTitle, setNewTitle] = useState('');
@@ -57,6 +62,9 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
         const jsonConfig = await resConfig.json();
         if (jsonConfig.success && jsonConfig.configs) {
           setDisplayConfigs(prev => ({ ...prev, ...jsonConfig.configs }));
+          if (jsonConfig.configs.roulette?.video_url) {
+            setRouletteVideoInput(jsonConfig.configs.roulette.video_url);
+          }
         }
       }
 
@@ -212,6 +220,41 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
       }
     } catch (err) {
       alert('Error al actualizar orientación');
+    }
+  };
+
+  const handleUpdateVideoUrl = async (screenKey = 'roulette') => {
+    setIsSavingVideo(true);
+    try {
+      const current = displayConfigs[screenKey] || {};
+      const res = await fetch(`${apiUrl}/api/admin/displays/config`, {
+        method: 'PUT',
+        headers: getAdminHeaders(),
+        body: JSON.stringify({
+          screen_key: screenKey,
+          orientation: current.orientation || 'auto',
+          slide_duration: current.slide_duration || 8,
+          layout_ratio: current.layout_ratio || 'default',
+          video_url: rouletteVideoInput
+        })
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        const savedId = json.video_url || rouletteVideoInput;
+        setDisplayConfigs(prev => ({
+          ...prev,
+          [screenKey]: { ...prev[screenKey], video_url: savedId }
+        }));
+        setRouletteVideoInput(savedId);
+        onNotification('Video de YouTube de la ruleta actualizado');
+      } else {
+        alert(json.error || 'Error al actualizar video');
+      }
+    } catch (err) {
+      alert('Error al actualizar video: ' + err.message);
+    } finally {
+      setIsSavingVideo(false);
     }
   };
 
@@ -374,6 +417,48 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
             <p className="text-[11px] text-zinc-400">
               Pantalla del juego con ruleta rin, telemetría y QR arrastrable.
             </p>
+
+            {/* Video de YouTube de atracción */}
+            <div className="pt-2.5 border-t border-zinc-800 space-y-1.5">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-zinc-300 font-medium flex items-center gap-1.5">
+                  <Video className="w-3.5 h-3.5 text-[#9AC31C]" />
+                  Video Standby (YouTube):
+                </span>
+                {rouletteVideoInput && (
+                  <a
+                    href={`https://www.youtube.com/watch?v=${rouletteVideoInput}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[10px] text-zinc-400 hover:text-[#9AC31C] flex items-center gap-1 transition-colors"
+                    title="Ver en YouTube"
+                  >
+                    <span>Ver</span>
+                    <ExternalLink className="w-2.5 h-2.5" />
+                  </a>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  value={rouletteVideoInput}
+                  onChange={(e) => setRouletteVideoInput(e.target.value)}
+                  placeholder="ID o link (ej: AzQlHkHx6HI)"
+                  className="flex-1 bg-zinc-950 border border-zinc-700 text-xs text-white rounded-lg px-2.5 py-1.5 focus:border-[#9AC31C] focus:outline-none placeholder-zinc-600 font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleUpdateVideoUrl('roulette')}
+                  disabled={isSavingVideo}
+                  className="px-3 py-1.5 bg-[#9AC31C] hover:bg-[#84A816] active:scale-95 text-black font-racing font-bold text-[10px] uppercase tracking-wider rounded-lg transition-all cursor-pointer whitespace-nowrap disabled:opacity-50"
+                >
+                  {isSavingVideo ? '...' : 'Guardar'}
+                </button>
+              </div>
+              <p className="text-[10px] text-zinc-500 leading-tight">
+                Pega el enlace de YouTube o el ID. Se actualizará en la pantalla grande.
+              </p>
+            </div>
           </div>
 
           {/* Pantalla 2: Solo QR */}

@@ -2,14 +2,27 @@ import React, { useState, useEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Smartphone, Sparkles, Volume2, VolumeX, X, Move, RotateCcw } from 'lucide-react';
 
-const YOUTUBE_VIDEO_ID = 'AzQlHkHx6HI';
+function extractYouTubeId(urlOrId) {
+  if (!urlOrId) return 'AzQlHkHx6HI';
+  const clean = urlOrId.trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(clean)) {
+    return clean;
+  }
+  const match = clean.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+  if (match && match[1]) {
+    return match[1];
+  }
+  return clean;
+}
 
 export default function VideoAttractOverlay({
   isVisible,
   onDismiss,
   mobileUrl = 'https://autos.mvevip.com/',
-  screenId = 'STAND_01'
+  screenId = 'STAND_01',
+  videoId = 'AzQlHkHx6HI'
 }) {
+  const activeVideoId = extractYouTubeId(videoId);
   const iframeRef = useRef(null);
   const cardRef = useRef(null);
   const fullQrUrl = `${mobileUrl}?screen=${screenId}`;
@@ -188,7 +201,7 @@ export default function VideoAttractOverlay({
       <div className="absolute inset-0 w-full h-full overflow-hidden flex items-center justify-center pointer-events-none">
         <iframe
           ref={iframeRef}
-          src={`https://www.youtube-nocookie.com/embed/${YOUTUBE_VIDEO_ID}?autoplay=1&mute=0&loop=1&playlist=${YOUTUBE_VIDEO_ID}&controls=0&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1&fs=0&enablejsapi=1`}
+          src={`https://www.youtube-nocookie.com/embed/${activeVideoId}?autoplay=1&mute=0&loop=1&playlist=${activeVideoId}&controls=0&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1&fs=0&enablejsapi=1`}
           title="Marketing VIP Video Corporativo"
           allow="autoplay; encrypted-media"
           className="w-[100vw] h-[100vh] min-w-[177.78vh] min-h-[56.25vw] max-w-none border-0 object-cover scale-[1.25] md:scale-[1.4] pointer-events-none"

@@ -28,6 +28,19 @@ async function touchSystemSync(action = 'CONFIG_UPDATED', io = null) {
   return version;
 }
 
+function extractYouTubeId(urlOrId) {
+  if (!urlOrId) return 'AzQlHkHx6HI';
+  const clean = urlOrId.trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(clean)) {
+    return clean;
+  }
+  const match = clean.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+  if (match && match[1]) {
+    return match[1];
+  }
+  return clean;
+}
+
 /**
  * Consulta la configuración de todas las pantallas
  */
@@ -43,6 +56,7 @@ async function getDisplaysConfig(req, res) {
         orientation: row.orientation || 'auto',
         slide_duration: row.slide_duration || 8,
         layout_ratio: row.layout_ratio || '55/45',
+        video_url: row.video_url || 'AzQlHkHx6HI',
         updated_at: row.updated_at
       };
     });
@@ -59,11 +73,11 @@ async function getDisplaysConfig(req, res) {
 }
 
 /**
- * Actualiza la configuración de una pantalla (orientación, duración, proporción)
+ * Actualiza la configuración de una pantalla (orientación, duración, proporción, video)
  */
 async function updateDisplayConfig(req, res) {
   try {
-    const { screen_key, orientation, slide_duration, layout_ratio } = req.body;
+    const { screen_key, orientation, slide_duration, layout_ratio, video_url } = req.body;
     if (!screen_key) {
       return res.status(400).json({ success: false, error: 'screen_key es requerido' });
     }
@@ -71,12 +85,17 @@ async function updateDisplayConfig(req, res) {
     const cleanOrientation = ['auto', 'portrait', 'landscape'].includes(orientation) ? orientation : 'auto';
     const cleanDuration = Number(slide_duration) > 0 ? Number(slide_duration) : 8;
     const cleanRatio = layout_ratio || '55/45';
+    const cleanVideo = video_url !== undefined ? extractYouTubeId(video_url) : null;
 
     await pool.query(
-      `INSERT INTO display_configs (screen_key, orientation, slide_duration, layout_ratio)
-       VALUES (?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE orientation = VALUES(orientation), slide_duration = VALUES(slide_duration), layout_ratio = VALUES(layout_ratio)`,
-      [screen_key, cleanOrientation, cleanDuration, cleanRatio]
+      `INSERT INTO display_configs (screen_key, orientation, slide_duration, layout_ratio, video_url)
+       VALUES (?, ?, ?, ?, COALESCE(?, 'AzQlHkHx6HI'))
+       ON DUPLICATE KEY UPDATE 
+         orientation = VALUES(orientation), 
+         slide_duration = VALUES(slide_duration), 
+         layout_ratio = VALUES(layout_ratio),
+         video_url = IF(VALUES(video_url) IS NOT NULL AND VALUES(video_url) != '', VALUES(video_url), video_url)`,
+      [screen_key, cleanOrientation, cleanDuration, cleanRatio, cleanVideo]
     );
 
     const version = await touchSystemSync(`DISPLAY_CONFIG_${screen_key.toUpperCase()}`, req.io);
@@ -84,6 +103,7 @@ async function updateDisplayConfig(req, res) {
     return res.json({
       success: true,
       message: `Configuración de ${screen_key} actualizada correctamente`,
+      video_url: cleanVideo,
       version
     });
   } catch (error) {
