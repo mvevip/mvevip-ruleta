@@ -36,7 +36,9 @@ $AdminPin = "VIP2026"
 if (Test-Path ".env") {
     $envLines = Get-Content ".env"
     foreach ($line in $envLines) {
-        if ($line -match "^\s*DB_PASSWORD\s*=\s*(.+)$") {
+        if ($line -match "^\s*AWS_RDS_PASSWORD\s*=\s*(.+)$") {
+            $DbPassword = $matches[1].Trim()
+        } elseif (-not $DbPassword -and $line -match "^\s*DB_PASSWORD\s*=\s*(.+)$") {
             $DbPassword = $matches[1].Trim()
         }
         if ($line -match "^\s*TURNSTILE_SECRET_KEY\s*=\s*(.+)$") {
