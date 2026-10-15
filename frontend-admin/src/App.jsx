@@ -335,7 +335,14 @@ export default function App() {
             <h1 className="font-racing font-bold text-sm text-white tracking-wider leading-none">
               ADMIN <span className="text-[#9AC31C]">STAND</span>
             </h1>
-            <span className="text-[10px] text-zinc-400 font-sans">Marketing VIP Móvil</span>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-[10px] text-zinc-400 font-sans">Marketing VIP Móvil</span>
+              {!isProduction && (
+                <span className="text-yellow-400 font-bold bg-yellow-400/20 px-1 py-0.2 rounded text-[8px] tracking-wide border border-yellow-400/30">
+                  [LOCAL 💻 DB DOCKER]
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
