@@ -7,7 +7,7 @@ import SpinningProgress from './components/SpinningProgress';
 import PrizeVoucher from './components/PrizeVoucher';
 import QueueWaitingProgress from './components/QueueWaitingProgress';
 import { mobileAudio } from './utils/mobileSound';
-import { ShieldCheck, AlertTriangle, Info } from 'lucide-react';
+import { ShieldCheck, AlertTriangle, Info, ArrowRight, Tv, Eye, ArrowUp, Sparkles } from 'lucide-react';
 
 const isLocal = typeof window !== 'undefined' && (
   window.location.hostname === 'localhost' ||
@@ -44,7 +44,7 @@ export default function App() {
   const queryParams = new URLSearchParams(window.location.search);
   const screenId = queryParams.get('screen') || 'STAND_01';
 
-  const [gameState, setGameState] = useState('FORM'); // 'FORM' | 'WAITING_QUEUE' | 'SPINNING' | 'WON'
+  const [gameState, setGameState] = useState('FORM'); // 'FORM' | 'READY_TO_SPIN' | 'WAITING_QUEUE' | 'SPINNING' | 'WON'
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -232,10 +232,30 @@ export default function App() {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Paso 1 -> Paso 2: Valida los campos y avanza a la pantalla del botón Start
+  const handleProceedToSpin = () => {
+    if (!validate()) {
+      setApiError('Por favor revisa los campos obligatorios en rojo.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    if (import.meta.env.VITE_TURNSTILE_SITE_KEY && !turnstileToken) {
+      setApiError('Por favor verifica el comprobante anti-bot antes de continuar.');
+      return;
+    }
+
+    setApiError(null);
+    setGameState('READY_TO_SPIN');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Paso 2: Dispara el giro de la ruleta hacia el stand
   const handleStartSpin = async () => {
     if (isSubmitting) return;
 
     if (!validate()) {
+      setGameState('FORM');
       setApiError('Por favor revisa los campos obligatorios en rojo.');
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
@@ -243,6 +263,7 @@ export default function App() {
     
     // Si hay llave de Turnstile configurada pero aún no se ha obtenido el token
     if (import.meta.env.VITE_TURNSTILE_SITE_KEY && !turnstileToken) {
+      setGameState('FORM');
       setApiError('Por favor verifica el comprobante anti-bot antes de continuar.');
       return;
     }
@@ -351,15 +372,77 @@ export default function App() {
               </div>
             )}
 
-            <EngineStartButton
-              onClick={handleStartSpin}
-              disabled={isSubmitting}
-              loading={isSubmitting}
-            />
+            {/* Botón Principal Paso 1: ¡Juega y Gana! */}
+            <button
+              type="button"
+              onClick={handleProceedToSpin}
+              className="w-full mt-3 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-[#9AC31C] via-[#b2dc27] to-[#84A816] hover:brightness-110 active:scale-98 text-black font-racing font-black text-base uppercase tracking-wider shadow-lg shadow-[#9AC31C]/30 flex items-center justify-center gap-2 cursor-pointer transition-all"
+            >
+              <span>¡Juega y Gana!</span>
+              <ArrowRight className="w-5 h-5 stroke-[2.5]" />
+            </button>
 
-            <div className="flex items-center gap-1.5 text-zinc-500 text-[11px] mt-1 text-center font-medium">
+            <div className="flex items-center gap-1.5 text-zinc-500 text-[11px] mt-2.5 text-center font-medium">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
               <span>Stand #{screenId} • Solo 1 participación por persona</span>
+            </div>
+          </div>
+        )}
+
+        {/* PASO 2: PANTALLA DE LANZAMIENTO (AVISO SUPERIOR + BOTÓN START CENTRADO) */}
+        {gameState === 'READY_TO_SPIN' && (
+          <div className="bg-white/95 border border-zinc-200/80 rounded-3xl p-5 shadow-xl shadow-zinc-400/20 backdrop-blur-md min-h-[72vh] flex flex-col justify-between items-center text-center">
+            {/* 1. MENSAJE EN LA PARTE SUPERIOR */}
+            <div className="w-full max-w-sm pt-1">
+              <div className="p-3.5 rounded-2xl bg-zinc-900 border-2 border-[#9AC31C] text-white shadow-[0_0_25px_rgba(154,195,28,0.35)] transition-all">
+                <div className="flex items-center justify-center gap-2 font-racing font-black text-sm tracking-widest text-[#9AC31C] uppercase">
+                  <Tv className="w-4 h-4 text-[#9AC31C] shrink-0" />
+                  <span>¡MIRA LA PANTALLA GIGANTE!</span>
+                  <Eye className="w-4 h-4 text-[#9AC31C] shrink-0" />
+                </div>
+                <p className="text-xs text-zinc-300 mt-1 font-medium flex items-center justify-center gap-1">
+                  <ArrowUp className="w-3.5 h-3.5 text-[#9AC31C] animate-bounce shrink-0" />
+                  <span>Levanta la mirada hacia el stand y presiona el botón para girar</span>
+                  <ArrowUp className="w-3.5 h-3.5 text-[#9AC31C] animate-bounce shrink-0" />
+                </p>
+              </div>
+            </div>
+
+            {apiError && (
+              <div className="w-full my-2 p-3 rounded-xl bg-red-50 border border-red-300 text-red-700 text-xs flex items-center justify-center gap-2 shadow-sm">
+                <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
+                <span>{apiError}</span>
+              </div>
+            )}
+
+            {/* 2. BOTÓN DE START ENGINE CENTRADO HORIZONTAL Y VERTICALMENTE */}
+            <div className="flex-1 flex flex-col items-center justify-center my-4 w-full">
+              <EngineStartButton
+                onClick={handleStartSpin}
+                disabled={isSubmitting}
+                loading={isSubmitting}
+                showCallouts={false}
+              />
+            </div>
+
+            {/* 3. PARTE INFERIOR: IDENTIFICACIÓN DEL JUGADOR Y RETORNO */}
+            <div className="w-full pt-3 border-t border-zinc-200/80 flex flex-col items-center gap-1.5">
+              <div className="flex items-center gap-1.5 text-xs text-zinc-600 font-medium">
+                <Sparkles className="w-3.5 h-3.5 text-[#9AC31C]" />
+                <span>Piloto: <strong className="text-zinc-900 font-bold">{formData.name}</strong></span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setApiError(null);
+                  setGameState('FORM');
+                }}
+                disabled={isSubmitting}
+                className="text-xs text-zinc-500 hover:text-zinc-800 underline font-sans transition-colors cursor-pointer py-1 disabled:opacity-50"
+              >
+                ← Corregir mis datos
+              </button>
             </div>
           </div>
         )}

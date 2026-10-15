@@ -2,7 +2,7 @@ import React from 'react';
 import { mobileAudio } from '../utils/mobileSound';
 import { Eye, ArrowUp, Sparkles, Tv } from 'lucide-react';
 
-export default function EngineStartButton({ onClick, disabled = false, loading = false }) {
+export default function EngineStartButton({ onClick, disabled = false, loading = false, showCallouts = true }) {
   const handleClick = (e) => {
     e.preventDefault();
     if (disabled || loading) return;
@@ -14,34 +14,36 @@ export default function EngineStartButton({ onClick, disabled = false, loading =
   };
 
   return (
-    <div className="flex flex-col items-center justify-center my-6 select-none w-full">
+    <div className={`flex flex-col items-center justify-center select-none w-full ${showCallouts ? 'my-6' : 'my-2'}`}>
       {/* 1. LLAMADO DE ATENCIÓN PROMINENTE HACIA LA PANTALLA GIGANTE (ARRIBA DEL BOTÓN) */}
-      <div className={`mb-4 w-full max-w-xs transition-all duration-300 ${
-        loading ? 'scale-105' : 'hover:scale-102'
-      }`}>
-        <div className={`p-3 rounded-2xl border-2 text-center shadow-lg transition-all ${
-          loading
-            ? 'bg-amber-500 border-amber-600 text-black shadow-amber-500/40 animate-pulse'
-            : 'bg-zinc-900 border-[#9AC31C] text-white shadow-[0_0_20px_rgba(154,195,28,0.35)]'
+      {showCallouts && (
+        <div className={`mb-4 w-full max-w-xs transition-all duration-300 ${
+          loading ? 'scale-105' : 'hover:scale-102'
         }`}>
-          <div className="flex items-center justify-center gap-1.5 font-racing font-black text-sm tracking-wider uppercase">
-            <Tv className={`w-4 h-4 ${loading ? 'animate-bounce text-black' : 'text-[#9AC31C]'}`} />
-            <span>{loading ? '¡MIRA LA PANTALLA AHORA!' : '¡MIRA LA PANTALLA GIGANTE!'}</span>
-            <Eye className={`w-4 h-4 ${loading ? 'animate-bounce text-black' : 'text-[#9AC31C]'}`} />
-          </div>
-          <p className={`text-[11px] font-semibold mt-0.5 flex items-center justify-center gap-1 ${
-            loading ? 'text-black' : 'text-zinc-300'
+          <div className={`p-3 rounded-2xl border-2 text-center shadow-lg transition-all ${
+            loading
+              ? 'bg-amber-500 border-amber-600 text-black shadow-amber-500/40 animate-pulse'
+              : 'bg-zinc-900 border-[#9AC31C] text-white shadow-[0_0_20px_rgba(154,195,28,0.35)]'
           }`}>
-            <ArrowUp className="w-3.5 h-3.5 animate-bounce shrink-0" />
-            <span>
-              {loading
-                ? '¡Tu ruleta está girando en vivo en el stand!'
-                : 'Al presionar el botón, levanta la mirada hacia la pantalla'}
-            </span>
-            <ArrowUp className="w-3.5 h-3.5 animate-bounce shrink-0" />
-          </p>
+            <div className="flex items-center justify-center gap-1.5 font-racing font-black text-sm tracking-wider uppercase">
+              <Tv className={`w-4 h-4 ${loading ? 'animate-bounce text-black' : 'text-[#9AC31C]'}`} />
+              <span>{loading ? '¡MIRA LA PANTALLA AHORA!' : '¡MIRA LA PANTALLA GIGANTE!'}</span>
+              <Eye className={`w-4 h-4 ${loading ? 'animate-bounce text-black' : 'text-[#9AC31C]'}`} />
+            </div>
+            <p className={`text-[11px] font-semibold mt-0.5 flex items-center justify-center gap-1 ${
+              loading ? 'text-black' : 'text-zinc-300'
+            }`}>
+              <ArrowUp className="w-3.5 h-3.5 animate-bounce shrink-0" />
+              <span>
+                {loading
+                  ? '¡Tu ruleta está girando en vivo en el stand!'
+                  : 'Al presionar el botón, levanta la mirada hacia la pantalla'}
+              </span>
+              <ArrowUp className="w-3.5 h-3.5 animate-bounce shrink-0" />
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 2. BOTÓN CIRCULAR SUPERCAR START/STOP */}
       <button
@@ -88,22 +90,24 @@ export default function EngineStartButton({ onClick, disabled = false, loading =
       </button>
 
       {/* 3. MENSAJE ENFATIZADO BAJO EL BOTÓN */}
-      <div className="mt-4 text-center">
-        <p className={`text-xs font-racing font-bold tracking-wider uppercase flex items-center justify-center gap-1.5 ${
-          loading ? 'text-amber-600 animate-pulse font-black' : 'text-zinc-700'
-        }`}>
-          <ArrowUp className={`w-4 h-4 ${loading ? 'text-amber-600' : 'text-red-600'} animate-bounce`} />
-          <span>
-            {loading
-              ? '¡GIRANDO EN LA GRAN PANTALLA!'
-              : 'PRESIONA Y MIRA LA PANTALLA GIGANTE'}
+      {showCallouts && (
+        <div className="mt-4 text-center">
+          <p className={`text-xs font-racing font-bold tracking-wider uppercase flex items-center justify-center gap-1.5 ${
+            loading ? 'text-amber-600 animate-pulse font-black' : 'text-zinc-700'
+          }`}>
+            <ArrowUp className={`w-4 h-4 ${loading ? 'text-amber-600' : 'text-red-600'} animate-bounce`} />
+            <span>
+              {loading
+                ? '¡GIRANDO EN LA GRAN PANTALLA!'
+                : 'PRESIONA Y MIRA LA PANTALLA GIGANTE'}
+            </span>
+            <ArrowUp className={`w-4 h-4 ${loading ? 'text-amber-600' : 'text-red-600'} animate-bounce`} />
+          </p>
+          <span className="text-[11px] text-zinc-500 block mt-0.5 font-medium">
+            El resultado oficial se revelará en la pantalla del stand
           </span>
-          <ArrowUp className={`w-4 h-4 ${loading ? 'text-amber-600' : 'text-red-600'} animate-bounce`} />
-        </p>
-        <span className="text-[11px] text-zinc-500 block mt-0.5 font-medium">
-          El resultado oficial se revelará en la pantalla del stand
-        </span>
-      </div>
+        </div>
+      )}
     </div>
   );
 }
