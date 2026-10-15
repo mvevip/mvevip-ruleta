@@ -4,6 +4,7 @@ const rouletteController = require('../controllers/rouletteController');
 const leadsController = require('../controllers/leadsController');
 const destinationsController = require('../controllers/destinationsController');
 const displaysController = require('../controllers/displaysController');
+const testUsersController = require('../controllers/testUsersController');
 const { spinLimiter, adminLimiter } = require('../middlewares/rateLimiter');
 const { requireAdminAuth } = require('../middlewares/authMiddleware');
 const { verifyTurnstile } = require('../middlewares/turnstileMiddleware');
@@ -48,6 +49,12 @@ router.post('/admin/displays/reload', adminLimiter, requireAdminAuth, displaysCo
 // Rutas Administrativas de Leads & Estadísticas de feria
 router.get('/leads', adminLimiter, requireAdminAuth, leadsController.getLeads);
 router.get('/metrics', adminLimiter, requireAdminAuth, leadsController.getMetrics);
+
+// Rutas Administrativas de Usuarios de Prueba (Modo Demo Stand)
+router.get('/admin/test-users', adminLimiter, requireAdminAuth, testUsersController.getTestUsers);
+router.post('/admin/test-users', adminLimiter, requireAdminAuth, testUsersController.createTestUser);
+router.put('/admin/test-users/:id', adminLimiter, requireAdminAuth, testUsersController.toggleTestUser);
+router.delete('/admin/test-users/:id', adminLimiter, requireAdminAuth, testUsersController.deleteTestUser);
 
 module.exports = router;
 

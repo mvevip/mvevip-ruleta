@@ -157,3 +157,23 @@ INSERT INTO system_sync (sync_key, version_timestamp, action) VALUES
 ('global_displays', 1728830000000, 'INITIAL')
 ON DUPLICATE KEY UPDATE sync_key=VALUES(sync_key);
 
+-- 9. Tabla de Usuarios de Prueba (Modo Demo Stand)
+CREATE TABLE IF NOT EXISTS test_users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(150) NOT NULL,
+    phone VARCHAR(30) NOT NULL,
+    email VARCHAR(150) NOT NULL,
+    notes VARCHAR(255) NULL,
+    active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_phone (phone),
+    INDEX idx_email (email),
+    INDEX idx_active (active)
+) ENGINE=InnoDB;
+
+INSERT INTO test_users (id, name, phone, email, notes, active) VALUES
+(1, 'Asesor Demo 1', '0990000001', 'demo1@mvevip.com', 'Demostración Stand', TRUE),
+(2, 'Asesor Demo 2', '0990000002', 'demo2@mvevip.com', 'Demostración Stand', TRUE)
+ON DUPLICATE KEY UPDATE name=VALUES(name);
+

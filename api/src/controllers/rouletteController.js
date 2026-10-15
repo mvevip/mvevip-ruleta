@@ -149,56 +149,65 @@ async function processSpin(req, res) {
   try {
     await connection.beginTransaction();
 
-    // 4. VERIFICAR SI EL LEAD YA PARTICIPÓ Y TIENE PREMIO
-    const [existingSpins] = await connection.query(
-      `SELECT s.id AS spin_id, s.ticket_code, s.redeemed, s.created_at,
-              l.id AS lead_id, l.name AS lead_name, l.phone AS lead_phone, l.dream_destination,
-              p.id AS prize_id, p.name AS prize_name, p.description AS prize_description, p.category AS prize_category
-       FROM leads l
-       JOIN spins s ON s.lead_id = l.id
-       JOIN prizes p ON s.prize_id = p.id
-       WHERE l.phone = ? OR l.email = ?
-       ORDER BY s.id DESC LIMIT 1`,
+    // 4. VERIFICAR SI ES USUARIO DE PRUEBA (MODO DEMO STAND)
+    const [testUserRows] = await connection.query(
+      'SELECT id, name FROM test_users WHERE active = TRUE AND (phone = ? OR email = ?)',
       [cleanPhone, cleanEmail]
     );
+    const isTestUser = testUserRows.length > 0;
 
-    if (existingSpins.length > 0) {
-      await connection.rollback();
-      const prev = existingSpins[0];
-
-      // Construir mensaje de WhatsApp para el premio existente
-      const rawWaNumber = config.COMPANY.whatsapp.replace(/[^0-9]/g, '');
-      const waText = encodeURIComponent(
-        `¡Hola ${config.COMPANY.name}! Ya participé en la ruleta de la Feria de Autos 🏎️\n\n` +
-        `👤 Nombre: ${prev.lead_name}\n` +
-        `🎟️ Código VIP: ${prev.ticket_code}\n` +
-        `🎁 Premio: ${prev.prize_name}\n` +
-        `🌴 Destino: ${prev.dream_destination}\n\n` +
-        `¡Quiero consultar cómo canjear mi premio!`
+    // Si NO es usuario de prueba, verificar si ya participó y tiene premio
+    if (!isTestUser) {
+      const [existingSpins] = await connection.query(
+        `SELECT s.id AS spin_id, s.ticket_code, s.redeemed, s.created_at,
+                l.id AS lead_id, l.name AS lead_name, l.phone AS lead_phone, l.dream_destination,
+                p.id AS prize_id, p.name AS prize_name, p.description AS prize_description, p.category AS prize_category
+         FROM leads l
+         JOIN spins s ON s.lead_id = l.id
+         JOIN prizes p ON s.prize_id = p.id
+         WHERE l.phone = ? OR l.email = ?
+         ORDER BY s.id DESC LIMIT 1`,
+        [cleanPhone, cleanEmail]
       );
-      const whatsappUrl = `https://wa.me/${rawWaNumber}?text=${waText}`;
 
-      return res.json({
-        success: true,
-        already_played: true,
-        message: '¡Ya registraste tu participación previamente!',
-        data: {
-          ticketCode: prev.ticket_code,
-          winner: {
-            id: prev.prize_id,
-            name: prev.prize_name,
-            description: prev.prize_description,
-            category: prev.prize_category
-          },
-          lead: {
-            name: prev.lead_name,
-            phone: prev.lead_phone,
-            dream_destination: prev.dream_destination
-          },
-          whatsappUrl,
-          redeemed: Boolean(prev.redeemed)
-        }
-      });
+      if (existingSpins.length > 0) {
+        await connection.rollback();
+        const prev = existingSpins[0];
+
+        // Construir mensaje de WhatsApp para el premio existente
+        const rawWaNumber = config.COMPANY.whatsapp.replace(/[^0-9]/g, '');
+        const waText = encodeURIComponent(
+          `¡Hola ${config.COMPANY.name}! Ya participé en la ruleta de la Feria de Autos 🏎️\n\n` +
+          `👤 Nombre: ${prev.lead_name}\n` +
+          `🎟️ Código VIP: ${prev.ticket_code}\n` +
+          `🎁 Premio: ${prev.prize_name}\n` +
+          `🌴 Destino: ${prev.dream_destination}\n\n` +
+          `¡Quiero consultar cómo canjear mi premio!`
+        );
+        const whatsappUrl = `https://wa.me/${rawWaNumber}?text=${waText}`;
+
+        return res.json({
+          success: true,
+          already_played: true,
+          message: '¡Ya registraste tu participación previamente!',
+          data: {
+            ticketCode: prev.ticket_code,
+            winner: {
+              id: prev.prize_id,
+              name: prev.prize_name,
+              description: prev.prize_description,
+              category: prev.prize_category
+            },
+            lead: {
+              name: prev.lead_name,
+              phone: prev.lead_phone,
+              dream_destination: prev.dream_destination
+            },
+            whatsappUrl,
+            redeemed: Boolean(prev.redeemed)
+          }
+        });
+      }
     }
 
     // 5. Verificar cuántos leads se han registrado con este mismo device_id (Auditoría)
@@ -207,7 +216,7 @@ async function processSpin(req, res) {
       [device_id]
     );
     const leadsFromThisDevice = deviceCheck ? deviceCheck.count_device : 0;
-    if (leadsFromThisDevice > 0) {
+    if (leadsFromThisDevice > 0 && !isTestUser) {
       console.warn(`[Audit Warning] El dispositivo ${device_id} ya ha registrado ${leadsFromThisDevice} leads previamente.`);
     }
 
@@ -245,28 +254,30 @@ async function processSpin(req, res) {
       }
     }
 
-    // Registrar Lead con device_id
+    // Registrar Lead con device_id y bandera is_test
     const [leadResult] = await connection.query(
-      `INSERT INTO leads (name, email, phone, dream_destination, screen_id, device_id, ip_address, user_agent)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name.trim(), cleanEmail, cleanPhone, finalDestination, screen_id, device_id, req.ip, req.headers['user-agent']]
+      `INSERT INTO leads (name, email, phone, dream_destination, screen_id, device_id, ip_address, user_agent, is_test)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [name.trim(), cleanEmail, cleanPhone, finalDestination, screen_id, device_id, req.ip, req.headers['user-agent'], isTestUser ? 1 : 0]
     );
     const leadId = leadResult.insertId;
 
     // 9. Generar Ticket de canje
     const ticketCode = generateTicketCode();
 
-    // 10. Registrar Spin
+    // 10. Registrar Spin con bandera is_test
     await connection.query(
-      'INSERT INTO spins (lead_id, prize_id, ticket_code, screen_id) VALUES (?, ?, ?, ?)',
-      [leadId, winningPrize.id, ticketCode, screen_id]
+      'INSERT INTO spins (lead_id, prize_id, ticket_code, screen_id, is_test) VALUES (?, ?, ?, ?, ?)',
+      [leadId, winningPrize.id, ticketCode, screen_id, isTestUser ? 1 : 0]
     );
 
-    // 11. Descontar stock del premio
-    await connection.query(
-      'UPDATE prizes SET stock = GREATEST(stock - 1, 0) WHERE id = ?',
-      [winningPrize.id]
-    );
+    // 11. Descontar stock del premio (SOLO si NO es usuario de prueba para no agotar premios reales en demos)
+    if (!isTestUser) {
+      await connection.query(
+        'UPDATE prizes SET stock = GREATEST(stock - 1, 0) WHERE id = ?',
+        [winningPrize.id]
+      );
+    }
 
     // 12. GESTIÓN DE COLA (QUEUE SYSTEM)
     // Expirar automáticamente cualquier turno en SPINNING que lleve más de 60 segundos para evitar bloqueos

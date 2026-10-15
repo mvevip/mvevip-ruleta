@@ -155,6 +155,34 @@ async function checkConnection() {
         ('global_displays', ${Date.now()}, 'INITIAL')
         ON DUPLICATE KEY UPDATE sync_key=VALUES(sync_key);
       `).catch(() => {});
+
+      // 9. Asegurar tabla test_users para usuarios de prueba del stand
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS test_users (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          name VARCHAR(150) NOT NULL,
+          phone VARCHAR(30) NOT NULL,
+          email VARCHAR(150) NOT NULL,
+          notes VARCHAR(255) NULL,
+          active BOOLEAN DEFAULT TRUE,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          UNIQUE KEY uq_phone (phone),
+          INDEX idx_email (email),
+          INDEX idx_active (active)
+        ) ENGINE=InnoDB;
+      `).catch(() => {});
+
+      // Auto-migrar columnas is_test en leads y spins si no existen
+      await connection.query(`ALTER TABLE leads ADD COLUMN is_test BOOLEAN DEFAULT FALSE;`).catch(() => {});
+      await connection.query(`ALTER TABLE spins ADD COLUMN is_test BOOLEAN DEFAULT FALSE;`).catch(() => {});
+
+      // Semilla inicial de usuarios de prueba si la tabla está vacía
+      await connection.query(`
+        INSERT IGNORE INTO test_users (id, name, phone, email, notes, active) VALUES
+        (1, 'Asesor Demo 1', '0990000001', 'demo1@mvevip.com', 'Demostración Stand', TRUE),
+        (2, 'Asesor Demo 2', '0990000002', 'demo2@mvevip.com', 'Demostración Stand', TRUE);
+      `).catch(() => {});
     } catch (migErr) {
       console.warn('[Database Migration] Nota durante chequeo de esquema:', migErr.message);
     }

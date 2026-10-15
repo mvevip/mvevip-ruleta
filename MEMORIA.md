@@ -73,6 +73,19 @@
    - El indicador/clacker rojo superior aplica contra-escala inversa `scaleX(1 / wheelScaleX)` para mantenerse nítido, simétrico y apuntar con exactitud al gajo ganador.
    - Sincronización en tiempo real vía Sockets y polling ligero: cualquier cambio en `/admin` se refleja de inmediato en la pantalla del stand sin recargar.
 
+### G. Gestión de Usuarios de Prueba (Modo Demo Stand)
+1. **Definición en `/admin` (Pestaña Leads -> Usuarios Demo):**
+   - Módulo `TestUsersManager.jsx` con formulario para registrar asesores con teléfono (10 dígitos Ecuador) y email.
+   - Botón *"⚡ Sugerir Siguiente"* para generar rápidamente números correlativos (`0990000001`, `0990000002`).
+   - Botones *"Copiar Celular"* y *"Copiar Email"* al portapapeles con feedback instantáneo.
+   - Conteo individual de giros demo realizados por cada usuario de prueba.
+2. **Flujo Infinito y Protección de Negocio (Backend):**
+   - Los números y correos registrados en `test_users` omiten el bloqueo `already_played: true`.
+   - Cada ingreso genera un nuevo giro, ticket y voucher de premio, simulando la experiencia de un cliente nuevo.
+   - **Sin descuento de stock:** Los giros de prueba no restan stock de premios valiosos reales de la feria.
+   - **Métricas limpias:** Los registros de prueba se marcan con `is_test = 1` y se excluyen del total de leads oficiales captados.
+   - **Pantalla y Móvil 100% estándar:** Ninguna pantalla pública ni formulario del cliente tiene cambios visuales extraños; todo el control se realiza transparentemente desde el servidor.
+
 ---
 
 ## 3. Credenciales y Configuración de Despliegue
