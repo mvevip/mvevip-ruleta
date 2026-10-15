@@ -20,9 +20,12 @@ export default function VideoAttractOverlay({
   onDismiss,
   mobileUrl = 'https://autos.mvevip.com/',
   screenId = 'STAND_01',
-  videoId = 'AzQlHkHx6HI'
+  videoId = 'AzQlHkHx6HI',
+  logoScale = 100
 }) {
   const activeVideoId = extractYouTubeId(videoId);
+  const safeLogoScale = Math.max(50, Math.min(250, Number(logoScale) || 100));
+  const logoHeight = Math.round(54 * (safeLogoScale / 100));
   const iframeRef = useRef(null);
   const cardRef = useRef(null);
   const fullQrUrl = `${mobileUrl}?screen=${screenId}`;
@@ -209,22 +212,23 @@ export default function VideoAttractOverlay({
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/60 pointer-events-none" />
       </div>
 
-      {/* 2. Banner Superior Corporativo Flotante */}
+      {/* 2. Banner Superior Corporativo Flotante: Solo Logotipo Agrandado */}
       <div className="absolute top-6 left-6 right-6 flex items-center justify-between pointer-events-none">
-        <div className="flex items-center gap-3 bg-zinc-950/85 backdrop-blur-md border border-[#9AC31C]/60 px-5 py-2.5 rounded-2xl shadow-[0_0_25px_rgba(154,195,28,0.3)] pointer-events-auto">
+        <div
+          className="flex items-center justify-center bg-zinc-950/85 backdrop-blur-md border border-[#9AC31C]/60 rounded-2xl shadow-[0_0_25px_rgba(154,195,28,0.3)] pointer-events-auto transition-all"
+          style={{
+            padding: `${Math.max(8, Math.round(10 * (safeLogoScale / 100)))}px ${Math.max(12, Math.round(16 * (safeLogoScale / 100)))}px`
+          }}
+        >
           <img
             src="/logotipo.png"
+            onError={(e) => { e.currentTarget.src = '/pantalla/logotipo.png'; }}
             alt="Marketing VIP"
-            className="h-9 w-auto object-contain drop-shadow-[0_0_12px_rgba(154,195,28,0.6)]"
+            style={{
+              height: `${logoHeight}px`
+            }}
+            className="w-auto object-contain drop-shadow-[0_0_15px_rgba(154,195,28,0.6)] select-none transition-all"
           />
-          <div className="hidden sm:block border-l border-zinc-700 pl-3">
-            <span className="font-racing text-xs text-[#9AC31C] tracking-widest uppercase block font-bold">
-              Gran Premio 2026
-            </span>
-            <span className="text-[11px] text-zinc-400">
-              Especialistas en sueños
-            </span>
-          </div>
         </div>
 
         {/* Indicadores: Audio y Stand */}

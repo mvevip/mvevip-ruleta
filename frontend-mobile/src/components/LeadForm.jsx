@@ -14,11 +14,11 @@ export default function LeadForm({ formData, onChange, errors = {}, destinations
   const handlePhoneChange = (e) => {
     let raw = e.target.value;
     let clean = raw.replace(/\D/g, '');
-    
+
     if (clean.startsWith('593')) {
       clean = '0' + clean.slice(3);
     }
-    
+
     if (clean.length > 10) {
       clean = clean.slice(0, 10);
     }
@@ -63,7 +63,7 @@ export default function LeadForm({ formData, onChange, errors = {}, destinations
       <div>
         <div className="flex items-center justify-between mb-1">
           <label className="text-xs font-semibold text-zinc-700 uppercase tracking-wider">
-            WhatsApp / Celular (Ecuador) *
+            WhatsApp / Celular *
           </label>
           <span className="text-[10px] text-[#7A9E14] font-mono font-bold">
             {formData.phone ? `${formData.phone.length}/10` : '09XXXXXXXX'}
@@ -81,9 +81,8 @@ export default function LeadForm({ formData, onChange, errors = {}, destinations
             value={formData.phone}
             onChange={handlePhoneChange}
             placeholder="0991234567"
-            className={`w-full pl-10 pr-3.5 py-3 rounded-2xl bg-white border text-zinc-900 placeholder-zinc-400 focus:outline-none text-sm shadow-sm transition-all ${
-              errors.phone ? 'border-red-500 ring-1 ring-red-500' : 'border-zinc-300 focus:border-[#9AC31C] focus:ring-1 focus:ring-[#9AC31C]'
-            }`}
+            className={`w-full pl-10 pr-3.5 py-3 rounded-2xl bg-white border text-zinc-900 placeholder-zinc-400 focus:outline-none text-sm shadow-sm transition-all ${errors.phone ? 'border-red-500 ring-1 ring-red-500' : 'border-zinc-300 focus:border-[#9AC31C] focus:ring-1 focus:ring-[#9AC31C]'
+              }`}
           />
         </div>
         {errors.phone ? (
@@ -109,9 +108,8 @@ export default function LeadForm({ formData, onChange, errors = {}, destinations
             value={formData.email}
             onChange={onChange}
             placeholder="Ej: piloto@gmail.com"
-            className={`w-full pl-10 pr-3.5 py-3 rounded-2xl bg-white border text-zinc-900 placeholder-zinc-400 focus:outline-none text-sm shadow-sm transition-all ${
-              errors.email ? 'border-red-500 ring-1 ring-red-500' : 'border-zinc-300 focus:border-[#9AC31C] focus:ring-1 focus:ring-[#9AC31C]'
-            }`}
+            className={`w-full pl-10 pr-3.5 py-3 rounded-2xl bg-white border text-zinc-900 placeholder-zinc-400 focus:outline-none text-sm shadow-sm transition-all ${errors.email ? 'border-red-500 ring-1 ring-red-500' : 'border-zinc-300 focus:border-[#9AC31C] focus:ring-1 focus:ring-[#9AC31C]'
+              }`}
           />
         </div>
         {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
@@ -165,11 +163,10 @@ export default function LeadForm({ formData, onChange, errors = {}, destinations
                 type="button"
                 key={destKey}
                 onClick={() => onChange({ target: { name: 'dream_destination', value: isSelected ? '' : destName } })}
-                className={`py-2 px-2.5 rounded-xl text-xs font-semibold text-left transition-all border shadow-xs ${
-                  isSelected
+                className={`py-2 px-2.5 rounded-xl text-xs font-semibold text-left transition-all border shadow-xs ${isSelected
                     ? 'bg-[#9AC31C]/20 border-[#9AC31C] text-zinc-950 font-bold ring-1 ring-[#9AC31C]'
                     : 'bg-white border-zinc-200 text-zinc-700 hover:border-zinc-300'
-                }`}
+                  }`}
               >
                 {destName}
               </button>

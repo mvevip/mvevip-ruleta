@@ -529,6 +529,7 @@ export default function App() {
         mobileUrl={MOBILE_BASE_URL}
         screenId={SCREEN_ID}
         videoId={displayConfig?.video_url || 'AzQlHkHx6HI'}
+        logoScale={displayConfig?.video_logo_scale ? Number(displayConfig.video_logo_scale) : 100}
       />
 
       {/* Botón Flotante Discreto de Modo Prueba (Giro de 1 Minuto) */}

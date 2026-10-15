@@ -136,6 +136,7 @@ CREATE TABLE IF NOT EXISTS display_configs (
     qr_scale_percent INT NOT NULL DEFAULT 55,
     wheel_scale_x INT NOT NULL DEFAULT 100,
     wheel_font_size INT NOT NULL DEFAULT 100,
+    video_logo_scale INT NOT NULL DEFAULT 100,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
