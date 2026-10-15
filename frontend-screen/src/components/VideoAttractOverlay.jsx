@@ -21,11 +21,15 @@ export default function VideoAttractOverlay({
   mobileUrl = '',
   screenId = 'STAND_01',
   videoId = 'AzQlHkHx6HI',
-  logoScale = 100
+  logoScale = 100,
+  qrScale = 100,
+  qrPosition = 'top-center'
 }) {
   const activeVideoId = extractYouTubeId(videoId);
   const safeLogoScale = Math.max(50, Math.min(250, Number(logoScale) || 100));
   const logoHeight = Math.round(54 * (safeLogoScale / 100));
+  const safeQrScale = Math.max(50, Math.min(200, Number(qrScale) || 100));
+  const qrScaleFactor = (safeQrScale / 100).toFixed(2);
   const iframeRef = useRef(null);
   const cardRef = useRef(null);
   const isProduction = typeof window !== 'undefined' && (
@@ -192,15 +196,62 @@ export default function VideoAttractOverlay({
     setIsMuted(false);
   };
 
+  const getPresetClassName = (preset) => {
+    switch (preset) {
+      case 'bottom-right':
+        return 'absolute bottom-8 right-8';
+      case 'bottom-left':
+        return 'absolute bottom-8 left-8';
+      case 'bottom-center':
+        return 'absolute bottom-8 left-1/2';
+      case 'center':
+        return 'absolute top-1/2 left-1/2';
+      case 'top-left':
+        return 'absolute top-24 left-6';
+      case 'top-right':
+        return 'absolute top-24 right-6';
+      case 'top-center':
+      default:
+        return 'absolute top-6 left-1/2';
+    }
+  };
+
+  const getTransformOrigin = (preset) => {
+    switch (preset) {
+      case 'bottom-right':
+        return 'bottom right';
+      case 'bottom-left':
+        return 'bottom left';
+      case 'bottom-center':
+        return 'bottom center';
+      case 'center':
+        return 'center center';
+      case 'top-left':
+        return 'top left';
+      case 'top-right':
+        return 'top right';
+      case 'top-center':
+      default:
+        return 'top center';
+    }
+  };
+
   const cardStyle = position
     ? {
         position: 'fixed',
         left: `${position.x}px`,
         top: `${position.y}px`,
+        transform: `scale(${qrScaleFactor})`,
+        transformOrigin: 'top center',
         zIndex: 60,
         margin: 0
       }
-    : {};
+    : {
+        transform: qrPosition === 'top-center' || qrPosition === 'bottom-center'
+          ? `translateX(-50%) scale(${qrScaleFactor})`
+          : (qrPosition === 'center' ? `translate(-50%, -50%) scale(${qrScaleFactor})` : `scale(${qrScaleFactor})`),
+        transformOrigin: getTransformOrigin(qrPosition)
+      };
 
   return (
     <div
@@ -289,7 +340,7 @@ export default function VideoAttractOverlay({
         onPointerUp={handlePointerUp}
         onClick={(e) => e.stopPropagation()}
         className={`z-50 brushed-metal p-4 rounded-3xl border-2 border-[#9AC31C] shadow-[0_0_40px_rgba(154,195,28,0.5)] flex flex-col items-center w-72 text-center backdrop-blur-xl cursor-grab active:cursor-grabbing select-none transition-shadow ${
-          position ? '' : 'absolute bottom-8 right-8'
+          position ? '' : getPresetClassName(qrPosition)
         } ${isDragging ? 'ring-2 ring-[#9AC31C] shadow-[0_0_60px_rgba(154,195,28,0.7)] scale-[1.02]' : ''}`}
       >
         {/* Barra superior de Mover y Reset */}

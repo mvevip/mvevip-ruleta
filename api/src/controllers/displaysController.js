@@ -61,6 +61,8 @@ async function getDisplaysConfig(req, res) {
         wheel_scale_x: row.wheel_scale_x ? Number(row.wheel_scale_x) : 100,
         wheel_font_size: row.wheel_font_size ? Number(row.wheel_font_size) : 100,
         video_logo_scale: row.video_logo_scale ? Number(row.video_logo_scale) : 100,
+        video_qr_scale: row.video_qr_scale ? Number(row.video_qr_scale) : 100,
+        video_qr_position: row.video_qr_position || 'top-center',
         updated_at: row.updated_at
       };
     });
@@ -77,11 +79,11 @@ async function getDisplaysConfig(req, res) {
 }
 
 /**
- * Actualiza la configuración de una pantalla (orientación, duración, proporción, video, escala de QR, ensanchamiento de ruleta, tamaño de letras, tamaño de logo de video)
+ * Actualiza la configuración de una pantalla (orientación, duración, proporción, video, escala de QR, ensanchamiento de ruleta, tamaño de letras, tamaño de logo de video, escala de QR de video, posición de QR de video)
  */
 async function updateDisplayConfig(req, res) {
   try {
-    const { screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent, wheel_scale_x, wheel_font_size, video_logo_scale } = req.body;
+    const { screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent, wheel_scale_x, wheel_font_size, video_logo_scale, video_qr_scale, video_qr_position } = req.body;
     if (!screen_key) {
       return res.status(400).json({ success: false, error: 'screen_key es requerido' });
     }
@@ -102,11 +104,17 @@ async function updateDisplayConfig(req, res) {
     const cleanVideoLogoScale = video_logo_scale !== undefined && Number(video_logo_scale) >= 50 && Number(video_logo_scale) <= 300
       ? Number(video_logo_scale)
       : null;
+    const cleanVideoQrScale = video_qr_scale !== undefined && Number(video_qr_scale) >= 50 && Number(video_qr_scale) <= 200
+      ? Number(video_qr_scale)
+      : null;
+    const cleanVideoQrPosition = ['top-center', 'bottom-right', 'bottom-left', 'bottom-center', 'center'].includes(video_qr_position)
+      ? video_qr_position
+      : null;
 
     try {
       await pool.query(
-        `INSERT INTO display_configs (screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent, wheel_scale_x, wheel_font_size, video_logo_scale)
-         VALUES (?, ?, ?, ?, COALESCE(?, 'AzQlHkHx6HI'), COALESCE(?, 55), COALESCE(?, 100), COALESCE(?, 100), COALESCE(?, 100))
+        `INSERT INTO display_configs (screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent, wheel_scale_x, wheel_font_size, video_logo_scale, video_qr_scale, video_qr_position)
+         VALUES (?, ?, ?, ?, COALESCE(?, 'AzQlHkHx6HI'), COALESCE(?, 55), COALESCE(?, 100), COALESCE(?, 100), COALESCE(?, 100), COALESCE(?, 100), COALESCE(?, 'top-center'))
          ON DUPLICATE KEY UPDATE 
            orientation = VALUES(orientation), 
            slide_duration = VALUES(slide_duration), 
@@ -115,8 +123,10 @@ async function updateDisplayConfig(req, res) {
            qr_scale_percent = IF(VALUES(qr_scale_percent) IS NOT NULL, VALUES(qr_scale_percent), qr_scale_percent),
            wheel_scale_x = IF(VALUES(wheel_scale_x) IS NOT NULL, VALUES(wheel_scale_x), wheel_scale_x),
            wheel_font_size = IF(VALUES(wheel_font_size) IS NOT NULL, VALUES(wheel_font_size), wheel_font_size),
-           video_logo_scale = IF(VALUES(video_logo_scale) IS NOT NULL, VALUES(video_logo_scale), video_logo_scale)`,
-        [screen_key, cleanOrientation, cleanDuration, cleanRatio, cleanVideo, cleanScale, cleanWheelScale, cleanWheelFontSize, cleanVideoLogoScale]
+           video_logo_scale = IF(VALUES(video_logo_scale) IS NOT NULL, VALUES(video_logo_scale), video_logo_scale),
+           video_qr_scale = IF(VALUES(video_qr_scale) IS NOT NULL, VALUES(video_qr_scale), video_qr_scale),
+           video_qr_position = IF(VALUES(video_qr_position) IS NOT NULL, VALUES(video_qr_position), video_qr_position)`,
+        [screen_key, cleanOrientation, cleanDuration, cleanRatio, cleanVideo, cleanScale, cleanWheelScale, cleanWheelFontSize, cleanVideoLogoScale, cleanVideoQrScale, cleanVideoQrPosition]
       );
     } catch (sqlErr) {
       console.warn('[Displays] Error SQL en updateDisplayConfig, intentando auto-migración de columnas:', sqlErr.message);
@@ -125,10 +135,12 @@ async function updateDisplayConfig(req, res) {
       await pool.query('ALTER TABLE display_configs ADD COLUMN wheel_scale_x INT NOT NULL DEFAULT 100').catch(() => {});
       await pool.query('ALTER TABLE display_configs ADD COLUMN wheel_font_size INT NOT NULL DEFAULT 100').catch(() => {});
       await pool.query('ALTER TABLE display_configs ADD COLUMN video_logo_scale INT NOT NULL DEFAULT 100').catch(() => {});
+      await pool.query('ALTER TABLE display_configs ADD COLUMN video_qr_scale INT NOT NULL DEFAULT 100').catch(() => {});
+      await pool.query('ALTER TABLE display_configs ADD COLUMN video_qr_position VARCHAR(50) NOT NULL DEFAULT "top-center"').catch(() => {});
       // Reintentar
       await pool.query(
-        `INSERT INTO display_configs (screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent, wheel_scale_x, wheel_font_size, video_logo_scale)
-         VALUES (?, ?, ?, ?, COALESCE(?, 'AzQlHkHx6HI'), COALESCE(?, 55), COALESCE(?, 100), COALESCE(?, 100), COALESCE(?, 100))
+        `INSERT INTO display_configs (screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent, wheel_scale_x, wheel_font_size, video_logo_scale, video_qr_scale, video_qr_position)
+         VALUES (?, ?, ?, ?, COALESCE(?, 'AzQlHkHx6HI'), COALESCE(?, 55), COALESCE(?, 100), COALESCE(?, 100), COALESCE(?, 100), COALESCE(?, 100), COALESCE(?, 'top-center'))
          ON DUPLICATE KEY UPDATE 
            orientation = VALUES(orientation), 
            slide_duration = VALUES(slide_duration), 
@@ -137,8 +149,10 @@ async function updateDisplayConfig(req, res) {
            qr_scale_percent = IF(VALUES(qr_scale_percent) IS NOT NULL, VALUES(qr_scale_percent), qr_scale_percent),
            wheel_scale_x = IF(VALUES(wheel_scale_x) IS NOT NULL, VALUES(wheel_scale_x), wheel_scale_x),
            wheel_font_size = IF(VALUES(wheel_font_size) IS NOT NULL, VALUES(wheel_font_size), wheel_font_size),
-           video_logo_scale = IF(VALUES(video_logo_scale) IS NOT NULL, VALUES(video_logo_scale), video_logo_scale)`,
-        [screen_key, cleanOrientation, cleanDuration, cleanRatio, cleanVideo, cleanScale, cleanWheelScale, cleanWheelFontSize, cleanVideoLogoScale]
+           video_logo_scale = IF(VALUES(video_logo_scale) IS NOT NULL, VALUES(video_logo_scale), video_logo_scale),
+           video_qr_scale = IF(VALUES(video_qr_scale) IS NOT NULL, VALUES(video_qr_scale), video_qr_scale),
+           video_qr_position = IF(VALUES(video_qr_position) IS NOT NULL, VALUES(video_qr_position), video_qr_position)`,
+        [screen_key, cleanOrientation, cleanDuration, cleanRatio, cleanVideo, cleanScale, cleanWheelScale, cleanWheelFontSize, cleanVideoLogoScale, cleanVideoQrScale, cleanVideoQrPosition]
       );
     }
 
@@ -152,6 +166,8 @@ async function updateDisplayConfig(req, res) {
       wheel_scale_x: cleanWheelScale,
       wheel_font_size: cleanWheelFontSize,
       video_logo_scale: cleanVideoLogoScale,
+      video_qr_scale: cleanVideoQrScale,
+      video_qr_position: cleanVideoQrPosition,
       version
     });
   } catch (error) {

@@ -23,7 +23,7 @@ import {
 
 export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotification }) {
   const [displayConfigs, setDisplayConfigs] = useState({
-    roulette: { orientation: 'auto', slide_duration: 8, layout_ratio: 'default', video_url: 'AzQlHkHx6HI', wheel_scale_x: 100, wheel_font_size: 100, video_logo_scale: 100 },
+    roulette: { orientation: 'auto', slide_duration: 8, layout_ratio: 'default', video_url: 'AzQlHkHx6HI', wheel_scale_x: 100, wheel_font_size: 100, video_logo_scale: 100, video_qr_scale: 100, video_qr_position: 'top-center' },
     qr: { orientation: 'auto', slide_duration: 8, layout_ratio: 'default' },
     slider: { orientation: 'auto', slide_duration: 8, layout_ratio: 'default' },
     combo: { orientation: 'auto', slide_duration: 8, layout_ratio: '55/45' }
@@ -46,6 +46,11 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
   // Tamaño del logotipo en pantalla de video
   const [rouletteVideoLogoScale, setRouletteVideoLogoScale] = useState(100);
   const [isSavingVideoLogoScale, setIsSavingVideoLogoScale] = useState(false);
+
+  // Tamaño y posición del código QR en pantalla de video
+  const [rouletteVideoQrScale, setRouletteVideoQrScale] = useState(100);
+  const [rouletteVideoQrPosition, setRouletteVideoQrPosition] = useState('top-center');
+  const [isSavingVideoQr, setIsSavingVideoQr] = useState(false);
 
   // Estados de subida
   const [newTitle, setNewTitle] = useState('');
@@ -87,6 +92,12 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
           }
           if (jsonConfig.configs.roulette?.video_logo_scale) {
             setRouletteVideoLogoScale(Number(jsonConfig.configs.roulette.video_logo_scale));
+          }
+          if (jsonConfig.configs.roulette?.video_qr_scale) {
+            setRouletteVideoQrScale(Number(jsonConfig.configs.roulette.video_qr_scale));
+          }
+          if (jsonConfig.configs.roulette?.video_qr_position) {
+            setRouletteVideoQrPosition(jsonConfig.configs.roulette.video_qr_position);
           }
         }
       }
@@ -298,7 +309,9 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
           qr_scale_percent: current.qr_scale_percent || 55,
           wheel_scale_x: scaleNum,
           wheel_font_size: current.wheel_font_size || rouletteWheelFontSize || 100,
-          video_logo_scale: current.video_logo_scale || rouletteVideoLogoScale || 100
+          video_logo_scale: current.video_logo_scale || rouletteVideoLogoScale || 100,
+          video_qr_scale: current.video_qr_scale || rouletteVideoQrScale || 100,
+          video_qr_position: current.video_qr_position || rouletteVideoQrPosition || 'top-center'
         })
       });
 
@@ -337,7 +350,9 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
           qr_scale_percent: current.qr_scale_percent || 55,
           wheel_scale_x: current.wheel_scale_x || rouletteWheelScale || 100,
           wheel_font_size: fontNum,
-          video_logo_scale: current.video_logo_scale || rouletteVideoLogoScale || 100
+          video_logo_scale: current.video_logo_scale || rouletteVideoLogoScale || 100,
+          video_qr_scale: current.video_qr_scale || rouletteVideoQrScale || 100,
+          video_qr_position: current.video_qr_position || rouletteVideoQrPosition || 'top-center'
         })
       });
 
@@ -376,7 +391,9 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
           qr_scale_percent: current.qr_scale_percent || 55,
           wheel_scale_x: current.wheel_scale_x || rouletteWheelScale || 100,
           wheel_font_size: current.wheel_font_size || rouletteWheelFontSize || 100,
-          video_logo_scale: scaleNum
+          video_logo_scale: scaleNum,
+          video_qr_scale: current.video_qr_scale || rouletteVideoQrScale || 100,
+          video_qr_position: current.video_qr_position || rouletteVideoQrPosition || 'top-center'
         })
       });
 
@@ -395,6 +412,49 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
       alert('Error al actualizar tamaño del logo: ' + err.message);
     } finally {
       setIsSavingVideoLogoScale(false);
+    }
+  };
+
+  const handleUpdateVideoQr = async (newScale, newPos) => {
+    const scaleNum = Math.max(50, Math.min(200, Number(newScale) || rouletteVideoQrScale || 100));
+    const posStr = newPos || rouletteVideoQrPosition || 'top-center';
+    setIsSavingVideoQr(true);
+    try {
+      const current = displayConfigs['roulette'] || {};
+      const res = await fetch(`${apiUrl}/api/admin/displays/config`, {
+        method: 'PUT',
+        headers: getAdminHeaders(),
+        body: JSON.stringify({
+          screen_key: 'roulette',
+          orientation: current.orientation || 'auto',
+          slide_duration: current.slide_duration || 8,
+          layout_ratio: current.layout_ratio || 'default',
+          video_url: current.video_url || 'AzQlHkHx6HI',
+          qr_scale_percent: current.qr_scale_percent || 55,
+          wheel_scale_x: current.wheel_scale_x || rouletteWheelScale || 100,
+          wheel_font_size: current.wheel_font_size || rouletteWheelFontSize || 100,
+          video_logo_scale: current.video_logo_scale || rouletteVideoLogoScale || 100,
+          video_qr_scale: scaleNum,
+          video_qr_position: posStr
+        })
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        setDisplayConfigs(prev => ({
+          ...prev,
+          roulette: { ...prev.roulette, video_qr_scale: scaleNum, video_qr_position: posStr }
+        }));
+        setRouletteVideoQrScale(scaleNum);
+        setRouletteVideoQrPosition(posStr);
+        onNotification(`QR de video guardado: ${scaleNum}% | Posición: ${posStr}`);
+      } else {
+        alert(json.error || 'Error al guardar configuración de QR');
+      }
+    } catch (err) {
+      alert('Error al actualizar QR de video: ' + err.message);
+    } finally {
+      setIsSavingVideoQr(false);
     }
   };
 
@@ -818,6 +878,76 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
               </div>
               <p className="text-[10px] text-zinc-500 leading-tight">
                 Ajusta el tamaño del logotipo corporativo flotante en la esquina superior izquierda del video en stand.
+              </p>
+            </div>
+
+            {/* Control 5: Tamaño y Posición del Código QR en Pantalla de Video */}
+            <div className="bg-zinc-950/70 p-3 rounded-xl border border-zinc-800 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-semibold text-zinc-300 flex items-center gap-1.5">
+                  <Smartphone className="w-3.5 h-3.5 text-[#9AC31C]" />
+                  Código QR en Video (Tamaño y Posición)
+                </label>
+                <span className="text-[11px] font-mono text-[#9AC31C] font-bold">
+                  {rouletteVideoQrScale}%
+                </span>
+              </div>
+
+              {/* Slider de Escala del QR */}
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min="50"
+                  max="160"
+                  step="5"
+                  value={rouletteVideoQrScale}
+                  onChange={(e) => setRouletteVideoQrScale(Number(e.target.value))}
+                  className="flex-1 accent-[#9AC31C] cursor-pointer h-1.5 bg-zinc-800 rounded-lg appearance-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleUpdateVideoQr(rouletteVideoQrScale, rouletteVideoQrPosition)}
+                  disabled={isSavingVideoQr}
+                  className="px-3 py-1.5 bg-[#9AC31C] hover:bg-[#84A816] active:scale-95 text-black font-racing font-bold text-[10px] uppercase tracking-wider rounded-lg transition-all cursor-pointer whitespace-nowrap disabled:opacity-50"
+                >
+                  {isSavingVideoQr ? '...' : 'Guardar'}
+                </button>
+              </div>
+
+              {/* Selector de Posición del QR */}
+              <div className="space-y-1">
+                <span className="text-[10px] text-zinc-400 font-medium block">
+                  Posición inicial del QR en el Video:
+                </span>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
+                  {[
+                    { label: '⬆️ Superior Centro (Default)', val: 'top-center' },
+                    { label: '↘️ Inferior Derecha', val: 'bottom-right' },
+                    { label: '↙️ Inferior Izquierda', val: 'bottom-left' },
+                    { label: '⬇️ Inferior Centro', val: 'bottom-center' },
+                    { label: '🎯 Centro Pantalla', val: 'center' }
+                  ].map((pos) => (
+                    <button
+                      key={pos.val}
+                      type="button"
+                      onClick={() => {
+                        setRouletteVideoQrPosition(pos.val);
+                        handleUpdateVideoQr(rouletteVideoQrScale, pos.val);
+                      }}
+                      className={`px-2 py-1.5 text-[9px] rounded font-mono transition-all cursor-pointer text-center ${
+                        rouletteVideoQrPosition === pos.val
+                          ? 'bg-[#9AC31C] text-black font-bold border border-[#9AC31C]'
+                          : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 border border-zinc-750'
+                      }`}
+                    >
+                      {pos.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <p className="text-[10px] text-zinc-500 leading-tight">
+                Por defecto el QR se sitúa arriba centrado entre el logo y los controles. En la pantalla del stand también puedes arrastrarlo libremente con el mouse o touch.
               </p>
             </div>
           </div>

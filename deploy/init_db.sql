@@ -137,14 +137,16 @@ CREATE TABLE IF NOT EXISTS display_configs (
     wheel_scale_x INT NOT NULL DEFAULT 100,
     wheel_font_size INT NOT NULL DEFAULT 100,
     video_logo_scale INT NOT NULL DEFAULT 100,
+    video_qr_scale INT NOT NULL DEFAULT 100,
+    video_qr_position VARCHAR(50) NOT NULL DEFAULT 'top-center',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
-INSERT INTO display_configs (screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent, wheel_scale_x) VALUES
-('roulette', 'auto', 8, 'default', 'AzQlHkHx6HI', 55, 100),
-('qr', 'auto', 8, 'default', 'AzQlHkHx6HI', 55, 100),
-('slider', 'auto', 8, 'default', 'AzQlHkHx6HI', 55, 100),
-('combo', 'auto', 8, '55/45', 'AzQlHkHx6HI', 55, 100)
+INSERT INTO display_configs (screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent, wheel_scale_x, wheel_font_size, video_logo_scale, video_qr_scale, video_qr_position) VALUES
+('roulette', 'auto', 8, 'default', 'AzQlHkHx6HI', 55, 100, 100, 100, 100, 'top-center'),
+('qr', 'auto', 8, 'default', 'AzQlHkHx6HI', 55, 100, 100, 100, 100, 'top-center'),
+('slider', 'auto', 8, 'default', 'AzQlHkHx6HI', 55, 100, 100, 100, 100, 'top-center'),
+('combo', 'auto', 8, '55/45', 'AzQlHkHx6HI', 55, 100, 100, 100, 100, 'top-center')
 ON DUPLICATE KEY UPDATE screen_key=VALUES(screen_key);
 
 -- 8. Tabla de Sincronización Remota de Sistema (Control Remoto en Tiempo Real)
