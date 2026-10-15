@@ -1,7 +1,23 @@
 # MEMORIA DEL PROYECTO: MARKETING VIP - RULETA DE FERIA
-**Última actualización:** 13 de Octubre de 2026  
+**Última actualización:** 15 de Octubre de 2026  
 **Dominio de Producción:** [https://autos.mvevip.com](https://autos.mvevip.com)  
 **Infraestructura:** AWS 100% Serverless (CloudFront `d16kuftm1n5423.cloudfront.net` + S3 + API Gateway + Lambda + RDS MySQL)
+
+---
+
+## ⚠️ PROTOCOLO ESTRICTO DE DESARROLLO Y AISLAMIENTO (REGLA DE ORO)
+
+> [!CAUTION]
+> **TODO DESARROLLO ES 100% LOCAL POR DEFECTO.**  
+> 1. **Prohibido tocar producción sin orden explícita:** NUNCA ejecutar scripts de despliegue (`deploy_aws.ps1`, `deploy_aws.sh`, comandos `aws s3 sync`, `aws lambda update-function-code`, o similares) a menos que el usuario lo solicite de manera directa y unívoca (e.g. *"listo despliega"*).
+> 2. **Aislamiento absoluto de Base de Datos:**
+>    - En entorno local, la API se conecta única y exclusivamente al contenedor MySQL local de Docker (`marketingvip_db` en el puerto `5501`).
+>    - Las credenciales de AWS RDS de producción NUNCA se conectan desde el código local.
+> 3. **Aislamiento de WebSockets y Tráfico de Red:**
+>    - La pantalla y el móvil local se comunican en salas separadas (`STAND_LOCAL` / `local`) y rechazan orígenes de producción `autos.mvevip.com`.
+>    - Jugar o probar en local NUNCA debe emitir eventos hacia las pantallas ni formularios de producción.
+> 4. **Insignias Visuales de Entorno:**
+>    - La pantalla local y el panel admin muestran siempre distintivos visibles (`[ENTORNO LOCAL 💻]`, `[DOCKER DB LOCAL]`) para confirmar en todo momento que se opera en el ambiente aislado.
 
 ---
 
@@ -9,94 +25,50 @@
 
 | URL | Componente | Descripción |
 | :--- | :--- | :--- |
-| `https://autos.mvevip.com` | `frontend-mobile` | PWA para participantes: registro de leads, selección de destino soñado, verificación Cloudflare Turnstile y botón ENGINE START. |
-| `https://autos.mvevip.com/pantalla` | `frontend-screen` | Pantalla principal del stand: ruleta rim motorsport, telemetría, video corporativo de standby, QR arrastrable con memoria. |
+| `https://autos.mvevip.com` | `frontend-mobile` | PWA para participantes: registro de leads en 2 pasos (datos + botón START ENGINE), selección de destino, Cloudflare Turnstile. |
+| `https://autos.mvevip.com/pantalla` | `frontend-screen` | Pantalla principal del stand: ruleta rim motorsport, video corporativo de standby con logo centrado y QR inferior derecho, bucle instantáneo sin recarga. |
 | `https://autos.mvevip.com/pantalla?view=qr` | `frontend-screen` | Cartelería: Solo QR Gigante "Escanea y Gana" con detección de orientación (horizontal completo / vertical tótem maximizado). |
 | `https://autos.mvevip.com/pantalla?view=slider` | `frontend-screen` | Cartelería: Slider continuo de banners publicitarios en loop infinito con tiempos configurables. |
 | `https://autos.mvevip.com/pantalla?view=combo` | `frontend-screen` | Cartelería: Pantalla híbrida (Slider arriba, franja central con 3 pasos dinámicos, y QR al porcentaje calibrado abajo sin solapamientos). |
-| `https://autos.mvevip.com/admin` | `frontend-admin` | PWA para operadores y asesores: gestión de premios, pesos, stock, canjes con PIN, control remoto de pantallas, slider de imágenes, cambio de video de YouTube y calibración de tamaño del QR. |
+| `https://autos.mvevip.com/admin` | `frontend-admin` | PWA para operadores y asesores: gestión de premios, pesos, stock, usuarios demo, control remoto de pantallas, slider de imágenes, cambio de video de YouTube y tamaño de logotipo corporativo. |
 | `https://autos.mvevip.com/api/*` | `api` (AWS Lambda) | Endpoints REST protegidos con PIN, rate limiter y conexión resiliente a RDS MySQL. |
 
 ---
 
 ## 2. Historial de Implementaciones Recientes
 
-### A. Cartelería Digital y Control Remoto de Pantallas
-1. **Tres Nuevas Pantallas de Exhibición:**
-   - Implementadas en `frontend-screen`: `/pantalla?view=qr`, `/pantalla?view=slider`, `/pantalla?view=combo`.
-   - Compatibilidad completa por query param (`?view=...`) y subruta (`/pantalla/...`).
-2. **Sincronización Remota en Tiempo Real:**
-   - Tabla `system_sync` y endpoint público `/api/displays/sync` con polling ligero (3.5s).
-   - Botón *"🔄 RECARGAR PANTALLAS"* en `/admin` que emite comando de sincronización inmediata hacia todas las pantallas físicas.
-3. **Gestor de Banners en Admin:**
-   - Subida de imágenes con compresión WebP automática en cliente (Canvas) Full HD a 150-300 KB.
-   - Activación, desactivación, reordenamiento y duración individual por slide.
+### A. Corrección del Algoritmo de Premios ("Bug de Visado")
+1. **Inclusión de columna `active`:** En `rouletteController.js`, se corrigió la consulta SQL de premios disponibles (`SELECT id, name, ..., active FROM prizes WHERE active = 1`) para evitar campos `undefined`.
+2. **Selección Ponderada Confiable:** En `rouletteLogic.js`, se endureció la función `selectWeightedPrize`. Si un premio tiene probabilidad configurada, compite con su peso real en la ruleta, erradicando el problema donde siempre caía el primer premio ("Visado").
 
-### B. Código QR Arrastrable con Persistencia
-- Disponible en la ruleta principal y sobre el video corporativo de atracción (`QRCodeCard.jsx` y `VideoAttractOverlay.jsx`).
-- Mover libremente con mouse/touch por si una columna o vehículo tapa el código en el stand.
-- Guardado en `localStorage` (`mvevip_screen_qr_pos` y `mvevip_video_qr_pos`) con botón de reset para restaurar la posición por defecto.
+### B. Corrección de Desfase de Ángulo en Ruleta
+- En `frontend-screen/src/App.jsx`, se corrigió la fórmula de acumulación de giro:
+  `deltaAngle = (targetModAngle - currentModAngle) % 360`
+- Con esto, giros consecutivos de la ruleta mantienen alineación física al 100% con la aguja indicadora superior, sin derivas acumulativas.
 
-### C. Video de YouTube Dinámico
-- Configurable directamente desde `/admin` (Pestaña Pantallas -> Ruleta Principal).
-- Acepta URLs completas (`https://youtu.be/...`, `https://www.youtube.com/watch?v=...`) o ID de 11 caracteres.
-- Persistido en `display_configs.video_url` y transmitido en tiempo real al iframe de standby.
+### C. Video Standby / Attract en Pantalla Principal
+1. **Logotipo Corporativo Centrado:**
+   - Ubicado fijamente en la parte superior horizontalmente centrado (`top-6 left-1/2 -translate-x-1/2`).
+   - Escala regulable desde el panel Admin (`video_logo_scale` de 50% a 250%) con guardado en base de datos.
+   - Controles de la esquina superior derecha (*Audio*, *Stand #*, *Cerrar*) permanecen anclados a `top-6 right-6` sin desfasarse al agrandar el logo.
+2. **Código QR Fijo en Esquina Inferior Derecha:**
+   - Restaurado a su posición original limpia (`bottom-8 right-8`), sin barras de arrastre ni interferencias. Clics en el QR no cierran el video.
+3. **Bucle Instantáneo sin Buffering / Recarga (Zero Delay):**
+   - Eliminados parámetros `&loop=1&playlist=...` de YouTube que forzaban la recarga del reproductor y mostraban la rueda de carga por 5 segundos.
+   - Uso de API postMessage de YouTube (`enablejsapi=1`): cuando el video finaliza (`playerState === 0`), se ejecuta instantáneamente `seekTo(0, true)` y `playVideo()`. El reinicio es inmediato y sin pantalla de espera.
+   - Al ocultarse por giro o juego, el video solo se pausa (`pauseVideo`); al volver, se reanuda (`playVideo`) sin recargar el iframe.
 
-### D. Rediseño Móvil a Modo Light Ejecutivo
-- Paleta sobria en escala de grises con toques neón `#9AC31C`.
-- Botón **ENGINE START** con llamados prominentes a levantar la mirada: *"📺 ¡MIRA LA PANTALLA GIGANTE! 👀"*.
+### D. Flujo Móvil en 2 Pasos (Registro + Lanzamiento)
+1. **Paso 1 (Registro de Lead):** Formulario ergonómico con validación de teléfono (10 dígitos Ecuador), correo y selección de vehículo/destino, rematado con botón prominente **`¡JUGAR Y GANAR!`**.
+2. **Paso 2 (Lanzamiento):** Pantalla limpia que enfoca la atención del usuario hacia el stand: **`¡MIRA LA PANTALLA GIGANTE! 👀`** con el botón centrado **`START ENGINE`**. Al pulsarlo, activa el giro en la pantalla física del stand.
 
-### E. Perfeccionamiento de la Pantalla Combo (`/pantalla?view=combo`)
-1. **3 Pasos Dinámicos al Centro:**
-   - Ubicados en la franja media entre el slider superior y el código QR.
-   - Cuadrícula de 3 columnas compacta (`grid grid-cols-3`) que garantiza visualización al 100% en pantallas verticales estrechas sin cortarse.
-   - Animaciones desfasadas de flotación (`comboStepFloat`) y radar ping.
-2. **Estructura Flex Sin Solapamientos:**
-   - Encabezado (`¡GIRA LA RULETA EN VIVO!`, `ESCANEA Y GANA`) y pie de página con `flex-shrink-0`.
-   - Área del QR aislada con `min-h-0 overflow-hidden` para impedir que el QR toque o tape los textos.
-3. **Control Porcentual de Tamaño de QR desde Admin:**
-   - Control deslizante interactivo (30% a 90%) en `/admin` para calibrar el tamaño del QR en vivo.
-   - Persistido en `display_configs.qr_scale_percent`.
-4. **Resiliencia de Base de Datos y Lambda:**
-   - Ejecución de `checkConnection` en arranque en frío de Lambda (`lambda.js`).
-   - Mecanismo de auto-migración y recuperación en caliente en `displaysController.js` para crear columnas faltantes en RDS si fuera necesario.
-5. **Limpieza de Errores en Consola:**
-   - Sockets desactivados en vistas de cartelería y en entornos serverless sin backend de WebSockets para evitar bucles `403 Forbidden`.
+### E. Ensanchamiento Horizontal de la Ruleta y Tipografía Adaptativa
+- Ensanchamiento elíptico configurable desde `/admin` (`wheel_scale_x`) con proyección `scaleX` y contra-escala en el clacker superior.
+- Ajuste de tipografía de premios (`wheel_font_size`) con cálculo automático para evitar solapamientos con las divisiones del rin.
 
-### F. Ensanchamiento Horizontal de la Ruleta (Aspecto Ovalado)
-1. **Calibración Dinámica desde `/admin`:**
-   - Control deslizante interactivo (`90%` a `150%`) y botones de ajuste rápido (`100% Circular`, `110% Leve`, `115% Recomendado`, `120% Notorio`, `125% Amplio`) en la tarjeta **Ruleta Principal** en `/admin`.
-   - Persistido en `display_configs.wheel_scale_x` con auto-migración de columna en MySQL.
-2. **Transformación Geométrica en Pantalla (`/pantalla`):**
-   - El disco de freno ventilado y el rin de la ruleta se proyectan elípticamente con `scaleX(wheelScaleX)`.
-   - La ruleta gira circularmente en su interior sin ningún bamboleo o desvío excéntrico.
-   - El indicador/clacker rojo superior aplica contra-escala inversa `scaleX(1 / wheelScaleX)` para mantenerse nítido, simétrico y apuntar con exactitud al gajo ganador.
-   - Sincronización en tiempo real vía Sockets y polling ligero: cualquier cambio en `/admin` se refleja de inmediato en la pantalla del stand sin recargar.
-
-### G. Gestión de Usuarios de Prueba (Modo Demo Stand)
-1. **Definición en `/admin` (Pestaña Leads -> Usuarios Demo):**
-   - Módulo `TestUsersManager.jsx` con formulario para registrar asesores con teléfono (10 dígitos Ecuador) y email.
-   - Botón *"⚡ Sugerir Siguiente"* para generar rápidamente números correlativos (`0990000001`, `0990000002`).
-   - Botones *"Copiar Celular"* y *"Copiar Email"* al portapapeles con feedback instantáneo.
-   - Conteo individual de giros demo realizados por cada usuario de prueba.
-2. **Flujo Infinito y Protección de Negocio (Backend):**
-   - Los números y correos registrados en `test_users` omiten el bloqueo `already_played: true`.
-   - Cada ingreso genera un nuevo giro, ticket y voucher de premio, simulando la experiencia de un cliente nuevo.
-   - **Sin descuento de stock:** Los giros de prueba no restan stock de premios valiosos reales de la feria.
-   - **Métricas limpias:** Los registros de prueba se marcan con `is_test = 1` y se excluyen del total de leads oficiales captados.
-   - **Pantalla y Móvil 100% estándar:** Ninguna pantalla pública ni formulario del cliente tiene cambios visuales extraños; todo el control se realiza transparentemente desde el servidor.
-
----
-
-### H. Logotipo Corporativo en Modal Ganador y Tipografía Grande en Ruleta
-1. **Modal Ganador:** En `WinnerOverlay.jsx`, se sustituyó el trofeo por el logotipo oficial de Marketing VIP con marco circular blanco y resplandor neón `#9AC31C`.
-2. **Tipografía Adaptativa:** En `AlloyWheel.jsx`, algoritmo matemático (`maxSafeFontSize`) que adapta el tamaño de las letras al ancho del sector para que sean más grandes sin tocar divisiones cromadas.
-3. **Control en Admin:** Slider (80% a 150%) con presets y sincronización en vivo vía `display_configs.wheel_font_size`.
-
-### I. Optimización Móvil y Flujo en 2 Pasos (Registro + Lanzamiento)
-1. **Cero Alertas de Permisos:** Retiro de PWA `manifest.json` y vibraciones `navigator.vibrate` para evitar cualquier diálogo del sistema operativo pidiendo "instalar app" o "abrir en otra aplicación".
-2. **Paso 1 (Registro):** Formulario con validación y botón destacado **`¡Juega y Gana!` ➜**.
-3. **Paso 2 (Lanzamiento):** Pantalla limpia con aviso **`¡MIRA LA PANTALLA GIGANTE!`** en la parte superior y el botón **`ENGINE START / STOP`** centrado horizontal y verticalmente en el dispositivo. Al presionarlo, dispara el giro en vivo en la pantalla del stand. Incluye enlace para volver y corregir datos si es necesario.
+### F. Gestión de Usuarios de Prueba (Modo Demo Stand)
+- Módulo en `/admin` para registrar asesores con teléfono/email demo.
+- Permite giros ilimitados sin bloqueo `already_played`, sin restar stock de premios reales y sin contaminar las estadísticas de leads oficiales.
 
 ---
 
@@ -106,14 +78,18 @@
 - **Bucket Frontend:** `marketingvip-autos-frontend-021891594659-us-west-2`
 - **ID CloudFront:** `E1ZMRVAW1NYIDC`
 - **PIN Administrativo:** `VIP2026`
-- **Script de Despliegue:** `powershell -ExecutionPolicy Bypass -File deploy\deploy_aws.ps1`
+- **Script de Despliegue Oficial:** `powershell -ExecutionPolicy Bypass -File deploy\deploy_aws.ps1`
 - **Repositorio Git:** `https://github.com/caloloc2/mvevip_ruleta.git` (Rama `main`)
 
 ---
 
-## 4. Estado del Sistema
+## 4. Estado Actual del Sistema (Cierre de Sesión)
 
-- **Producción AWS:** 100% desplegado y operativo en `https://autos.mvevip.com`.
-- **Lambda Backend:** Actualizado con soporte para `test_users` y `wheel_font_size`.
-- **Caché CloudFront:** Invalidada globalmente (`/*`) para reflejar los cambios de inmediato en móviles y pantallas.
-- **Entorno Local Docker:** Sincronizado y operativo en puertos 5500-5504.
+- **Producción AWS:** 100% desplegada, verificada y activa en `https://autos.mvevip.com`.
+- **Git:** Todos los cambios confirmados en commit `1c26892` y sincronizados en GitHub (`main`).
+- **Entorno Local Docker:** Operativo e independiente en puertos:
+  - Pantalla: `http://localhost:5502`
+  - Móvil: `http://localhost:5503`
+  - Admin: `http://localhost:5504`
+  - API: `http://localhost:5500`
+  - DB: `localhost:5501`
