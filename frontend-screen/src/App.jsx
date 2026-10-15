@@ -29,7 +29,7 @@ const MOBILE_BASE_URL = isProduction
   ? (typeof window !== 'undefined' ? `${window.location.origin}/` : 'https://autos.mvevip.com/')
   : (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:5503/` : 'http://localhost:5503/');
 
-const SCREEN_ID = 'STAND_01';
+const SCREEN_ID = isProduction ? 'STAND_01' : 'STAND_LOCAL';
 
 export default function App() {
   const [currentView, setCurrentView] = useState(() => {
@@ -517,7 +517,14 @@ export default function App() {
 
       <footer className="w-full py-2.5 px-8 bg-zinc-950/80 border-t border-zinc-900 flex items-center justify-between text-xs text-zinc-400 font-sans">
         <span>© {new Date().getFullYear()} Marketing VIP - Especialistas en sueños</span>
-        <span className="font-racing text-[#9AC31C] font-bold">Feria del Automóvil 2026 • Stand #{SCREEN_ID}</span>
+        <span className="font-racing text-[#9AC31C] font-bold flex items-center gap-2">
+          <span>Feria del Automóvil 2026 • Stand #{SCREEN_ID}</span>
+          {!isProduction && (
+            <span className="bg-amber-500/20 text-amber-400 border border-amber-500/40 text-[10px] px-2 py-0.5 rounded font-mono font-bold tracking-wider animate-pulse">
+              [ENTORNO LOCAL 💻]
+            </span>
+          )}
+        </span>
       </footer>
 
       {/* Video Corporativo en Bucle Persistente (2x2 Metros) */}

@@ -40,7 +40,7 @@ function getOrCreateDeviceId() {
 
 export default function App() {
   const queryParams = new URLSearchParams(window.location.search);
-  const screenId = queryParams.get('screen') || 'STAND_01';
+  const screenId = queryParams.get('screen') || (isProduction ? 'STAND_01' : 'STAND_LOCAL');
 
   const [gameState, setGameState] = useState('FORM'); // 'FORM' | 'READY_TO_SPIN' | 'WAITING_QUEUE' | 'SPINNING' | 'WON'
   const [formData, setFormData] = useState({
@@ -474,7 +474,12 @@ export default function App() {
       </main>
 
       <footer className="w-full py-2.5 px-4 bg-white/80 border-t border-zinc-300 text-center text-[10px] text-zinc-500 font-sans">
-        Marketing VIP • Especialistas en sueños • Stand Feria Automotriz 2026
+        <div>Marketing VIP • Especialistas en sueños • Stand Feria Automotriz 2026</div>
+        {!isProduction && (
+          <div className="font-mono font-bold text-amber-600 text-[9px] mt-0.5 tracking-wider">
+            [ENTORNO LOCAL 💻 - STAND #{screenId}]
+          </div>
+        )}
       </footer>
     </div>
   );
