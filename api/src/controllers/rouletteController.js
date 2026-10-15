@@ -12,7 +12,7 @@ const { touchSystemSync } = require('./displaysController');
 async function getPrizes(req, res) {
   try {
     const [rows] = await pool.query(
-      'SELECT id, name, description, category, color_hex, text_color, weight, stock, max_daily_wins FROM prizes WHERE active = 1 ORDER BY id ASC'
+      'SELECT id, name, description, category, color_hex, text_color, weight, stock, max_daily_wins, active FROM prizes WHERE active = 1 ORDER BY id ASC'
     );
     res.json({ success: true, data: rows });
   } catch (error) {
@@ -222,7 +222,7 @@ async function processSpin(req, res) {
 
     // 6. Obtener premios activos y verificar cuántos premios se han entregado hoy (para límite diario)
     const [prizes] = await connection.query(
-      'SELECT id, name, description, category, color_hex, text_color, weight, stock, max_daily_wins FROM prizes WHERE active = 1 ORDER BY id ASC'
+      'SELECT id, name, description, category, color_hex, text_color, weight, stock, max_daily_wins, active FROM prizes WHERE active = 1 ORDER BY id ASC'
     );
 
     if (prizes.length === 0) {

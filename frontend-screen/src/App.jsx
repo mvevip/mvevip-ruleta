@@ -379,13 +379,42 @@ export default function App() {
       destination: data.destination
     });
 
-    const totalSlices = data.totalSlices || prizes.length || 8;
+    const currentPrizes = prizesRef.current.length > 0 ? prizesRef.current : prizes;
+    const totalSlices = currentPrizes.length || data.totalSlices || 8;
     const sliceAngle = 360 / totalSlices;
-    const targetSliceIndex = data.sliceIndex || 0;
 
+    // Encontrar índice exacto del premio ganador dentro de la lista de premios actual de la pantalla
+    let targetSliceIndex = data.sliceIndex;
+    if (data.prize?.id && currentPrizes.length > 0) {
+      const foundIdx = currentPrizes.findIndex(p => p.id === data.prize.id);
+      if (foundIdx >= 0) {
+        targetSliceIndex = foundIdx;
+      }
+    }
+    if (typeof targetSliceIndex !== 'number' || targetSliceIndex < 0) {
+      targetSliceIndex = 0;
+    }
+
+    // El centro del sector ganador medido en grados desde las 12:00 en sentido horario
     const targetSliceCenter = (targetSliceIndex * sliceAngle) + (sliceAngle / 2);
+
+    // Ángulo absoluto (módulo 360) donde la ruleta debe terminar para que el centro del sector quede bajo la aguja (12:00)
+    const targetModAngle = (360 - (targetSliceCenter % 360)) % 360;
+
+    // Ángulo actual de la ruleta módulo 360
+    const currentModAngle = currentAngleRef.current % 360;
+
+    // Diferencia angular en sentido horario para alcanzar el ángulo objetivo
+    let deltaAngle = (targetModAngle - currentModAngle) % 360;
+    if (deltaAngle < 0) {
+      deltaAngle += 360;
+    }
+    if (deltaAngle === 0) {
+      deltaAngle = 360;
+    }
+
     const extraSpins = 360 * 7;
-    const newAngle = currentAngleRef.current + extraSpins + (360 - (targetSliceCenter % 360));
+    const newAngle = currentAngleRef.current + extraSpins + deltaAngle;
 
     currentAngleRef.current = newAngle;
     setRotationAngle(newAngle);

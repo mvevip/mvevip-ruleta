@@ -61,23 +61,24 @@ function selectWeightedPrize(prizes, todayPrizesCountMap = {}) {
   }
 
   // Filtrar premios que cumplan:
-  // 1. Activo
+  // 1. Activo (o no especificado pero procedente de consulta activa)
   // 2. Stock > 0
   // 3. Si tiene límite diario (max_daily_wins > 0), que no lo haya superado hoy
   const eligiblePrizes = prizes.filter(p => {
-    if (!p.active || p.stock <= 0) return false;
-    if (p.max_daily_wins > 0) {
+    if (p.active !== undefined && !p.active) return false;
+    if (p.stock !== undefined && Number(p.stock) <= 0) return false;
+    if (Number(p.max_daily_wins) > 0) {
       const winsToday = todayPrizesCountMap[p.id] || 0;
-      if (winsToday >= p.max_daily_wins) {
+      if (winsToday >= Number(p.max_daily_wins)) {
         return false; // Límite diario alcanzado: queda protegido temporalmente
       }
     }
-    return p.weight > 0;
+    return (Number(p.weight) || 0) > 0;
   });
 
-  // Si por alguna razón todos los premios elegibles están bloqueados, fallback al premio de souvenir más común
+  // Si por alguna razón todos los premios elegibles están bloqueados, fallback al primer premio activo con stock
   if (eligiblePrizes.length === 0) {
-    const fallback = prizes.find(p => p.active && p.stock > 0) || prizes[0];
+    const fallback = prizes.find(p => (p.active === undefined || p.active) && (p.stock === undefined || Number(p.stock) > 0)) || prizes[0];
     return fallback;
   }
 
