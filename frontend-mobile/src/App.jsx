@@ -150,13 +150,6 @@ export default function App() {
       queuePollingRef.current = null;
     }
 
-    // Vibración táctil doble para alertar al usuario que mire la gran pantalla
-    try {
-      if (typeof window !== 'undefined' && 'vibrate' in navigator) {
-        navigator.vibrate([200, 100, 300]);
-      }
-    } catch (e) {}
-
     setGameState('SPINNING');
     setIsSubmitting(false);
 

@@ -4,16 +4,8 @@
  */
 
 class MobileAudio {
-  // Vibración táctil silenciosa (sin sonido)
-  triggerHaptics() {
-    if ('vibrate' in navigator) {
-      try {
-        navigator.vibrate([80, 40, 120]);
-      } catch (e) {
-        // Ignorar si no está soportado
-      }
-    }
-  }
+  // Vibración táctil desactivada para evitar avisos de permisos
+  triggerHaptics() {}
 
   // Desactivado completamente
   playEngineStart() {}
