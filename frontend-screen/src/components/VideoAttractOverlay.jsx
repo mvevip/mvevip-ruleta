@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Smartphone, Sparkles, Volume2, VolumeX, X, Move, RotateCcw } from 'lucide-react';
+import { Smartphone, Sparkles, Volume2, VolumeX, X } from 'lucide-react';
 
 function extractYouTubeId(urlOrId) {
   if (!urlOrId) return 'AzQlHkHx6HI';
@@ -21,17 +21,12 @@ export default function VideoAttractOverlay({
   mobileUrl = '',
   screenId = 'STAND_01',
   videoId = 'AzQlHkHx6HI',
-  logoScale = 100,
-  qrScale = 100,
-  qrPosition = 'top-center'
+  logoScale = 100
 }) {
   const activeVideoId = extractYouTubeId(videoId);
   const safeLogoScale = Math.max(50, Math.min(250, Number(logoScale) || 100));
   const logoHeight = Math.round(54 * (safeLogoScale / 100));
-  const safeQrScale = Math.max(50, Math.min(200, Number(qrScale) || 100));
-  const qrScaleFactor = (safeQrScale / 100).toFixed(2);
   const iframeRef = useRef(null);
-  const cardRef = useRef(null);
   const isProduction = typeof window !== 'undefined' && (
     window.location.hostname === 'autos.mvevip.com' ||
     window.location.hostname.endsWith('.mvevip.com')
@@ -44,112 +39,6 @@ export default function VideoAttractOverlay({
   const fullQrUrl = `${effectiveMobileUrl}?screen=${screenId}`;
   const [isMuted, setIsMuted] = useState(false);
 
-  // Estados para mover el código QR libremente con memoria de posición
-  const storageKey = 'mvevip_screen_qr_pos';
-  const [position, setPosition] = useState(null); // { x: number, y: number } | null
-  const [isDragging, setIsDragging] = useState(false);
-  const dragStartRef = useRef({ startX: 0, startY: 0, initialX: 0, initialY: 0 });
-
-  const loadSavedPosition = () => {
-    try {
-      const saved = localStorage.getItem(storageKey);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
-          const safeX = Math.max(10, Math.min(window.innerWidth - 300, parsed.x));
-          const safeY = Math.max(10, Math.min(window.innerHeight - 360, parsed.y));
-          setPosition({ x: safeX, y: safeY });
-          return;
-        }
-      }
-      setPosition(null);
-    } catch (e) {
-      console.warn('[VideoAttract] Error leyendo posición guardada del QR:', e);
-    }
-  };
-
-  // Cargar y sincronizar posición con el resto de la aplicación
-  useEffect(() => {
-    loadSavedPosition();
-
-    const handleSync = () => loadSavedPosition();
-    window.addEventListener('storage', handleSync);
-    window.addEventListener('qr-position-updated', handleSync);
-    return () => {
-      window.removeEventListener('storage', handleSync);
-      window.removeEventListener('qr-position-updated', handleSync);
-    };
-  }, [isVisible]);
-
-  // Manejadores de arrastre con Pointer Events
-  const handlePointerDown = (e) => {
-    e.stopPropagation();
-    if (e.button !== 0) return;
-    if (e.target.closest('button')) return;
-
-    const rect = cardRef.current?.getBoundingClientRect();
-    if (!rect) return;
-
-    const currentX = position ? position.x : rect.left;
-    const currentY = position ? position.y : rect.top;
-
-    dragStartRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      initialX: currentX,
-      initialY: currentY
-    };
-
-    setIsDragging(true);
-    e.currentTarget.setPointerCapture(e.pointerId);
-  };
-
-  const handlePointerMove = (e) => {
-    e.stopPropagation();
-    if (!isDragging) return;
-
-    const deltaX = e.clientX - dragStartRef.current.startX;
-    const deltaY = e.clientY - dragStartRef.current.startY;
-
-    const rawX = dragStartRef.current.initialX + deltaX;
-    const rawY = dragStartRef.current.initialY + deltaY;
-
-    const cardWidth = cardRef.current?.offsetWidth || 288;
-    const cardHeight = cardRef.current?.offsetHeight || 340;
-
-    const clampedX = Math.max(10, Math.min(window.innerWidth - cardWidth - 10, rawX));
-    const clampedY = Math.max(10, Math.min(window.innerHeight - cardHeight - 10, rawY));
-
-    setPosition({ x: clampedX, y: clampedY });
-  };
-
-  const handlePointerUp = (e) => {
-    e.stopPropagation();
-    if (!isDragging) return;
-    setIsDragging(false);
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch (_) {}
-
-    if (position) {
-      try {
-        localStorage.setItem(storageKey, JSON.stringify(position));
-        window.dispatchEvent(new Event('qr-position-updated'));
-      } catch (err) {
-        console.warn('[VideoAttract] Error guardando posición de QR:', err);
-      }
-    }
-  };
-
-  const handleResetPosition = (e) => {
-    e.stopPropagation();
-    setPosition(null);
-    try {
-      localStorage.removeItem(storageKey);
-      window.dispatchEvent(new Event('qr-position-updated'));
-    } catch (_) {}
-  };
-
   const sendIframeCommand = (func, args = []) => {
     const iframe = iframeRef.current;
     if (!iframe || !iframe.contentWindow) return;
@@ -159,19 +48,77 @@ export default function VideoAttractOverlay({
         '*'
       );
     } catch (e) {
-      console.warn('[VideoAttract] Error controlando iframe postMessage:', e);
+      console.warn('[VideoAttract] Error enviando postMessage:', e);
     }
   };
 
-  // Controlar reproducción/pausa y audio mediante la API de YouTube sin recargar el iframe
+  // Inicializar comunicación con el iframe de YouTube y configurar listener para bucle sin recarga
+  const initIframeApi = () => {
+    const iframe = iframeRef.current;
+    if (!iframe || !iframe.contentWindow) return;
+    try {
+      iframe.contentWindow.postMessage(JSON.stringify({ event: 'listening' }), '*');
+      iframe.contentWindow.postMessage(
+        JSON.stringify({ event: 'command', func: 'addEventListener', args: ['onStateChange'] }),
+        '*'
+      );
+    } catch (_) {}
+  };
+
+  // Manejar eventos postMessage de YouTube para detectar el fin del video y reiniciar al instante (0s)
+  useEffect(() => {
+    const handleWindowMessage = (event) => {
+      if (!event.origin || (!event.origin.includes('youtube.com') && !event.origin.includes('youtube-nocookie.com'))) {
+        return;
+      }
+      try {
+        const payload = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        if (!payload) return;
+
+        // YT.PlayerState.ENDED es 0
+        const isEnded = (
+          (payload.event === 'onStateChange' && payload.info === 0) ||
+          (payload.event === 'infoDelivery' && payload.info && (
+            payload.info.playerState === 0 ||
+            (payload.info.duration > 2 && payload.info.currentTime >= payload.info.duration - 0.4)
+          ))
+        );
+
+        if (isEnded) {
+          // Bucle instantáneo: regresar a 0s y reproducir inmediatamente sin descargar de nuevo el video
+          sendIframeCommand('seekTo', [0, true]);
+          sendIframeCommand('playVideo');
+        }
+      } catch (_) {}
+    };
+
+    window.addEventListener('message', handleWindowMessage);
+    return () => {
+      window.removeEventListener('message', handleWindowMessage);
+    };
+  }, []);
+
+  // Mantener activo el handshake de eventos mientras el video esté visible
+  useEffect(() => {
+    if (!isVisible) return;
+    initIframeApi();
+    const interval = setInterval(() => {
+      initIframeApi();
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [isVisible]);
+
+  // Controlar reproducción/pausa y audio sin recargar el iframe
   useEffect(() => {
     if (isVisible) {
+      initIframeApi();
       sendIframeCommand('playVideo');
       if (!isMuted) {
         sendIframeCommand('unMute');
         sendIframeCommand('setVolume', [100]);
       }
     } else {
+      // Cuando se oculta, solo se pausa y silencia (permanece cargado en memoria)
       sendIframeCommand('mute');
       sendIframeCommand('pauseVideo');
     }
@@ -196,62 +143,7 @@ export default function VideoAttractOverlay({
     setIsMuted(false);
   };
 
-  const getPresetClassName = (preset) => {
-    switch (preset) {
-      case 'bottom-right':
-        return 'absolute bottom-8 right-8';
-      case 'bottom-left':
-        return 'absolute bottom-8 left-8';
-      case 'bottom-center':
-        return 'absolute bottom-8 left-1/2';
-      case 'center':
-        return 'absolute top-1/2 left-1/2';
-      case 'top-left':
-        return 'absolute top-24 left-6';
-      case 'top-right':
-        return 'absolute top-24 right-6';
-      case 'top-center':
-      default:
-        return 'absolute top-6 left-1/2';
-    }
-  };
-
-  const getTransformOrigin = (preset) => {
-    switch (preset) {
-      case 'bottom-right':
-        return 'bottom right';
-      case 'bottom-left':
-        return 'bottom left';
-      case 'bottom-center':
-        return 'bottom center';
-      case 'center':
-        return 'center center';
-      case 'top-left':
-        return 'top left';
-      case 'top-right':
-        return 'top right';
-      case 'top-center':
-      default:
-        return 'top center';
-    }
-  };
-
-  const cardStyle = position
-    ? {
-        position: 'fixed',
-        left: `${position.x}px`,
-        top: `${position.y}px`,
-        transform: `scale(${qrScaleFactor})`,
-        transformOrigin: 'top center',
-        zIndex: 60,
-        margin: 0
-      }
-    : {
-        transform: qrPosition === 'top-center' || qrPosition === 'bottom-center'
-          ? `translateX(-50%) scale(${qrScaleFactor})`
-          : (qrPosition === 'center' ? `translate(-50%, -50%) scale(${qrScaleFactor})` : `scale(${qrScaleFactor})`),
-        transformOrigin: getTransformOrigin(qrPosition)
-      };
+  const iframeOrigin = typeof window !== 'undefined' ? window.location.origin : '';
 
   return (
     <div
@@ -260,11 +152,12 @@ export default function VideoAttractOverlay({
       }`}
       onClick={handleVideoClick}
     >
-      {/* 1. Contenedor del Video en Proporción Adaptativa */}
+      {/* 1. Contenedor del Video en Proporción Adaptativa (Sin loop de playlist para evitar buffering continuo) */}
       <div className="absolute inset-0 w-full h-full overflow-hidden flex items-center justify-center pointer-events-none">
         <iframe
           ref={iframeRef}
-          src={`https://www.youtube-nocookie.com/embed/${activeVideoId}?autoplay=1&mute=0&loop=1&playlist=${activeVideoId}&controls=0&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1&fs=0&enablejsapi=1`}
+          onLoad={initIframeApi}
+          src={`https://www.youtube-nocookie.com/embed/${activeVideoId}?autoplay=1&mute=0&controls=0&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1&fs=0&enablejsapi=1&playsinline=1&origin=${encodeURIComponent(iframeOrigin)}`}
           title="Marketing VIP Video Corporativo"
           allow="autoplay; encrypted-media"
           className="w-[100vw] h-[100vh] min-w-[177.78vh] min-h-[56.25vw] max-w-none border-0 object-cover scale-[1.25] md:scale-[1.4] pointer-events-none"
@@ -272,8 +165,8 @@ export default function VideoAttractOverlay({
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/60 pointer-events-none" />
       </div>
 
-      {/* 2. Banner Superior Corporativo Flotante: Solo Logotipo Agrandado */}
-      <div className="absolute top-6 left-6 pointer-events-none z-20">
+      {/* 2. Banner Superior Corporativo Flotante: Logotipo Centrado Horizontalmente */}
+      <div className="absolute top-6 left-1/2 -translate-x-1/2 pointer-events-none z-20">
         <div
           className="flex items-center justify-center bg-zinc-950/85 backdrop-blur-md border border-[#9AC31C]/60 rounded-2xl shadow-[0_0_25px_rgba(154,195,28,0.3)] pointer-events-auto transition-all"
           style={{
@@ -331,56 +224,30 @@ export default function VideoAttractOverlay({
         </button>
       </div>
 
-      {/* 3. Tarjeta Flotante con Código QR (Arrastrable con memoria de posición) */}
+      {/* 3. Tarjeta Flotante con Código QR en Esquina Inferior Derecha (Fija y Original) */}
       <div
-        ref={cardRef}
-        style={cardStyle}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
+        className="absolute bottom-8 right-8 z-30 brushed-metal p-5 rounded-3xl border-2 border-[#9AC31C] shadow-[0_0_40px_rgba(154,195,28,0.5)] flex flex-col items-center w-72 text-center backdrop-blur-xl"
         onClick={(e) => e.stopPropagation()}
-        className={`z-50 brushed-metal p-4 rounded-3xl border-2 border-[#9AC31C] shadow-[0_0_40px_rgba(154,195,28,0.5)] flex flex-col items-center w-72 text-center backdrop-blur-xl cursor-grab active:cursor-grabbing select-none transition-shadow ${
-          position ? '' : getPresetClassName(qrPosition)
-        } ${isDragging ? 'ring-2 ring-[#9AC31C] shadow-[0_0_60px_rgba(154,195,28,0.7)] scale-[1.02]' : ''}`}
       >
-        {/* Barra superior de Mover y Reset */}
-        <div className="w-full flex items-center justify-between mb-2 text-zinc-400 text-[10px] tracking-wider uppercase font-semibold border-b border-zinc-800/80 pb-1.5">
-          <div className="flex items-center gap-1 text-zinc-400 hover:text-[#9AC31C] transition-colors">
-            <Move className="w-3.5 h-3.5 text-[#9AC31C]" />
-            <span>Mover QR</span>
-          </div>
-          {position && (
-            <button
-              type="button"
-              onClick={handleResetPosition}
-              title="Restablecer a posición original"
-              className="flex items-center gap-1 text-[10px] text-red-400 hover:text-red-300 bg-red-950/40 hover:bg-red-900/60 px-1.5 py-0.5 rounded border border-red-800/50 transition-all cursor-pointer"
-            >
-              <RotateCcw className="w-2.5 h-2.5" />
-              <span>Reset</span>
-            </button>
-          )}
-        </div>
-
         <div className="flex items-center gap-2 mb-2">
-          <Smartphone className="w-4 h-4 text-[#9AC31C]" />
+          <Smartphone className="w-5 h-5 text-[#9AC31C]" />
           <span className="font-racing text-xs font-black tracking-wider text-[#9AC31C] uppercase">
             ¡Escanea para Girar!
           </span>
-          <Sparkles className="w-3.5 h-3.5 text-yellow-400" />
+          <Sparkles className="w-4 h-4 text-yellow-400" />
         </div>
 
         {/* Código QR Generado */}
-        <div className="bg-white p-2.5 rounded-2xl shadow-[0_0_20px_rgba(154,195,28,0.5)] border border-[#9AC31C] mb-2 pointer-events-none">
+        <div className="bg-white p-3 rounded-2xl shadow-[0_0_20px_rgba(154,195,28,0.5)] border border-[#9AC31C] mb-3">
           <QRCodeSVG
             value={fullQrUrl}
-            size={140}
+            size={160}
             level="H"
             includeMargin={false}
           />
         </div>
 
-        <p className="text-[11px] text-zinc-300 font-semibold leading-tight">
+        <p className="text-xs text-zinc-300 font-semibold leading-tight">
           Apunta la cámara de tu celular para registrarte y jugar
         </p>
       </div>

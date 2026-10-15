@@ -564,8 +564,6 @@ export default function App() {
         screenId={SCREEN_ID}
         videoId={displayConfig?.video_url || 'AzQlHkHx6HI'}
         logoScale={displayConfig?.video_logo_scale ? Number(displayConfig.video_logo_scale) : 100}
-        qrScale={displayConfig?.video_qr_scale ? Number(displayConfig.video_qr_scale) : 100}
-        qrPosition={displayConfig?.video_qr_position || 'top-center'}
       />
 
       {/* Botón Flotante Discreto de Modo Prueba (Giro de 1 Minuto) */}
