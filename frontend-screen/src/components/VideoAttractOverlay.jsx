@@ -213,7 +213,7 @@ export default function VideoAttractOverlay({
       </div>
 
       {/* 2. Banner Superior Corporativo Flotante: Solo Logotipo Agrandado */}
-      <div className="absolute top-6 left-6 right-6 flex items-center justify-between pointer-events-none">
+      <div className="absolute top-6 left-6 pointer-events-none z-20">
         <div
           className="flex items-center justify-center bg-zinc-950/85 backdrop-blur-md border border-[#9AC31C]/60 rounded-2xl shadow-[0_0_25px_rgba(154,195,28,0.3)] pointer-events-auto transition-all"
           style={{
@@ -230,45 +230,45 @@ export default function VideoAttractOverlay({
             className="w-auto object-contain drop-shadow-[0_0_15px_rgba(154,195,28,0.6)] select-none transition-all"
           />
         </div>
+      </div>
 
-        {/* Indicadores: Audio y Stand */}
-        <div className="flex items-center gap-2 pointer-events-auto">
-          <button
-            type="button"
-            onClick={toggleSound}
-            className="flex items-center gap-2 bg-zinc-950/85 hover:bg-zinc-900 backdrop-blur-md border border-[#9AC31C]/60 px-4 py-2 rounded-xl text-xs font-semibold shadow-lg transition-all active:scale-95 cursor-pointer"
-            title={isMuted ? 'Activar Audio' : 'Silenciar Audio'}
-          >
-            {isMuted ? (
-              <>
-                <VolumeX className="w-4 h-4 text-red-400" />
-                <span className="text-zinc-300">Activar Audio</span>
-              </>
-            ) : (
-              <>
-                <Volume2 className="w-4 h-4 text-[#9AC31C] animate-pulse" />
-                <span className="text-[#9AC31C]">Audio Activo</span>
-              </>
-            )}
-          </button>
+      {/* Indicadores Fijos en Esquina Superior Derecha: Audio, Stand y Cerrar */}
+      <div className="absolute top-6 right-6 flex items-center gap-2 pointer-events-auto z-20">
+        <button
+          type="button"
+          onClick={toggleSound}
+          className="flex items-center gap-2 bg-zinc-950/85 hover:bg-zinc-900 backdrop-blur-md border border-[#9AC31C]/60 px-4 py-2 rounded-xl text-xs font-semibold shadow-lg transition-all active:scale-95 cursor-pointer"
+          title={isMuted ? 'Activar Audio' : 'Silenciar Audio'}
+        >
+          {isMuted ? (
+            <>
+              <VolumeX className="w-4 h-4 text-red-400" />
+              <span className="text-zinc-300">Activar Audio</span>
+            </>
+          ) : (
+            <>
+              <Volume2 className="w-4 h-4 text-[#9AC31C] animate-pulse" />
+              <span className="text-[#9AC31C]">Audio Activo</span>
+            </>
+          )}
+        </button>
 
-          <div className="bg-zinc-950/85 backdrop-blur-md border border-zinc-800 px-4 py-2 rounded-xl text-zinc-300 text-xs font-semibold flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#9AC31C] animate-ping" />
-            <span>Stand #{screenId}</span>
-          </div>
-
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDismiss();
-            }}
-            className="w-8 h-8 rounded-full bg-zinc-900/60 hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300 border border-zinc-800/80 flex items-center justify-center transition-all cursor-pointer backdrop-blur-sm shadow-md active:scale-95 ml-1"
-            title="Cerrar video y mostrar ruleta"
-          >
-            <X className="w-4 h-4" />
-          </button>
+        <div className="bg-zinc-950/85 backdrop-blur-md border border-zinc-800 px-4 py-2 rounded-xl text-zinc-300 text-xs font-semibold flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#9AC31C] animate-ping" />
+          <span>Stand #{screenId}</span>
         </div>
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDismiss();
+          }}
+          className="w-8 h-8 rounded-full bg-zinc-900/60 hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300 border border-zinc-800/80 flex items-center justify-center transition-all cursor-pointer backdrop-blur-sm shadow-md active:scale-95 ml-1"
+          title="Cerrar video y mostrar ruleta"
+        >
+          <X className="w-4 h-4" />
+        </button>
       </div>
 
       {/* 3. Tarjeta Flotante con Código QR (Arrastrable con memoria de posición) */}
