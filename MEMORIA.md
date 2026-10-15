@@ -88,6 +88,18 @@
 
 ---
 
+### H. Logotipo Corporativo en Modal Ganador y Tipografía Grande en Ruleta
+1. **Modal Ganador:** En `WinnerOverlay.jsx`, se sustituyó el trofeo por el logotipo oficial de Marketing VIP con marco circular blanco y resplandor neón `#9AC31C`.
+2. **Tipografía Adaptativa:** En `AlloyWheel.jsx`, algoritmo matemático (`maxSafeFontSize`) que adapta el tamaño de las letras al ancho del sector para que sean más grandes sin tocar divisiones cromadas.
+3. **Control en Admin:** Slider (80% a 150%) con presets y sincronización en vivo vía `display_configs.wheel_font_size`.
+
+### I. Optimización Móvil y Flujo en 2 Pasos (Registro + Lanzamiento)
+1. **Cero Alertas de Permisos:** Retiro de PWA `manifest.json` y vibraciones `navigator.vibrate` para evitar cualquier diálogo del sistema operativo pidiendo "instalar app" o "abrir en otra aplicación".
+2. **Paso 1 (Registro):** Formulario con validación y botón destacado **`¡Juega y Gana!` ➜**.
+3. **Paso 2 (Lanzamiento):** Pantalla limpia con aviso **`¡MIRA LA PANTALLA GIGANTE!`** en la parte superior y el botón **`ENGINE START / STOP`** centrado horizontal y verticalmente en el dispositivo. Al presionarlo, dispara el giro en vivo en la pantalla del stand. Incluye enlace para volver y corregir datos si es necesario.
+
+---
+
 ## 3. Credenciales y Configuración de Despliegue
 
 - **Perfil AWS:** `marketingvip` (Región `us-west-2`)
@@ -101,6 +113,7 @@
 
 ## 4. Estado del Sistema
 
-- Código compilado y desplegado con éxito en AWS (S3, CloudFront y Lambda).
-- Caché de CloudFront invalidada en producción (`https://autos.mvevip.com`).
-- Repositorio limpio y listo para operación en la feria.
+- **Producción AWS:** 100% desplegado y operativo en `https://autos.mvevip.com`.
+- **Lambda Backend:** Actualizado con soporte para `test_users` y `wheel_font_size`.
+- **Caché CloudFront:** Invalidada globalmente (`/*`) para reflejar los cambios de inmediato en móviles y pantallas.
+- **Entorno Local Docker:** Sincronizado y operativo en puertos 5500-5504.
