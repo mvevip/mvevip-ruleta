@@ -73,11 +73,20 @@ export default function WinnerOverlay({ winnerData, onClose }) {
           <X className="w-6 h-6" />
         </button>
 
-        {/* Encabezado de Trofeo */}
+        {/* Encabezado con Logotipo Oficial de Marketing VIP */}
         <div className="flex justify-center mb-4">
           <div className="relative">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-[#84A816] to-[#9AC31C] flex items-center justify-center shadow-[0_0_40px_rgba(154,195,28,0.9)] animate-bounce">
-              <Trophy className="w-14 h-14 text-black" />
+            <div className="w-28 h-28 rounded-full bg-gradient-to-tr from-[#84A816] to-[#9AC31C] p-1.5 flex items-center justify-center shadow-[0_0_50px_rgba(154,195,28,0.95)] animate-bounce">
+              <div className="w-full h-full rounded-full bg-white flex items-center justify-center p-2.5 shadow-inner">
+                <img
+                  src="/logotipo.png"
+                  alt="Marketing VIP"
+                  className="w-full h-full object-contain filter drop-shadow"
+                  onError={(e) => {
+                    e.currentTarget.src = '/pantalla/logotipo.png';
+                  }}
+                />
+              </div>
             </div>
             <Sparkles className="absolute -top-2 -right-2 w-8 h-8 text-[#9AC31C] animate-spin" />
           </div>
