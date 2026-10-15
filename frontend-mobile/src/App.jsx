@@ -9,20 +9,18 @@ import QueueWaitingProgress from './components/QueueWaitingProgress';
 import { mobileAudio } from './utils/mobileSound';
 import { ShieldCheck, AlertTriangle, Info, ArrowRight, Tv, Eye, ArrowUp, Sparkles } from 'lucide-react';
 
-const isLocal = typeof window !== 'undefined' && (
-  window.location.hostname === 'localhost' ||
-  window.location.hostname === '127.0.0.1' ||
-  window.location.hostname.startsWith('192.168.') ||
-  window.location.hostname.startsWith('10.')
+const isProduction = typeof window !== 'undefined' && (
+  window.location.hostname === 'autos.mvevip.com' ||
+  window.location.hostname.endsWith('.mvevip.com')
 );
 
-const API_URL = isLocal
-  ? (import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:5500`)
-  : (typeof window !== 'undefined' ? window.location.origin : '');
+const API_URL = isProduction
+  ? (typeof window !== 'undefined' ? window.location.origin : '')
+  : (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:5500` : 'http://localhost:5500');
 
-const WS_URL = isLocal
-  ? (import.meta.env.VITE_WS_URL || `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}:5500`)
-  : (import.meta.env.VITE_WS_URL || '');
+const WS_URL = isProduction
+  ? (import.meta.env.VITE_WS_URL || '')
+  : (typeof window !== 'undefined' ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}:5500` : 'ws://localhost:5500');
 
 import TurnstileWidget from './components/TurnstileWidget';
 

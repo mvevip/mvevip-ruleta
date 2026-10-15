@@ -3,13 +3,22 @@ import { QRCodeSVG } from 'qrcode.react';
 import { Smartphone, Move, RotateCcw } from 'lucide-react';
 
 export default function QRCodeCard({
-  mobileUrl = 'http://localhost:5503',
+  mobileUrl = '',
   screenId = 'STAND_01',
   driverConnected = false,
   isDraggable = true,
   storageKey = 'mvevip_screen_qr_pos'
 }) {
-  const fullUrl = `${mobileUrl}?screen=${screenId}`;
+  const isProduction = typeof window !== 'undefined' && (
+    window.location.hostname === 'autos.mvevip.com' ||
+    window.location.hostname.endsWith('.mvevip.com')
+  );
+  const effectiveMobileUrl = mobileUrl || (
+    isProduction
+      ? (typeof window !== 'undefined' ? `${window.location.origin}/` : 'https://autos.mvevip.com/')
+      : (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:5503/` : 'http://localhost:5503/')
+  );
+  const fullUrl = `${effectiveMobileUrl}?screen=${screenId}`;
   const cardRef = useRef(null);
 
   const [position, setPosition] = useState(null); // { x: number, y: number } or null (default layout)

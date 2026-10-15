@@ -18,7 +18,7 @@ function extractYouTubeId(urlOrId) {
 export default function VideoAttractOverlay({
   isVisible,
   onDismiss,
-  mobileUrl = 'https://autos.mvevip.com/',
+  mobileUrl = '',
   screenId = 'STAND_01',
   videoId = 'AzQlHkHx6HI',
   logoScale = 100
@@ -28,7 +28,16 @@ export default function VideoAttractOverlay({
   const logoHeight = Math.round(54 * (safeLogoScale / 100));
   const iframeRef = useRef(null);
   const cardRef = useRef(null);
-  const fullQrUrl = `${mobileUrl}?screen=${screenId}`;
+  const isProduction = typeof window !== 'undefined' && (
+    window.location.hostname === 'autos.mvevip.com' ||
+    window.location.hostname.endsWith('.mvevip.com')
+  );
+  const effectiveMobileUrl = mobileUrl || (
+    isProduction
+      ? (typeof window !== 'undefined' ? `${window.location.origin}/` : 'https://autos.mvevip.com/')
+      : (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:5503/` : 'http://localhost:5503/')
+  );
+  const fullQrUrl = `${effectiveMobileUrl}?screen=${screenId}`;
   const [isMuted, setIsMuted] = useState(false);
 
   // Estados para mover el código QR libremente con memoria de posición

@@ -6,7 +6,16 @@ import useRemoteDisplaySync from '../hooks/useRemoteDisplaySync';
 export default function DisplayQRView({ mobileUrl = '', screenId = 'STAND_01' }) {
   const { displayConfig } = useRemoteDisplaySync('qr');
 
-  const fullUrl = `${mobileUrl || window.location.origin}?screen=${screenId}`;
+  const isProduction = typeof window !== 'undefined' && (
+    window.location.hostname === 'autos.mvevip.com' ||
+    window.location.hostname.endsWith('.mvevip.com')
+  );
+  const effectiveMobileUrl = mobileUrl || (
+    isProduction
+      ? (typeof window !== 'undefined' ? `${window.location.origin}/` : 'https://autos.mvevip.com/')
+      : (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:5503/` : 'http://localhost:5503/')
+  );
+  const fullUrl = `${effectiveMobileUrl}?screen=${screenId}`;
   const orientation = displayConfig?.orientation || 'auto';
 
   // Detectar dinámicamente si el viewport físico es vertical (portrait)

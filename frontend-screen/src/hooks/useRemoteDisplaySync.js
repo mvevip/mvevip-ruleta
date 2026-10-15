@@ -1,15 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-const isLocal = typeof window !== 'undefined' && (
-  window.location.hostname === 'localhost' ||
-  window.location.hostname === '127.0.0.1' ||
-  window.location.hostname.startsWith('192.168.') ||
-  window.location.hostname.startsWith('10.')
+const isProduction = typeof window !== 'undefined' && (
+  window.location.hostname === 'autos.mvevip.com' ||
+  window.location.hostname.endsWith('.mvevip.com')
 );
 
-const API_URL = isLocal
-  ? (import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:5500`)
-  : (typeof window !== 'undefined' ? window.location.origin : '');
+const API_URL = isProduction
+  ? (typeof window !== 'undefined' ? window.location.origin : '')
+  : (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:5500` : 'http://localhost:5500');
 
 export default function useRemoteDisplaySync(screenKey = 'roulette', socket = null) {
   const [displayConfig, setDisplayConfig] = useState({
