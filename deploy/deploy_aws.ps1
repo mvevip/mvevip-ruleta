@@ -121,6 +121,8 @@ Write-Host "[OK] Dominio de CloudFront:     $cfDomain" -ForegroundColor Green
 Write-Host "[OK] Bucket S3 Frontend:        $frontendBucket" -ForegroundColor Green
 
 # 7. Compilar Frontends con Rutas Base
+$env:VITE_WS_URL = ""
+$env:VITE_API_URL = ""
 Write-Host "[*] Compilando App Movil Clientes (Root /)..." -ForegroundColor Cyan
 Push-Location frontend-mobile
 if ($TurnstileSiteKey) { $env:VITE_TURNSTILE_SITE_KEY = $TurnstileSiteKey }

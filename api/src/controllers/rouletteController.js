@@ -391,7 +391,6 @@ async function processSpin(req, res) {
           destination: finalDestination
         };
         req.io.to(screen_id).emit('TRIGGER_SPIN', payload);
-        req.io.emit('TRIGGER_SPIN', payload);
       }
 
       return res.json({
@@ -584,13 +583,12 @@ async function nextInQueue(req, res) {
       destination: nextParticipant.destination
     };
 
-    // 4. Emitir eventos a pantalla y móviles
+    // 4. Emitir eventos a pantalla y móviles de la misma sala
     if (req.io) {
       req.io.to(screen_id).emit('TRIGGER_SPIN', payload);
-      req.io.emit('TRIGGER_SPIN', payload);
 
-      // Notificar al móvil específico que llegó su turno
-      req.io.emit('QUEUE_YOUR_TURN', {
+      // Notificar a los clientes de la sala específica que llegó su turno
+      req.io.to(screen_id).emit('QUEUE_YOUR_TURN', {
         ticketCode: nextParticipant.ticket_code,
         queueId: nextParticipant.queue_id,
         payload
@@ -658,12 +656,12 @@ const screenActivityMap = new Map();
 
 // Registrar actividad de un lead (escaneo de QR o llenado de formulario)
 function recordScreenActivity(req, res) {
-  const screenId = req.query.screen_id || (req.body && req.body.screen_id) || 'STAND_01';
+  const defaultScreen = process.env.NODE_ENV === 'production' ? 'STAND_01' : 'STAND_LOCAL';
+  const screenId = req.query.screen_id || (req.body && req.body.screen_id) || defaultScreen;
   screenActivityMap.set(screenId, Date.now());
 
   if (req.io) {
     req.io.to(screenId).emit('USER_ENGAGED', { screenId, timestamp: Date.now() });
-    req.io.emit('USER_ENGAGED', { screenId, timestamp: Date.now() });
   }
 
   res.json({ success: true, timestamp: Date.now() });
@@ -671,7 +669,8 @@ function recordScreenActivity(req, res) {
 
 // Obtener último tiro registrado para una pantalla específica (Sincronización en vivo / Polling)
 async function getLatestSpin(req, res) {
-  const { screen_id = 'STAND_01' } = req.query;
+  const defaultScreen = process.env.NODE_ENV === 'production' ? 'STAND_01' : 'STAND_LOCAL';
+  const { screen_id = defaultScreen } = req.query;
   const lastActivityAt = screenActivityMap.get(screen_id) || 0;
 
   try {

@@ -20,16 +20,13 @@ const allowedOrigins = config.SECURITY.allowedOrigins;
 
 const corsOptions = {
   origin: function (origin, callback) {
-    // Permitir peticiones sin header Origin (server-to-server, curl o health checks locales)
     if (!origin) return callback(null, true);
-    if (
-      config.NODE_ENV !== 'production' ||
-      allowedOrigins.includes(origin) ||
-      origin.endsWith('.mvevip.com')
-    ) {
-      return callback(null, true);
+    // En servidor local, bloquear estrictamente peticiones cruzadas originadas en el dominio de producción
+    if (config.NODE_ENV !== 'production' && (origin.includes('autos.mvevip.com') || origin.includes('mvevip.com'))) {
+      console.warn(`[CORS Security] Rechazada petición HTTP desde producción: ${origin}`);
+      return callback(new Error('Petición desde producción bloqueada en servidor local'));
     }
-    return callback(new Error('Acceso bloqueado por política CORS'));
+    return callback(null, true);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
@@ -41,19 +38,17 @@ app.use(globalLimiter);
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ limit: '15mb', extended: true }));
 
-// Configurar WebSockets con CORS seguro
+// Configurar WebSockets con CORS seguro: aislar 100% de producción
 const io = new Server(server, {
   cors: {
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);
-      if (
-        config.NODE_ENV !== 'production' ||
-        allowedOrigins.includes(origin) ||
-        origin.endsWith('.mvevip.com')
-      ) {
-        return callback(null, true);
+      // Bloquear estrictamente cualquier conexión de sockets desde el dominio de producción
+      if (origin.includes('autos.mvevip.com') || origin.includes('mvevip.com')) {
+        console.warn(`[Socket Security] Rechazada conexión WebSocket desde producción: ${origin}`);
+        return callback(new Error('WebSocket desde producción bloqueado en servidor local'));
       }
-      return callback(new Error('WebSocket no permitido por CORS'));
+      return callback(null, true);
     },
     methods: ['GET', 'POST']
   }
