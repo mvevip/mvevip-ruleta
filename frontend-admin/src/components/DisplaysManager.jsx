@@ -16,12 +16,13 @@ import {
   Eye,
   EyeOff,
   Image as ImageIcon,
-  Video
+  Video,
+  Maximize2
 } from 'lucide-react';
 
 export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotification }) {
   const [displayConfigs, setDisplayConfigs] = useState({
-    roulette: { orientation: 'auto', slide_duration: 8, layout_ratio: 'default', video_url: 'AzQlHkHx6HI' },
+    roulette: { orientation: 'auto', slide_duration: 8, layout_ratio: 'default', video_url: 'AzQlHkHx6HI', wheel_scale_x: 100 },
     qr: { orientation: 'auto', slide_duration: 8, layout_ratio: 'default' },
     slider: { orientation: 'auto', slide_duration: 8, layout_ratio: 'default' },
     combo: { orientation: 'auto', slide_duration: 8, layout_ratio: '55/45' }
@@ -32,6 +33,10 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
   // Video de ruleta
   const [rouletteVideoInput, setRouletteVideoInput] = useState('AzQlHkHx6HI');
   const [isSavingVideo, setIsSavingVideo] = useState(false);
+
+  // Ensanchamiento horizontal de la ruleta (Aspecto ovalado)
+  const [rouletteWheelScale, setRouletteWheelScale] = useState(100);
+  const [isSavingWheelScale, setIsSavingWheelScale] = useState(false);
 
   // Estados de subida
   const [newTitle, setNewTitle] = useState('');
@@ -64,6 +69,9 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
           setDisplayConfigs(prev => ({ ...prev, ...jsonConfig.configs }));
           if (jsonConfig.configs.roulette?.video_url) {
             setRouletteVideoInput(jsonConfig.configs.roulette.video_url);
+          }
+          if (jsonConfig.configs.roulette?.wheel_scale_x) {
+            setRouletteWheelScale(Number(jsonConfig.configs.roulette.wheel_scale_x));
           }
         }
       }
@@ -255,6 +263,43 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
       alert('Error al actualizar video: ' + err.message);
     } finally {
       setIsSavingVideo(false);
+    }
+  };
+
+  const handleUpdateWheelScale = async (newScale) => {
+    const scaleNum = Math.max(80, Math.min(160, Number(newScale) || 100));
+    setIsSavingWheelScale(true);
+    try {
+      const current = displayConfigs['roulette'] || {};
+      const res = await fetch(`${apiUrl}/api/admin/displays/config`, {
+        method: 'PUT',
+        headers: getAdminHeaders(),
+        body: JSON.stringify({
+          screen_key: 'roulette',
+          orientation: current.orientation || 'auto',
+          slide_duration: current.slide_duration || 8,
+          layout_ratio: current.layout_ratio || 'default',
+          video_url: current.video_url || 'AzQlHkHx6HI',
+          qr_scale_percent: current.qr_scale_percent || 55,
+          wheel_scale_x: scaleNum
+        })
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        setDisplayConfigs(prev => ({
+          ...prev,
+          roulette: { ...prev.roulette, wheel_scale_x: scaleNum }
+        }));
+        setRouletteWheelScale(scaleNum);
+        onNotification(`Ensanchamiento horizontal guardado: ${scaleNum}% (${(scaleNum / 100).toFixed(2)}x)`);
+      } else {
+        alert(json.error || 'Error al guardar ensanchamiento de ruleta');
+      }
+    } catch (err) {
+      alert('Error al actualizar ensanchamiento: ' + err.message);
+    } finally {
+      setIsSavingWheelScale(false);
     }
   };
 
@@ -489,6 +534,69 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
               </div>
               <p className="text-[10px] text-zinc-500 leading-tight">
                 Pega el enlace de YouTube o el ID. Se actualizará en la pantalla grande.
+              </p>
+            </div>
+
+            {/* Ensanchamiento Horizontal de la Ruleta (Aspecto Ovalado) */}
+            <div className="pt-2.5 border-t border-zinc-800 space-y-2">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-zinc-300 font-medium flex items-center gap-1.5">
+                  <Maximize2 className="w-3.5 h-3.5 text-[#9AC31C]" />
+                  Ensanchamiento Horizontal (Ovalado):
+                </span>
+                <span className="font-mono font-bold text-xs text-[#9AC31C] bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800">
+                  {rouletteWheelScale}% ({(rouletteWheelScale / 100).toFixed(2)}x)
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="range"
+                  min="90"
+                  max="150"
+                  step="1"
+                  value={rouletteWheelScale}
+                  onChange={(e) => setRouletteWheelScale(Number(e.target.value))}
+                  className="flex-1 accent-[#9AC31C] cursor-pointer h-1.5 bg-zinc-800 rounded-lg appearance-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleUpdateWheelScale(rouletteWheelScale)}
+                  disabled={isSavingWheelScale}
+                  className="px-3 py-1.5 bg-[#9AC31C] hover:bg-[#84A816] active:scale-95 text-black font-racing font-bold text-[10px] uppercase tracking-wider rounded-lg transition-all cursor-pointer whitespace-nowrap disabled:opacity-50"
+                >
+                  {isSavingWheelScale ? '...' : 'Guardar'}
+                </button>
+              </div>
+
+              {/* Botones rápidos de preset */}
+              <div className="flex flex-wrap items-center gap-1">
+                {[
+                  { label: '100% Circular', val: 100 },
+                  { label: '110% Leve', val: 110 },
+                  { label: '115% Recomendado', val: 115 },
+                  { label: '120% Notorio', val: 120 },
+                  { label: '125% Amplio', val: 125 }
+                ].map((preset) => (
+                  <button
+                    key={preset.val}
+                    type="button"
+                    onClick={() => {
+                      setRouletteWheelScale(preset.val);
+                      handleUpdateWheelScale(preset.val);
+                    }}
+                    className={`px-1.5 py-0.5 text-[9px] rounded font-mono transition-all cursor-pointer ${
+                      rouletteWheelScale === preset.val
+                        ? 'bg-[#9AC31C] text-black font-bold'
+                        : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-zinc-500 leading-tight">
+                Ajusta la anchura de la ruleta en la pantalla del stand para adaptarla a pantallas anchas LED.
               </p>
             </div>
           </div>

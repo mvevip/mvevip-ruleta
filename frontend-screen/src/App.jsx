@@ -450,6 +450,8 @@ export default function App() {
 
   // Sincronización remota para actualizar premios automáticamente cuando el admin los modifica
   const { displayConfig, lastSyncTime } = useRemoteDisplaySync('roulette', socketRef.current);
+  const wheelScaleX = (displayConfig?.wheel_scale_x ? Number(displayConfig.wheel_scale_x) : 100) / 100;
+
   useEffect(() => {
     if (lastSyncTime) {
       fetchPrizes();
@@ -494,12 +496,13 @@ export default function App() {
         </div>
 
         {/* Centro: Ruleta Rin Deportivo */}
-        <div className="flex-1 flex justify-center items-center">
+        <div className="flex-1 flex justify-center items-center overflow-visible">
           <AlloyWheel
             prizes={prizes}
             rotationAngle={rotationAngle}
             isSpinning={isSpinning}
             isTestMode={isTestSpinning}
+            wheelScaleX={wheelScaleX}
           />
         </div>
 

@@ -63,6 +63,16 @@
 5. **Limpieza de Errores en Consola:**
    - Sockets desactivados en vistas de cartelería y en entornos serverless sin backend de WebSockets para evitar bucles `403 Forbidden`.
 
+### F. Ensanchamiento Horizontal de la Ruleta (Aspecto Ovalado)
+1. **Calibración Dinámica desde `/admin`:**
+   - Control deslizante interactivo (`90%` a `150%`) y botones de ajuste rápido (`100% Circular`, `110% Leve`, `115% Recomendado`, `120% Notorio`, `125% Amplio`) en la tarjeta **Ruleta Principal** en `/admin`.
+   - Persistido en `display_configs.wheel_scale_x` con auto-migración de columna en MySQL.
+2. **Transformación Geométrica en Pantalla (`/pantalla`):**
+   - El disco de freno ventilado y el rin de la ruleta se proyectan elípticamente con `scaleX(wheelScaleX)`.
+   - La ruleta gira circularmente en su interior sin ningún bamboleo o desvío excéntrico.
+   - El indicador/clacker rojo superior aplica contra-escala inversa `scaleX(1 / wheelScaleX)` para mantenerse nítido, simétrico y apuntar con exactitud al gajo ganador.
+   - Sincronización en tiempo real vía Sockets y polling ligero: cualquier cambio en `/admin` se refleja de inmediato en la pantalla del stand sin recargar.
+
 ---
 
 ## 3. Credenciales y Configuración de Despliegue
@@ -76,8 +86,8 @@
 
 ---
 
-## 4. Estado para Retomar Sesión
+## 4. Estado del Sistema
 
-- Todo el código se encuentra limpio, compilado, comiteado y sincronizado en el repositorio GitHub.
-- Los despliegues en AWS CloudFront y S3 están actualizados e invalidados en producción.
-- Listo para continuar mañana con cualquier nueva solicitud o ajuste que el equipo requiera.
+- Código compilado y desplegado con éxito en AWS (S3, CloudFront y Lambda).
+- Caché de CloudFront invalidada en producción (`https://autos.mvevip.com`).
+- Repositorio limpio y listo para operación en la feria.

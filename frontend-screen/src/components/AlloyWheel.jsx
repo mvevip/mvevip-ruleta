@@ -25,7 +25,7 @@ function splitTextForSlice(name = '') {
  * Componente de la Ruleta estilizada como Rin Deportivo de Alta Gama
  * Con acentos corporativos #9AC31C y textos multilínea adaptativos
  */
-export default function AlloyWheel({ prizes = [], rotationAngle = 0, isSpinning = false, isTestMode = false }) {
+export default function AlloyWheel({ prizes = [], rotationAngle = 0, isSpinning = false, isTestMode = false, wheelScaleX = 1 }) {
   const totalSlices = prizes.length || 8;
   const sliceAngle = 360 / totalSlices;
 
@@ -70,15 +70,30 @@ export default function AlloyWheel({ prizes = [], rotationAngle = 0, isSpinning 
     });
   }, [prizes, sliceAngle, center, radius]);
 
+  const safeScaleX = Number(wheelScaleX) > 0 ? Number(wheelScaleX) : 1;
+  const invScaleX = (1 / safeScaleX).toFixed(4);
+
   return (
-    <div className="relative flex items-center justify-center p-4 select-none">
+    <div
+      className="relative flex items-center justify-center p-4 select-none transition-transform duration-300 ease-out"
+      style={{
+        transform: `scaleX(${safeScaleX})`,
+        transformOrigin: 'center center'
+      }}
+    >
       {/* 1. Disco de Freno Ventilado Trasero con Acentos Corporativos #9AC31C */}
       <div className="absolute w-[690px] h-[690px] rounded-full border-4 border-zinc-700 bg-gradient-to-br from-zinc-800 via-zinc-900 to-black shadow-2xl opacity-95 flex items-center justify-center">
         <div className="w-[660px] h-[660px] rounded-full border-2 border-dashed border-[#9AC31C]/30" />
       </div>
 
       {/* 2. Indicador Selector Deportivo Rojo con Efecto Clacker en Giro */}
-      <div className={`absolute -top-3 z-30 flex flex-col items-center drop-shadow-[0_4px_15px_rgba(220,38,38,0.9)] transition-transform ${isSpinning ? 'animate-bounce' : ''}`}>
+      <div
+        className={`absolute -top-3 z-30 flex flex-col items-center drop-shadow-[0_4px_15px_rgba(220,38,38,0.9)] transition-transform ${isSpinning ? 'animate-bounce' : ''}`}
+        style={{
+          transform: `scaleX(${invScaleX})`,
+          transformOrigin: 'top center'
+        }}
+      >
         <div className="relative bg-gradient-to-b from-red-500 via-red-600 to-red-800 px-4 py-1.5 rounded-full border-2 border-red-400 flex items-center justify-center shadow-lg">
           <span className={`w-3 h-3 rounded-full ${isSpinning ? 'bg-white animate-ping' : 'bg-white shadow-[0_0_8px_#ffffff]'}`} />
         </div>

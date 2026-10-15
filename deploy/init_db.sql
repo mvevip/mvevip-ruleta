@@ -134,14 +134,15 @@ CREATE TABLE IF NOT EXISTS display_configs (
     layout_ratio VARCHAR(20) NOT NULL DEFAULT '55/45',
     video_url VARCHAR(255) NOT NULL DEFAULT 'AzQlHkHx6HI',
     qr_scale_percent INT NOT NULL DEFAULT 55,
+    wheel_scale_x INT NOT NULL DEFAULT 100,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
-INSERT INTO display_configs (screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent) VALUES
-('roulette', 'auto', 8, 'default', 'AzQlHkHx6HI', 55),
-('qr', 'auto', 8, 'default', 'AzQlHkHx6HI', 55),
-('slider', 'auto', 8, 'default', 'AzQlHkHx6HI', 55),
-('combo', 'auto', 8, '55/45', 'AzQlHkHx6HI', 55)
+INSERT INTO display_configs (screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent, wheel_scale_x) VALUES
+('roulette', 'auto', 8, 'default', 'AzQlHkHx6HI', 55, 100),
+('qr', 'auto', 8, 'default', 'AzQlHkHx6HI', 55, 100),
+('slider', 'auto', 8, 'default', 'AzQlHkHx6HI', 55, 100),
+('combo', 'auto', 8, '55/45', 'AzQlHkHx6HI', 55, 100)
 ON DUPLICATE KEY UPDATE screen_key=VALUES(screen_key);
 
 -- 8. Tabla de Sincronización Remota de Sistema (Control Remoto en Tiempo Real)

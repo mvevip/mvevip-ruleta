@@ -58,6 +58,7 @@ async function getDisplaysConfig(req, res) {
         layout_ratio: row.layout_ratio || '55/45',
         video_url: row.video_url || 'AzQlHkHx6HI',
         qr_scale_percent: row.qr_scale_percent ? Number(row.qr_scale_percent) : 55,
+        wheel_scale_x: row.wheel_scale_x ? Number(row.wheel_scale_x) : 100,
         updated_at: row.updated_at
       };
     });
@@ -74,11 +75,11 @@ async function getDisplaysConfig(req, res) {
 }
 
 /**
- * Actualiza la configuración de una pantalla (orientación, duración, proporción, video, escala de QR)
+ * Actualiza la configuración de una pantalla (orientación, duración, proporción, video, escala de QR, ensanchamiento de ruleta)
  */
 async function updateDisplayConfig(req, res) {
   try {
-    const { screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent } = req.body;
+    const { screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent, wheel_scale_x } = req.body;
     if (!screen_key) {
       return res.status(400).json({ success: false, error: 'screen_key es requerido' });
     }
@@ -90,34 +91,40 @@ async function updateDisplayConfig(req, res) {
     const cleanScale = qr_scale_percent !== undefined && Number(qr_scale_percent) >= 20 && Number(qr_scale_percent) <= 100
       ? Number(qr_scale_percent)
       : null;
+    const cleanWheelScale = wheel_scale_x !== undefined && Number(wheel_scale_x) >= 80 && Number(wheel_scale_x) <= 160
+      ? Number(wheel_scale_x)
+      : null;
 
     try {
       await pool.query(
-        `INSERT INTO display_configs (screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent)
-         VALUES (?, ?, ?, ?, COALESCE(?, 'AzQlHkHx6HI'), COALESCE(?, 55))
+        `INSERT INTO display_configs (screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent, wheel_scale_x)
+         VALUES (?, ?, ?, ?, COALESCE(?, 'AzQlHkHx6HI'), COALESCE(?, 55), COALESCE(?, 100))
          ON DUPLICATE KEY UPDATE 
            orientation = VALUES(orientation), 
            slide_duration = VALUES(slide_duration), 
            layout_ratio = VALUES(layout_ratio),
            video_url = IF(VALUES(video_url) IS NOT NULL AND VALUES(video_url) != '', VALUES(video_url), video_url),
-           qr_scale_percent = IF(VALUES(qr_scale_percent) IS NOT NULL, VALUES(qr_scale_percent), qr_scale_percent)`,
-        [screen_key, cleanOrientation, cleanDuration, cleanRatio, cleanVideo, cleanScale]
+           qr_scale_percent = IF(VALUES(qr_scale_percent) IS NOT NULL, VALUES(qr_scale_percent), qr_scale_percent),
+           wheel_scale_x = IF(VALUES(wheel_scale_x) IS NOT NULL, VALUES(wheel_scale_x), wheel_scale_x)`,
+        [screen_key, cleanOrientation, cleanDuration, cleanRatio, cleanVideo, cleanScale, cleanWheelScale]
       );
     } catch (sqlErr) {
       console.warn('[Displays] Error SQL en updateDisplayConfig, intentando auto-migración de columnas:', sqlErr.message);
       await pool.query('ALTER TABLE display_configs ADD COLUMN video_url VARCHAR(255) NOT NULL DEFAULT "AzQlHkHx6HI"').catch(() => {});
       await pool.query('ALTER TABLE display_configs ADD COLUMN qr_scale_percent INT NOT NULL DEFAULT 55').catch(() => {});
+      await pool.query('ALTER TABLE display_configs ADD COLUMN wheel_scale_x INT NOT NULL DEFAULT 100').catch(() => {});
       // Reintentar
       await pool.query(
-        `INSERT INTO display_configs (screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent)
-         VALUES (?, ?, ?, ?, COALESCE(?, 'AzQlHkHx6HI'), COALESCE(?, 55))
+        `INSERT INTO display_configs (screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent, wheel_scale_x)
+         VALUES (?, ?, ?, ?, COALESCE(?, 'AzQlHkHx6HI'), COALESCE(?, 55), COALESCE(?, 100))
          ON DUPLICATE KEY UPDATE 
            orientation = VALUES(orientation), 
            slide_duration = VALUES(slide_duration), 
            layout_ratio = VALUES(layout_ratio),
            video_url = IF(VALUES(video_url) IS NOT NULL AND VALUES(video_url) != '', VALUES(video_url), video_url),
-           qr_scale_percent = IF(VALUES(qr_scale_percent) IS NOT NULL, VALUES(qr_scale_percent), qr_scale_percent)`,
-        [screen_key, cleanOrientation, cleanDuration, cleanRatio, cleanVideo, cleanScale]
+           qr_scale_percent = IF(VALUES(qr_scale_percent) IS NOT NULL, VALUES(qr_scale_percent), qr_scale_percent),
+           wheel_scale_x = IF(VALUES(wheel_scale_x) IS NOT NULL, VALUES(wheel_scale_x), wheel_scale_x)`,
+        [screen_key, cleanOrientation, cleanDuration, cleanRatio, cleanVideo, cleanScale, cleanWheelScale]
       );
     }
 
@@ -128,6 +135,7 @@ async function updateDisplayConfig(req, res) {
       message: `Configuración de ${screen_key} actualizada correctamente`,
       video_url: cleanVideo,
       qr_scale_percent: cleanScale,
+      wheel_scale_x: cleanWheelScale,
       version
     });
   } catch (error) {
