@@ -130,13 +130,17 @@ async function checkConnection() {
         ALTER TABLE display_configs ADD COLUMN wheel_scale_x INT NOT NULL DEFAULT 100;
       `).catch(() => {});
 
+      await connection.query(`
+        ALTER TABLE display_configs ADD COLUMN wheel_font_size INT NOT NULL DEFAULT 100;
+      `).catch(() => {});
+
       // Poblar configuraciones de pantalla iniciales si no existen
       await connection.query(`
-        INSERT INTO display_configs (screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent, wheel_scale_x) VALUES
-        ('roulette', 'auto', 8, 'default', 'AzQlHkHx6HI', 55, 100),
-        ('qr', 'auto', 8, 'default', 'AzQlHkHx6HI', 55, 100),
-        ('slider', 'auto', 8, 'default', 'AzQlHkHx6HI', 55, 100),
-        ('combo', 'auto', 8, '55/45', 'AzQlHkHx6HI', 55, 100)
+        INSERT INTO display_configs (screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent, wheel_scale_x, wheel_font_size) VALUES
+        ('roulette', 'auto', 8, 'default', 'AzQlHkHx6HI', 55, 100, 100),
+        ('qr', 'auto', 8, 'default', 'AzQlHkHx6HI', 55, 100, 100),
+        ('slider', 'auto', 8, 'default', 'AzQlHkHx6HI', 55, 100, 100),
+        ('combo', 'auto', 8, '55/45', 'AzQlHkHx6HI', 55, 100, 100)
         ON DUPLICATE KEY UPDATE screen_key=VALUES(screen_key);
       `).catch(() => {});
 

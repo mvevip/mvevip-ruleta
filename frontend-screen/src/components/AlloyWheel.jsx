@@ -1,11 +1,11 @@
 import React, { useMemo } from 'react';
 
-// Función para dividir títulos largos en 1 o 2 líneas para que quepan perfectamente en el gajo
+// Función para dividir títulos de premios en 1 o 2 líneas balanceadas
 function splitTextForSlice(name = '') {
   const clean = name.trim().toUpperCase();
-  const words = clean.split(' ');
+  const words = clean.split(/\s+/).filter(Boolean);
 
-  if (words.length <= 1 || clean.length <= 10) {
+  if (words.length <= 1 || clean.length <= 9) {
     return [clean];
   }
 
@@ -14,18 +14,28 @@ function splitTextForSlice(name = '') {
     return [words[0], words[1]];
   }
 
-  // Si son 3 o más palabras, balancear en dos líneas
-  const mid = Math.ceil(words.length / 2);
-  const line1 = words.slice(0, mid).join(' ');
-  const line2 = words.slice(mid).join(' ');
-  return [line1, line2];
+  // Si son 3 o más palabras, encontrar el punto de corte óptimo que minimice la línea más larga
+  let bestSplit = [words.slice(0, Math.ceil(words.length / 2)).join(' '), words.slice(Math.ceil(words.length / 2)).join(' ')];
+  let minMaxLen = Infinity;
+
+  for (let i = 1; i < words.length; i++) {
+    const l1 = words.slice(0, i).join(' ');
+    const l2 = words.slice(i).join(' ');
+    const maxLen = Math.max(l1.length, l2.length);
+    if (maxLen < minMaxLen) {
+      minMaxLen = maxLen;
+      bestSplit = [l1, l2];
+    }
+  }
+
+  return bestSplit;
 }
 
 /**
  * Componente de la Ruleta estilizada como Rin Deportivo de Alta Gama
- * Con acentos corporativos #9AC31C y textos multilínea adaptativos
+ * Con acentos corporativos #9AC31C y textos multilínea adaptativos auto-ajustables
  */
-export default function AlloyWheel({ prizes = [], rotationAngle = 0, isSpinning = false, isTestMode = false, wheelScaleX = 1 }) {
+export default function AlloyWheel({ prizes = [], rotationAngle = 0, isSpinning = false, isTestMode = false, wheelScaleX = 1, wheelFontSize = 100 }) {
   const totalSlices = prizes.length || 8;
   const sliceAngle = 360 / totalSlices;
 
@@ -34,6 +44,8 @@ export default function AlloyWheel({ prizes = [], rotationAngle = 0, isSpinning 
   const radius = center - 30; // 310px
 
   const slices = useMemo(() => {
+    const fontScale = (Number(wheelFontSize) > 0 ? Number(wheelFontSize) : 100) / 100;
+
     return prizes.map((prize, index) => {
       const startAngle = index * sliceAngle - 90;
       const endAngle = startAngle + sliceAngle;
@@ -49,14 +61,27 @@ export default function AlloyWheel({ prizes = [], rotationAngle = 0, isSpinning 
       const largeArc = sliceAngle > 180 ? 1 : 0;
       const pathData = `M ${center} ${center} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z`;
 
-      // Posición del texto: centrado a 65% del radio para espacio óptimo
+      // Posición del texto: centrado a 67% del radio para mayor anchura del sector y legibilidad
       const midAngle = startAngle + sliceAngle / 2;
       const midRad = (midAngle * Math.PI) / 180;
-      const textRadius = radius * 0.65;
+      const textRadius = radius * 0.67;
       const textX = center + textRadius * Math.cos(midRad);
       const textY = center + textRadius * Math.sin(midRad);
 
       const textLines = splitTextForSlice(prize.name);
+      const maxLineLength = Math.max(...textLines.map(l => l.length), 1);
+
+      // Ancho disponible en el sector a esta altura radial (con márgenes de seguridad para no tocar divisiones)
+      const availableChord = 2 * textRadius * Math.sin(((sliceAngle / 2) * Math.PI) / 180) - 20;
+
+      // Base: 16px para 1 línea, 14.2px para 2 líneas, multiplicado por la escala del admin
+      const requestedFontSize = (textLines.length === 1 ? 16 : 14.2) * fontScale;
+
+      // Cálculo de seguridad matemática: en Orbitron 900, cada carácter ocupa ~0.64 * fontSize
+      const maxSafeFontSize = Math.floor(availableChord / (maxLineLength * 0.64));
+
+      // El tamaño final se maximiza pero NUNCA supera el límite seguro del gajo
+      const finalFontSize = Math.max(10, Math.min(requestedFontSize, maxSafeFontSize));
 
       return {
         ...prize,
@@ -65,10 +90,11 @@ export default function AlloyWheel({ prizes = [], rotationAngle = 0, isSpinning 
         textX,
         textY,
         midAngle,
-        textLines
+        textLines,
+        fontSize: finalFontSize
       };
     });
-  }, [prizes, sliceAngle, center, radius]);
+  }, [prizes, sliceAngle, center, radius, wheelFontSize]);
 
   const safeScaleX = Number(wheelScaleX) > 0 ? Number(wheelScaleX) : 1;
   const invScaleX = (1 / safeScaleX).toFixed(4);
@@ -159,12 +185,13 @@ export default function AlloyWheel({ prizes = [], rotationAngle = 0, isSpinning 
                   x={slice.textX}
                   y={slice.textY}
                   fill={slice.text_color || (slice.color_hex === '#9AC31C' ? '#000000' : '#FFFFFF')}
-                  fontSize={slice.textLines.length > 1 ? "12" : "13.5"}
+                  fontSize={slice.fontSize}
                   fontWeight="900"
                   fontFamily="'Orbitron', sans-serif"
+                  letterSpacing="0.02em"
                   textAnchor="middle"
                   dominantBaseline="central"
-                  className="filter drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)] select-none"
+                  className="filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)] select-none"
                 >
                   {slice.textLines.length === 1 ? (
                     <tspan x={slice.textX} dy="0">

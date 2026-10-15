@@ -451,6 +451,7 @@ export default function App() {
   // Sincronización remota para actualizar premios automáticamente cuando el admin los modifica
   const { displayConfig, lastSyncTime } = useRemoteDisplaySync('roulette', socketRef.current);
   const wheelScaleX = (displayConfig?.wheel_scale_x ? Number(displayConfig.wheel_scale_x) : 100) / 100;
+  const wheelFontSize = displayConfig?.wheel_font_size ? Number(displayConfig.wheel_font_size) : 100;
 
   useEffect(() => {
     if (lastSyncTime) {
@@ -503,6 +504,7 @@ export default function App() {
             isSpinning={isSpinning}
             isTestMode={isTestSpinning}
             wheelScaleX={wheelScaleX}
+            wheelFontSize={wheelFontSize}
           />
         </div>
 
