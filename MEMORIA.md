@@ -75,27 +75,40 @@
 - Permite giros ilimitados sin bloqueo `already_played`, sin restar stock de premios reales y sin contaminar las estadísticas de leads oficiales.
 
 ### G. Asignación de Asesores en Leads con Búsqueda y Validación Estricta
-- Catálogo oficial de 28 asesores (`api/src/config/advisorsList.js`) proveniente de `asesores.csv`.
-- Columna `assigned_to VARCHAR(150) DEFAULT NULL` en la tabla `leads` y endpoint protegido `PUT /api/leads/:id/assign`.
-- Componente `StrictAdvisorSelect.jsx` en `/admin` (*Leads → Captados*) que permite buscar y filtrar asesores al escribir, impidiendo guardar cualquier texto que no coincida con los 28 asesores oficiales.
+- **Catálogo Oficial (28 asesores):** Definido en `api/src/config/advisorsList.js` y `frontend-admin/src/components/StrictAdvisorSelect.jsx` a partir de `asesores.csv` (normalizado sin espacios finales).
+- **Base de Datos y Backend (`leads.assigned_to`):**
+  - Columna `assigned_to VARCHAR(150) DEFAULT NULL` en la tabla `leads` (creada manualmente en producción mediante script SQL autorizado por el usuario).
+  - `GET /api/leads` incluye `l.assigned_to` y el catálogo `advisors`.
+  - `PUT /api/leads/:id/assign` valida estrictamente que el nombre coincida con uno de los 28 asesores oficiales (o vacío para limpiar) y devuelve `{ success: true, lead_id, assigned_to, data: { lead_id, assigned_to } }`.
+- **Frontend Admin (`StrictAdvisorSelect.jsx`):**
+  - Selector desplegable buscable integrado en cada tarjeta de **Leads → Captados** (`frontend-admin/src/App.jsx`).
+  - Permite filtrar mientras se escribe y revierte automáticamente cualquier texto libre que no pertenezca a la lista oficial de 28 asesores.
+  - El buscador general superior de Leads también filtra por el nombre del asesor asignado.
 
 ---
 
-## 3. Credenciales y Configuración de Despliegue
+## 3. Credenciales y Reglas Críticas de Despliegue
 
 - **Perfil AWS:** `marketingvip` (Región `us-west-2`)
 - **Bucket Frontend:** `marketingvip-autos-frontend-021891594659-us-west-2`
+- **Bucket Artefactos Lambda:** `mvevip-recursos` (`marketingvip-roulette/api.zip`)
+- **Función Lambda:** `MarketingVIP-Roulette-Api-prod`
 - **ID CloudFront:** `E1ZMRVAW1NYIDC`
 - **PIN Administrativo:** `VIP2026`
-- **Script de Despliegue Oficial:** `powershell -ExecutionPolicy Bypass -File deploy\deploy_aws.ps1`
+- **Script de Despliegue Oficial Completo:** `powershell -ExecutionPolicy Bypass -File deploy\deploy_aws.ps1`
+- **Regla Crítica al Compilar Frontends Individualmente:**
+  - `frontend-admin` **SIEMPRE** debe compilarse con `$env:VITE_BASE_PATH = "/admin/"` antes de `npm run build` y restaurar `logotipo.png` en `s3://.../admin/logotipo.png`.
+  - `frontend-screen` **SIEMPRE** debe compilarse con `$env:VITE_BASE_PATH = "/pantalla/"` antes de `npm run build` y restaurar `logotipo.png` en `s3://.../pantalla/logotipo.png`.
+- **Regla Crítica de Base de Datos en Producción:**
+  - Nunca ejecutar cambios de esquema (`ALTER TABLE` / `CREATE TABLE`) automáticos en producción desde el agente; entregar siempre el script SQL al usuario para que él lo ejecute y autorice el despliegue.
 - **Repositorio Git:** `https://github.com/caloloc2/mvevip_ruleta.git` (Rama `main`)
 
 ---
 
-## 4. Estado Actual del Sistema (Cierre de Sesión)
+## 4. Estado Actual del Sistema (Cierre de Sesión - 16 de Octubre de 2026)
 
-- **Producción AWS:** 100% desplegada, verificada y activa en `https://autos.mvevip.com`.
-- **Git:** Todos los cambios confirmados en commit `1c26892` y sincronizados en GitHub (`main`).
+- **Producción AWS:** 100% desplegada, verificada (HTTP 200 en `/`, `/pantalla`, `/admin` y `/api/*`) y activa en `https://autos.mvevip.com`.
+- **Git:** Todos los cambios confirmados y sincronizados en GitHub (`origin/main`).
 - **Entorno Local Docker:** Operativo e independiente en puertos:
   - Pantalla: `http://localhost:5502`
   - Móvil: `http://localhost:5503`
