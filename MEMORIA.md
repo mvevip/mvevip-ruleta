@@ -74,6 +74,11 @@
 - Módulo en `/admin` para registrar asesores con teléfono/email demo.
 - Permite giros ilimitados sin bloqueo `already_played`, sin restar stock de premios reales y sin contaminar las estadísticas de leads oficiales.
 
+### G. Asignación de Asesores en Leads con Búsqueda y Validación Estricta
+- Catálogo oficial de 28 asesores (`api/src/config/advisorsList.js`) proveniente de `asesores.csv`.
+- Columna `assigned_to VARCHAR(150) DEFAULT NULL` en la tabla `leads` y endpoint protegido `PUT /api/leads/:id/assign`.
+- Componente `StrictAdvisorSelect.jsx` en `/admin` (*Leads → Captados*) que permite buscar y filtrar asesores al escribir, impidiendo guardar cualquier texto que no coincida con los 28 asesores oficiales.
+
 ---
 
 ## 3. Credenciales y Configuración de Despliegue

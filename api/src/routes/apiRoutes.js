@@ -48,6 +48,7 @@ router.post('/admin/displays/reload', adminLimiter, requireAdminAuth, displaysCo
 
 // Rutas Administrativas de Leads & Estadísticas de feria
 router.get('/leads', adminLimiter, requireAdminAuth, leadsController.getLeads);
+router.put('/leads/:id/assign', adminLimiter, requireAdminAuth, leadsController.assignAdvisorToLead);
 router.get('/metrics', adminLimiter, requireAdminAuth, leadsController.getMetrics);
 
 // Rutas Administrativas de Usuarios de Prueba (Modo Demo Stand)

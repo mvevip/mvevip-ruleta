@@ -1,9 +1,11 @@
 const { pool } = require('../config/db');
+const { OFFICIAL_ADVISORS } = require('../config/advisorsList');
 
 async function getLeads(req, res) {
   try {
     const [rows] = await pool.query(
       `SELECT l.id, l.name, l.email, l.phone, l.dream_destination, l.screen_id, l.device_id, l.created_at,
+              l.assigned_to,
               COALESCE(l.is_test, 0) AS is_test,
               s.ticket_code, s.redeemed, p.name AS prize_name,
               (SELECT COUNT(*) FROM leads l2 WHERE l2.device_id = l.device_id AND l.device_id != 'unknown') AS device_leads_count
@@ -12,10 +14,55 @@ async function getLeads(req, res) {
        LEFT JOIN prizes p ON s.prize_id = p.id
        ORDER BY l.created_at DESC LIMIT 500`
     );
-    res.json({ success: true, count: rows.length, data: rows });
+    res.json({
+      success: true,
+      count: rows.length,
+      advisors: OFFICIAL_ADVISORS,
+      data: rows
+    });
   } catch (error) {
     console.error('Error al listar leads:', error);
     res.status(500).json({ success: false, message: 'Error interno al consultar leads' });
+  }
+}
+
+async function assignAdvisorToLead(req, res) {
+  try {
+    const leadId = parseInt(req.params.id, 10);
+    if (!leadId || Number.isNaN(leadId)) {
+      return res.status(400).json({ success: false, message: 'ID de lead inválido' });
+    }
+
+    const rawAdvisor = req.body?.assigned_to;
+    const cleanInput = typeof rawAdvisor === 'string' ? rawAdvisor.trim().toUpperCase() : '';
+
+    let canonicalAdvisor = null;
+    if (cleanInput !== '') {
+      const matched = OFFICIAL_ADVISORS.find((adv) => adv.toUpperCase() === cleanInput);
+      if (!matched) {
+        return res.status(400).json({
+          success: false,
+          message: 'El nombre ingresado no pertenece a la lista oficial de asesores.'
+        });
+      }
+      canonicalAdvisor = matched;
+    }
+
+    await pool.query('UPDATE leads SET assigned_to = ? WHERE id = ?', [canonicalAdvisor, leadId]);
+
+    return res.json({
+      success: true,
+      lead_id: leadId,
+      assigned_to: canonicalAdvisor,
+      data: {
+        lead_id: leadId,
+        assigned_to: canonicalAdvisor
+      },
+      message: canonicalAdvisor ? `Asignado a ${canonicalAdvisor}` : 'Asignación removida'
+    });
+  } catch (error) {
+    console.error('Error al asignar asesor al lead:', error);
+    return res.status(500).json({ success: false, message: 'Error interno al asignar asesor' });
   }
 }
 
@@ -71,5 +118,6 @@ async function getMetrics(req, res) {
 
 module.exports = {
   getLeads,
+  assignAdvisorToLead,
   getMetrics
 };

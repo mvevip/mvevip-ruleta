@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import DisplaysManager from './components/DisplaysManager';
 import TestUsersManager from './components/TestUsersManager';
+import StrictAdvisorSelect, { DEFAULT_ADVISORS } from './components/StrictAdvisorSelect';
 
 const isProduction = typeof window !== 'undefined' && (
   window.location.hostname === 'autos.mvevip.com' ||
@@ -43,6 +44,7 @@ export default function App() {
   
   const [prizes, setPrizes] = useState([]);
   const [leads, setLeads] = useState([]);
+  const [advisorsList, setAdvisorsList] = useState(DEFAULT_ADVISORS);
   const [metrics, setMetrics] = useState(null);
   const [destinations, setDestinations] = useState([]);
   const [newDestName, setNewDestName] = useState('');
@@ -124,7 +126,12 @@ export default function App() {
       }
 
       if (jsonP.success) setPrizes(jsonP.data);
-      if (jsonL.success) setLeads(jsonL.data);
+      if (jsonL.success) {
+        setLeads(jsonL.data);
+        if (Array.isArray(jsonL.advisors) && jsonL.advisors.length > 0) {
+          setAdvisorsList(jsonL.advisors);
+        }
+      }
       if (jsonM.success) setMetrics(jsonM.data);
     } catch (err) {
       console.error('Error cargando datos:', err);
@@ -311,13 +318,49 @@ export default function App() {
     }
   };
 
+  const handleAssignAdvisor = async (leadId, advisorName) => {
+    try {
+      const res = await fetch(`${API_URL}/api/leads/${leadId}/assign`, {
+        method: 'PUT',
+        headers: getAdminHeaders(),
+        body: JSON.stringify({ assigned_to: advisorName })
+      });
+      const json = await res.json();
+      if (json.success) {
+        const savedAdvisor =
+          json.data && json.data.assigned_to !== undefined
+            ? json.data.assigned_to
+            : (json.assigned_to ?? null);
+        setLeads(prev =>
+          prev.map(item =>
+            item.id === leadId ? { ...item, assigned_to: savedAdvisor } : item
+          )
+        );
+        setSavedMsg(
+          savedAdvisor
+            ? `Asesor asignado: ${savedAdvisor}`
+            : 'Asignación de asesor removida'
+        );
+        setTimeout(() => setSavedMsg(''), 2500);
+        return true;
+      } else {
+        alert(json.message || 'No se pudo asignar el asesor');
+        return false;
+      }
+    } catch (err) {
+      alert('Error de conexión al asignar asesor');
+      return false;
+    }
+  };
+
   // Filtrado de leads para búsqueda en móvil
   const filteredLeads = leads.filter(l => {
     const q = searchQuery.toLowerCase();
     return (
       (l.name && l.name.toLowerCase().includes(q)) ||
       (l.phone && l.phone.includes(q)) ||
-      (l.ticket_code && l.ticket_code.toLowerCase().includes(q))
+      (l.ticket_code && l.ticket_code.toLowerCase().includes(q)) ||
+      (l.assigned_to && l.assigned_to.toLowerCase().includes(q))
     );
   });
 
@@ -561,7 +604,7 @@ export default function App() {
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Buscar por nombre, teléfono o ticket..."
+                      placeholder="Buscar por nombre, teléfono, ticket o asesor..."
                       className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-zinc-900 border border-zinc-800 text-white text-xs placeholder-zinc-500 focus:outline-none focus:border-[#9AC31C]"
                     />
                   </div>
@@ -602,6 +645,14 @@ export default function App() {
                       <div className="text-xs text-zinc-300">
                         Premio: <strong className="text-[#9AC31C]">{l.prize_name || 'Pendiente'}</strong>
                       </div>
+
+                      {/* Selector de Asesor con búsqueda y validación estricta */}
+                      <StrictAdvisorSelect
+                        leadId={l.id}
+                        value={l.assigned_to || ''}
+                        advisors={advisorsList}
+                        onAssign={handleAssignAdvisor}
+                      />
 
                       {/* Alerta de Multicuentas / Mismo Dispositivo */}
                       {l.device_leads_count > 1 && !l.is_test && (
