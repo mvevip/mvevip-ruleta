@@ -88,31 +88,40 @@ export default function App() {
   const testTimerRef = useRef(null);
   const lastHandledTicketCodeRef = useRef(null);
   const winnerRef = useRef(null);
+  const isTestSpinningRef = useRef(false);
   const screenQueueRef = useRef([]); // Cola en frontend para asegurar que cada giro espere su turno ordenadamente
   const isProcessingQueueRef = useRef(false);
 
   prizesRef.current = prizes;
   isSpinningRef.current = isSpinning;
   winnerRef.current = winner;
+  isTestSpinningRef.current = isTestSpinning;
 
-  const INACTIVITY_FALLBACK_MS = 4 * 60 * 1000; // 4 minutos (240,000 ms)
+  const ROULETTE_PAUSE_MS = 20 * 1000; // 20 segundos mostrando la ruleta antes de volver al video
+  const INACTIVITY_FALLBACK_MS = 4 * 60 * 1000; // 4 minutos de margen cuando un participante está llenando el formulario móvil
 
-  const startIdleTimer = (delay = 10000) => {
+  const startIdleTimer = (delay = ROULETTE_PAUSE_MS) => {
     if (idleTimerRef.current) {
       clearTimeout(idleTimerRef.current);
     }
     idleTimerRef.current = setTimeout(() => {
       // Solo regresar al video si nadie está girando, ni en prueba, ni con modal de ganador, ni hay turnos pendientes en cola
-      if (!isSpinningRef.current && !isTestSpinning && !winnerRef.current && screenQueueRef.current.length === 0) {
+      if (!isSpinningRef.current && !isTestSpinningRef.current && !winnerRef.current && screenQueueRef.current.length === 0) {
         setShowVideo(true);
         setActivePilot(null);
       }
     }, delay);
   };
 
+  // Pausa de 20 segundos mostrando la ruleta (al terminar el video o cerrar manualmente)
+  const handleVideoPauseToRoulette = () => {
+    setShowVideo(false);
+    startIdleTimer(ROULETTE_PAUSE_MS);
+  };
+
+  // Despertar pantalla cuando un usuario real interactúa en el móvil
   const dismissVideo = () => {
     setShowVideo(false);
-    // Iniciar temporizador de inactividad de 4 minutos: si no se gira la ruleta, vuelve al video
     startIdleTimer(INACTIVITY_FALLBACK_MS);
   };
 
@@ -190,13 +199,13 @@ export default function App() {
           console.log('[Screen] Siguiente participante despachado por backend:', json.next.leadName);
           handleTriggerSpin(json.next);
         } else {
-          // Si no hay más jugadores en cola, iniciar temporizador de inactividad de 10s para el video
-          console.log('[Screen] Cola despejada, esperando 10s antes del video attract');
-          startIdleTimer(10000);
+          // Si no hay más jugadores en cola, mostrar la ruleta por 20s antes de volver al video
+          console.log('[Screen] Cola despejada, mostrando ruleta 20s antes de volver al video');
+          startIdleTimer(ROULETTE_PAUSE_MS);
         }
       } catch (e) {
         console.warn('[Screen] Error solicitando siguiente turno:', e);
-        startIdleTimer(10000);
+        startIdleTimer(ROULETTE_PAUSE_MS);
       }
     }, 3500);
   };
@@ -476,7 +485,7 @@ export default function App() {
   };
 
   // Sincronización remota para actualizar premios automáticamente cuando el admin los modifica
-  const { displayConfig, lastSyncTime } = useRemoteDisplaySync('roulette', socketRef.current);
+  const { displayConfig, isConfigLoaded, lastSyncTime } = useRemoteDisplaySync('roulette', socketRef.current);
   const wheelScaleX = (displayConfig?.wheel_scale_x ? Number(displayConfig.wheel_scale_x) : 100) / 100;
   const wheelFontSize = displayConfig?.wheel_font_size ? Number(displayConfig.wheel_font_size) : 100;
 
@@ -556,14 +565,17 @@ export default function App() {
         </span>
       </footer>
 
-      {/* Video Corporativo en Bucle Persistente (2x2 Metros) */}
+      {/* Video Corporativo en Bucle Persistente (100% Pantalla + Pausa 20s a Ruleta) */}
       <VideoAttractOverlay
         isVisible={showVideo && !isSpinning && !winner}
-        onDismiss={dismissVideo}
+        onDismiss={handleVideoPauseToRoulette}
+        onVideoEnded={handleVideoPauseToRoulette}
         mobileUrl={MOBILE_BASE_URL}
         screenId={SCREEN_ID}
         videoId={displayConfig?.video_url || 'AzQlHkHx6HI'}
+        isConfigLoaded={isConfigLoaded}
         logoScale={displayConfig?.video_logo_scale ? Number(displayConfig.video_logo_scale) : 100}
+        showLogo={Boolean(displayConfig?.video_logo_visible)}
       />
 
       {/* Botón Flotante Discreto de Modo Prueba (Giro de 1 Minuto) */}

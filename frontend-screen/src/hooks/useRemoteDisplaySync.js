@@ -10,10 +10,26 @@ const API_URL = isProduction
   : (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:5500` : 'http://localhost:5500');
 
 export default function useRemoteDisplaySync(screenKey = 'roulette', socket = null) {
-  const [displayConfig, setDisplayConfig] = useState({
-    orientation: 'auto',
-    slide_duration: 8,
-    layout_ratio: '55/45'
+  const storageKey = `vip_display_config_${screenKey}`;
+  const [displayConfig, setDisplayConfig] = useState(() => {
+    try {
+      const saved = typeof window !== 'undefined' ? localStorage.getItem(storageKey) : null;
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (_) {}
+    return {
+      orientation: 'auto',
+      slide_duration: 8,
+      layout_ratio: '55/45'
+    };
+  });
+  const [isConfigLoaded, setIsConfigLoaded] = useState(() => {
+    try {
+      return typeof window !== 'undefined' && Boolean(localStorage.getItem(storageKey));
+    } catch (_) {
+      return false;
+    }
   });
   const [sliderImages, setSliderImages] = useState([]);
   const [lastVersion, setLastVersion] = useState(0);
@@ -36,6 +52,9 @@ export default function useRemoteDisplaySync(screenKey = 'roulette', socket = nu
             layout_ratio: '55/45'
           };
           setDisplayConfig(myConfig);
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(myConfig));
+          } catch (_) {}
           if (jsonConfig.version) setLastVersion(jsonConfig.version);
         }
       }
@@ -55,9 +74,10 @@ export default function useRemoteDisplaySync(screenKey = 'roulette', socket = nu
     } catch (err) {
       console.warn('[useRemoteDisplaySync] Error actualizando datos remotos:', err);
     } finally {
+      setIsConfigLoaded(true);
       isFetchingRef.current = false;
     }
-  }, [screenKey]);
+  }, [screenKey, storageKey]);
 
   // Carga inicial al montar
   useEffect(() => {
@@ -121,6 +141,7 @@ export default function useRemoteDisplaySync(screenKey = 'roulette', socket = nu
 
   return {
     displayConfig,
+    isConfigLoaded,
     sliderImages,
     lastSyncTime,
     refreshAllData,

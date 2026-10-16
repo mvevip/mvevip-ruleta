@@ -1,5 +1,5 @@
 # MEMORIA DEL PROYECTO: MARKETING VIP - RULETA DE FERIA
-**Última actualización:** 15 de Octubre de 2026  
+**Última actualización:** 16 de Octubre de 2026  
 **Dominio de Producción:** [https://autos.mvevip.com](https://autos.mvevip.com)  
 **Infraestructura:** AWS 100% Serverless (CloudFront `d16kuftm1n5423.cloudfront.net` + S3 + API Gateway + Lambda + RDS MySQL)
 
@@ -26,11 +26,11 @@
 | URL | Componente | Descripción |
 | :--- | :--- | :--- |
 | `https://autos.mvevip.com` | `frontend-mobile` | PWA para participantes: registro de leads en 2 pasos (datos + botón START ENGINE), selección de destino, Cloudflare Turnstile. |
-| `https://autos.mvevip.com/pantalla` | `frontend-screen` | Pantalla principal del stand: ruleta rim motorsport, video corporativo de standby con logo centrado y QR inferior derecho, bucle instantáneo sin recarga. |
+| `https://autos.mvevip.com/pantalla` | `frontend-screen` | Pantalla principal del stand: ruleta rim motorsport, video corporativo de standby al 100% horizontal/vertical con alternancia automática de 20s hacia la ruleta sin recarga. |
 | `https://autos.mvevip.com/pantalla?view=qr` | `frontend-screen` | Cartelería: Solo QR Gigante "Escanea y Gana" con detección de orientación (horizontal completo / vertical tótem maximizado). |
 | `https://autos.mvevip.com/pantalla?view=slider` | `frontend-screen` | Cartelería: Slider continuo de banners publicitarios en loop infinito con tiempos configurables. |
 | `https://autos.mvevip.com/pantalla?view=combo` | `frontend-screen` | Cartelería: Pantalla híbrida (Slider arriba, franja central con 3 pasos dinámicos, y QR al porcentaje calibrado abajo sin solapamientos). |
-| `https://autos.mvevip.com/admin` | `frontend-admin` | PWA para operadores y asesores: gestión de premios, pesos, stock, usuarios demo, control remoto de pantallas, slider de imágenes, cambio de video de YouTube y tamaño de logotipo corporativo. |
+| `https://autos.mvevip.com/admin` | `frontend-admin` | PWA para operadores y asesores: gestión de premios, pesos, stock, usuarios demo, control remoto de pantallas, slider de imágenes, cambio de video de YouTube y visibilidad/tamaño de logotipo corporativo. |
 | `https://autos.mvevip.com/api/*` | `api` (AWS Lambda) | Endpoints REST protegidos con PIN, rate limiter y conexión resiliente a RDS MySQL. |
 
 ---
@@ -46,17 +46,21 @@
   `deltaAngle = (targetModAngle - currentModAngle) % 360`
 - Con esto, giros consecutivos de la ruleta mantienen alineación física al 100% con la aguja indicadora superior, sin derivas acumulativas.
 
-### C. Video Standby / Attract en Pantalla Principal
-1. **Logotipo Corporativo Centrado:**
-   - Ubicado fijamente en la parte superior horizontalmente centrado (`top-6 left-1/2 -translate-x-1/2`).
-   - Escala regulable desde el panel Admin (`video_logo_scale` de 50% a 250%) con guardado en base de datos.
-   - Controles de la esquina superior derecha (*Audio*, *Stand #*, *Cerrar*) permanecen anclados a `top-6 right-6` sin desfasarse al agrandar el logo.
-2. **Código QR Fijo en Esquina Inferior Derecha:**
-   - Restaurado a su posición original limpia (`bottom-8 right-8`), sin barras de arrastre ni interferencias. Clics en el QR no cierran el video.
-3. **Bucle Instantáneo sin Buffering / Recarga (Zero Delay):**
-   - Eliminados parámetros `&loop=1&playlist=...` de YouTube que forzaban la recarga del reproductor y mostraban la rueda de carga por 5 segundos.
-   - Uso de API postMessage de YouTube (`enablejsapi=1`): cuando el video finaliza (`playerState === 0`), se ejecuta instantáneamente `seekTo(0, true)` y `playVideo()`. El reinicio es inmediato y sin pantalla de espera.
-   - Al ocultarse por giro o juego, el video solo se pausa (`pauseVideo`); al volver, se reanuda (`playVideo`) sin recargar el iframe.
+### C. Video Standby / Attract en Pantalla Principal (100% Pantalla y Alternancia 20s)
+1. **Ajuste al 100% Horizontal y Vertical sin Recortes:**
+   - Detección dinámica de la relación de aspecto nativa del video mediante `oEmbed` de YouTube y cálculo de transformación `scale(scaleX, scaleY)` ajustado a `window.innerWidth` × `window.innerHeight`.
+   - Eliminación del zoom `1.4x` y de sombras oscuras superiores para mostrar el 100% del cuadro del video sin cortes.
+2. **Alternancia Automática Video ↔ Ruleta (20 Segundos) con Carga Única:**
+   - El `<iframe>` se carga una sola vez al entrar a la página (`isConfigLoaded`) y permanece en memoria.
+   - Al terminar el video (`playerState === 0`), se rebobina a `0s` (`seekTo(0, true)`) y se pausa (`pauseVideo`) en memoria, mostrando la **ruleta durante 20 segundos (`ROULETTE_PAUSE_MS = 20000`)** antes de reanudar el video desde el inicio sin volver a cargarlo.
+3. **Controles Superiores Derechos de Solo Icono y Tag de Stand Discreto:**
+   - En la esquina superior derecha (`top-4 right-4`) solo se muestran 2 botones circulares de icono (`Audio` y `Cerrar`) con alto contraste (`bg-zinc-950/90`, `strokeWidth={2.5}`) sin texto que tape el video.
+   - El identificador `Stand #...` se ubica en la esquina inferior izquierda (`bottom-3 left-3`) en formato pequeño y discreto (`10px`).
+4. **Logotipo Oculto por Defecto con Control Mostrar/Ocultar en Admin:**
+   - Columna `video_logo_visible BOOLEAN NOT NULL DEFAULT FALSE` en `display_configs`.
+   - El logotipo permanece escondido por defecto en el video y puede mostrarse u ocultarse en tiempo real desde `/admin` (*Pantallas → Ruleta Principal*).
+5. **Código QR en Alta Resolución para Impresión:**
+   - Exportado en `QR_Ruleta_MarketingVIP_AltaResolucion.png` (`2400 × 2400 px`, `300 DPI`, nivel `H`).
 
 ### D. Flujo Móvil en 2 Pasos (Registro + Lanzamiento)
 1. **Paso 1 (Registro de Lead):** Formulario ergonómico con validación de teléfono (10 dígitos Ecuador), correo y selección de vehículo/destino, rematado con botón prominente **`¡JUGAR Y GANAR!`**.

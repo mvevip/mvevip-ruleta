@@ -23,7 +23,7 @@ import {
 
 export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotification }) {
   const [displayConfigs, setDisplayConfigs] = useState({
-    roulette: { orientation: 'auto', slide_duration: 8, layout_ratio: 'default', video_url: 'AzQlHkHx6HI', wheel_scale_x: 100, wheel_font_size: 100, video_logo_scale: 100 },
+    roulette: { orientation: 'auto', slide_duration: 8, layout_ratio: 'default', video_url: 'AzQlHkHx6HI', wheel_scale_x: 100, wheel_font_size: 100, video_logo_scale: 100, video_logo_visible: false },
     qr: { orientation: 'auto', slide_duration: 8, layout_ratio: 'default' },
     slider: { orientation: 'auto', slide_duration: 8, layout_ratio: 'default' },
     combo: { orientation: 'auto', slide_duration: 8, layout_ratio: '55/45' }
@@ -43,9 +43,11 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
   const [rouletteWheelFontSize, setRouletteWheelFontSize] = useState(100);
   const [isSavingWheelFontSize, setIsSavingWheelFontSize] = useState(false);
 
-  // Tamaño del logotipo en pantalla de video
+  // Tamaño y visibilidad del logotipo en pantalla de video (Oculto por defecto)
   const [rouletteVideoLogoScale, setRouletteVideoLogoScale] = useState(100);
   const [isSavingVideoLogoScale, setIsSavingVideoLogoScale] = useState(false);
+  const [rouletteVideoLogoVisible, setRouletteVideoLogoVisible] = useState(false);
+  const [isSavingVideoLogoVisible, setIsSavingVideoLogoVisible] = useState(false);
 
 
   // Estados de subida
@@ -89,6 +91,7 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
           if (jsonConfig.configs.roulette?.video_logo_scale) {
             setRouletteVideoLogoScale(Number(jsonConfig.configs.roulette.video_logo_scale));
           }
+          setRouletteVideoLogoVisible(Boolean(jsonConfig.configs.roulette?.video_logo_visible));
         }
       }
 
@@ -377,7 +380,8 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
           qr_scale_percent: current.qr_scale_percent || 55,
           wheel_scale_x: current.wheel_scale_x || rouletteWheelScale || 100,
           wheel_font_size: current.wheel_font_size || rouletteWheelFontSize || 100,
-          video_logo_scale: scaleNum
+          video_logo_scale: scaleNum,
+          video_logo_visible: rouletteVideoLogoVisible
         })
       });
 
@@ -396,6 +400,46 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
       alert('Error al actualizar tamaño del logo: ' + err.message);
     } finally {
       setIsSavingVideoLogoScale(false);
+    }
+  };
+
+  const handleToggleVideoLogoVisible = async (newVisible) => {
+    const visibleBool = Boolean(newVisible);
+    setIsSavingVideoLogoVisible(true);
+    try {
+      const current = displayConfigs['roulette'] || {};
+      const res = await fetch(`${apiUrl}/api/admin/displays/config`, {
+        method: 'PUT',
+        headers: getAdminHeaders(),
+        body: JSON.stringify({
+          screen_key: 'roulette',
+          orientation: current.orientation || 'auto',
+          slide_duration: current.slide_duration || 8,
+          layout_ratio: current.layout_ratio || 'default',
+          video_url: current.video_url || 'AzQlHkHx6HI',
+          qr_scale_percent: current.qr_scale_percent || 55,
+          wheel_scale_x: current.wheel_scale_x || rouletteWheelScale || 100,
+          wheel_font_size: current.wheel_font_size || rouletteWheelFontSize || 100,
+          video_logo_scale: current.video_logo_scale || rouletteVideoLogoScale || 100,
+          video_logo_visible: visibleBool
+        })
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        setDisplayConfigs(prev => ({
+          ...prev,
+          roulette: { ...prev.roulette, video_logo_visible: visibleBool }
+        }));
+        setRouletteVideoLogoVisible(visibleBool);
+        onNotification(visibleBool ? 'Logotipo en video: VISIBLE' : 'Logotipo en video: OCULTO');
+      } else {
+        alert(json.error || 'Error al cambiar visibilidad del logo');
+      }
+    } catch (err) {
+      alert('Error al cambiar visibilidad del logo: ' + err.message);
+    } finally {
+      setIsSavingVideoLogoVisible(false);
     }
   };
 
@@ -759,66 +803,97 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
               </p>
             </div>
 
-            {/* Tamaño del Logotipo en Pantalla de Video */}
+            {/* Visibilidad y Tamaño del Logotipo en Pantalla de Video */}
             <div className="pt-2.5 border-t border-zinc-800 space-y-2">
               <div className="flex items-center justify-between text-[11px]">
                 <span className="text-zinc-300 font-medium flex items-center gap-1.5">
                   <ImageIcon className="w-3.5 h-3.5 text-[#9AC31C]" />
-                  Tamaño del Logo en Video:
+                  Logo en Pantalla de Video:
                 </span>
-                <span className="font-mono font-bold text-xs text-[#9AC31C] bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800">
-                  {rouletteVideoLogoScale}% ({Math.round(54 * (rouletteVideoLogoScale / 100))}px)
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="range"
-                  min="70"
-                  max="220"
-                  step="5"
-                  value={rouletteVideoLogoScale}
-                  onChange={(e) => setRouletteVideoLogoScale(Number(e.target.value))}
-                  className="flex-1 accent-[#9AC31C] cursor-pointer h-1.5 bg-zinc-800 rounded-lg appearance-none"
-                />
                 <button
                   type="button"
-                  onClick={() => handleUpdateVideoLogoScale(rouletteVideoLogoScale)}
-                  disabled={isSavingVideoLogoScale}
-                  className="px-3 py-1.5 bg-[#9AC31C] hover:bg-[#84A816] active:scale-95 text-black font-racing font-bold text-[10px] uppercase tracking-wider rounded-lg transition-all cursor-pointer whitespace-nowrap disabled:opacity-50"
+                  onClick={() => handleToggleVideoLogoVisible(!rouletteVideoLogoVisible)}
+                  disabled={isSavingVideoLogoVisible}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-racing font-bold text-[10px] uppercase tracking-wider transition-all cursor-pointer border disabled:opacity-50 ${
+                    rouletteVideoLogoVisible
+                      ? 'bg-[#9AC31C] text-black border-[#9AC31C] shadow-[0_0_12px_rgba(154,195,28,0.4)]'
+                      : 'bg-zinc-950 text-zinc-400 border-zinc-700 hover:text-white hover:border-zinc-500'
+                  }`}
+                  title={rouletteVideoLogoVisible ? 'Ocultar logotipo en video' : 'Mostrar logotipo en video'}
                 >
-                  {isSavingVideoLogoScale ? '...' : 'Guardar'}
+                  {rouletteVideoLogoVisible ? (
+                    <>
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Visible (Clic para ocultar)</span>
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="w-3.5 h-3.5" />
+                      <span>Oculto (Clic para mostrar)</span>
+                    </>
+                  )}
                 </button>
               </div>
 
-              {/* Botones rápidos de preset */}
-              <div className="flex flex-wrap items-center gap-1">
-                {[
-                  { label: '100% (54px)', val: 100 },
-                  { label: '125% (68px)', val: 125 },
-                  { label: '150% (81px)', val: 150 },
-                  { label: '175% (95px)', val: 175 },
-                  { label: '200% (108px)', val: 200 }
-                ].map((preset) => (
-                  <button
-                    key={preset.val}
-                    type="button"
-                    onClick={() => {
-                      setRouletteVideoLogoScale(preset.val);
-                      handleUpdateVideoLogoScale(preset.val);
-                    }}
-                    className={`px-1.5 py-0.5 text-[9px] rounded font-mono transition-all cursor-pointer ${
-                      rouletteVideoLogoScale === preset.val
-                        ? 'bg-[#9AC31C] text-black font-bold'
-                        : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700'
-                    }`}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
-              </div>
+              {rouletteVideoLogoVisible && (
+                <>
+                  <div className="flex items-center justify-between text-[11px] pt-1">
+                    <span className="text-zinc-400">Escala del Logo:</span>
+                    <span className="font-mono font-bold text-xs text-[#9AC31C] bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800">
+                      {rouletteVideoLogoScale}% ({Math.round(54 * (rouletteVideoLogoScale / 100))}px)
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="range"
+                      min="70"
+                      max="220"
+                      step="5"
+                      value={rouletteVideoLogoScale}
+                      onChange={(e) => setRouletteVideoLogoScale(Number(e.target.value))}
+                      className="flex-1 accent-[#9AC31C] cursor-pointer h-1.5 bg-zinc-800 rounded-lg appearance-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateVideoLogoScale(rouletteVideoLogoScale)}
+                      disabled={isSavingVideoLogoScale}
+                      className="px-3 py-1.5 bg-[#9AC31C] hover:bg-[#84A816] active:scale-95 text-black font-racing font-bold text-[10px] uppercase tracking-wider rounded-lg transition-all cursor-pointer whitespace-nowrap disabled:opacity-50"
+                    >
+                      {isSavingVideoLogoScale ? '...' : 'Guardar'}
+                    </button>
+                  </div>
+
+                  {/* Botones rápidos de preset */}
+                  <div className="flex flex-wrap items-center gap-1">
+                    {[
+                      { label: '100% (54px)', val: 100 },
+                      { label: '125% (68px)', val: 125 },
+                      { label: '150% (81px)', val: 150 },
+                      { label: '175% (95px)', val: 175 },
+                      { label: '200% (108px)', val: 200 }
+                    ].map((preset) => (
+                      <button
+                        key={preset.val}
+                        type="button"
+                        onClick={() => {
+                          setRouletteVideoLogoScale(preset.val);
+                          handleUpdateVideoLogoScale(preset.val);
+                        }}
+                        className={`px-1.5 py-0.5 text-[9px] rounded font-mono transition-all cursor-pointer ${
+                          rouletteVideoLogoScale === preset.val
+                            ? 'bg-[#9AC31C] text-black font-bold'
+                            : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700'
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
               <p className="text-[10px] text-zinc-500 leading-tight">
-                Ajusta el tamaño del logotipo corporativo centrado en la parte superior del video en stand.
+                Por defecto el logotipo permanece escondido para no tapar el video. Actívalo aquí si deseas mostrarlo.
               </p>
             </div>
           </div>

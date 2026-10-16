@@ -18,15 +18,61 @@ function extractYouTubeId(urlOrId) {
 export default function VideoAttractOverlay({
   isVisible,
   onDismiss,
+  onVideoEnded,
   mobileUrl = '',
   screenId = 'STAND_01',
   videoId = 'AzQlHkHx6HI',
-  logoScale = 100
+  isConfigLoaded = true,
+  logoScale = 100,
+  showLogo = false
 }) {
   const activeVideoId = extractYouTubeId(videoId);
   const safeLogoScale = Math.max(50, Math.min(250, Number(logoScale) || 100));
   const logoHeight = Math.round(54 * (safeLogoScale / 100));
   const iframeRef = useRef(null);
+  const isVisibleRef = useRef(isVisible);
+  const onVideoEndedRef = useRef(onVideoEnded);
+  const endHandledRef = useRef(false);
+
+  isVisibleRef.current = isVisible;
+  onVideoEndedRef.current = onVideoEnded;
+
+  // Medir tamaño real de la pantalla para ajuste exacto 100% horizontal y 100% vertical
+  const [viewportSize, setViewportSize] = useState(() => ({
+    width: typeof window !== 'undefined' ? window.innerWidth : 1920,
+    height: typeof window !== 'undefined' ? window.innerHeight : 1080
+  }));
+
+  // Relación de aspecto nativa del video de YouTube (16/9 por defecto, detectada vía oEmbed para soportar cualquier formato)
+  const [videoAspect, setVideoAspect] = useState(16 / 9);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setViewportSize({
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (!activeVideoId) return;
+    let isCancelled = false;
+    fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${activeVideoId}&format=json`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!isCancelled && data && data.width && data.height) {
+          setVideoAspect(data.width / data.height);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isCancelled = true;
+    };
+  }, [activeVideoId]);
+
   const isProduction = typeof window !== 'undefined' && (
     window.location.hostname === 'autos.mvevip.com' ||
     window.location.hostname.endsWith('.mvevip.com')
@@ -52,7 +98,7 @@ export default function VideoAttractOverlay({
     }
   };
 
-  // Inicializar comunicación con el iframe de YouTube y configurar listener para bucle sin recarga
+  // Inicializar comunicación con el iframe de YouTube y configurar listener para control en memoria sin recarga
   const initIframeApi = () => {
     const iframe = iframeRef.current;
     if (!iframe || !iframe.contentWindow) return;
@@ -65,7 +111,7 @@ export default function VideoAttractOverlay({
     } catch (_) {}
   };
 
-  // Manejar eventos postMessage de YouTube para detectar el fin del video y reiniciar al instante (0s)
+  // Manejar eventos postMessage de YouTube para detectar el fin del video, rebobinar en memoria a 0s, pausar y mostrar la ruleta por 20s
   useEffect(() => {
     const handleWindowMessage = (event) => {
       if (!event.origin || (!event.origin.includes('youtube.com') && !event.origin.includes('youtube-nocookie.com'))) {
@@ -84,10 +130,19 @@ export default function VideoAttractOverlay({
           ))
         );
 
-        if (isEnded) {
-          // Bucle instantáneo: regresar a 0s y reproducir inmediatamente sin descargar de nuevo el video
+        if (isEnded && isVisibleRef.current && !endHandledRef.current) {
+          endHandledRef.current = true;
+          // Posicionar en 0s y pausar en memoria sin recargar el iframe
           sendIframeCommand('seekTo', [0, true]);
-          sendIframeCommand('playVideo');
+          sendIframeCommand('pauseVideo');
+          sendIframeCommand('mute');
+
+          // Notificar a App.jsx para mostrar la ruleta durante 20 segundos
+          if (onVideoEndedRef.current) {
+            onVideoEndedRef.current();
+          } else if (onDismiss) {
+            onDismiss();
+          }
         }
       } catch (_) {}
     };
@@ -96,7 +151,7 @@ export default function VideoAttractOverlay({
     return () => {
       window.removeEventListener('message', handleWindowMessage);
     };
-  }, []);
+  }, [onDismiss]);
 
   // Mantener activo el handshake de eventos mientras el video esté visible
   useEffect(() => {
@@ -112,13 +167,20 @@ export default function VideoAttractOverlay({
   useEffect(() => {
     if (isVisible) {
       initIframeApi();
+      // Si viene de haber finalizado el ciclo de video, asegurar inicio desde 0s en memoria
+      if (endHandledRef.current) {
+        sendIframeCommand('seekTo', [0, true]);
+        setTimeout(() => {
+          endHandledRef.current = false;
+        }, 1500);
+      }
       sendIframeCommand('playVideo');
       if (!isMuted) {
         sendIframeCommand('unMute');
         sendIframeCommand('setVolume', [100]);
       }
     } else {
-      // Cuando se oculta, solo se pausa y silencia (permanece cargado en memoria)
+      // Cuando se oculta (pausa de 20s en la ruleta), solo se pausa y silencia (permanece cargado en memoria)
       sendIframeCommand('mute');
       sendIframeCommand('pauseVideo');
     }
@@ -145,6 +207,12 @@ export default function VideoAttractOverlay({
 
   const iframeOrigin = typeof window !== 'undefined' ? window.location.origin : '';
 
+  // Dimensiones base fieles a la relación de aspecto del video y factores de escala para ocupar el 100% horizontal y vertical sin recortes
+  const baseWidth = 1920;
+  const baseHeight = Math.max(100, Math.round(baseWidth / (videoAspect || 16 / 9)));
+  const scaleX = viewportSize.width / baseWidth;
+  const scaleY = viewportSize.height / baseHeight;
+
   return (
     <div
       className={`fixed inset-0 bg-black overflow-hidden flex items-center justify-center transition-opacity duration-700 select-none cursor-pointer ${
@@ -152,21 +220,32 @@ export default function VideoAttractOverlay({
       }`}
       onClick={handleVideoClick}
     >
-      {/* 1. Contenedor del Video en Proporción Adaptativa (Sin loop de playlist para evitar buffering continuo) */}
+      {/* 1. Contenedor del Video Ajustado al 100% Horizontal y Vertical (Sin recortes ni recargas) */}
       <div className="absolute inset-0 w-full h-full overflow-hidden flex items-center justify-center pointer-events-none">
-        <iframe
-          ref={iframeRef}
-          onLoad={initIframeApi}
-          src={`https://www.youtube-nocookie.com/embed/${activeVideoId}?autoplay=1&mute=0&controls=0&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1&fs=0&enablejsapi=1&playsinline=1&origin=${encodeURIComponent(iframeOrigin)}`}
-          title="Marketing VIP Video Corporativo"
-          allow="autoplay; encrypted-media"
-          className="w-[100vw] h-[100vh] min-w-[177.78vh] min-h-[56.25vw] max-w-none border-0 object-cover scale-[1.25] md:scale-[1.4] pointer-events-none"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/60 pointer-events-none" />
+        {isConfigLoaded && (
+          <iframe
+            ref={iframeRef}
+            onLoad={initIframeApi}
+            src={`https://www.youtube-nocookie.com/embed/${activeVideoId}?autoplay=1&mute=0&controls=0&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1&fs=0&enablejsapi=1&playsinline=1&origin=${encodeURIComponent(iframeOrigin)}`}
+            title="Marketing VIP Video Corporativo"
+            allow="autoplay; encrypted-media"
+            style={{
+              width: `${baseWidth}px`,
+              height: `${baseHeight}px`,
+              transform: `scale(${scaleX}, ${scaleY})`,
+              transformOrigin: 'center center'
+            }}
+            className="max-w-none border-0 pointer-events-none shrink-0"
+          />
+        )}
       </div>
 
-      {/* 2. Banner Superior Corporativo Flotante: Logotipo Centrado Horizontalmente */}
-      <div className="absolute top-6 left-1/2 -translate-x-1/2 pointer-events-none z-20">
+      {/* 2. Banner Superior Corporativo Flotante: Logotipo Centrado Horizontalmente (Oculto por defecto, controlable desde Admin) */}
+      <div
+        className={`absolute top-6 left-1/2 -translate-x-1/2 z-20 transition-opacity duration-300 ${
+          showLogo ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none hidden'
+        }`}
+      >
         <div
           className="flex items-center justify-center bg-zinc-950/85 backdrop-blur-md border border-[#9AC31C]/60 rounded-2xl shadow-[0_0_25px_rgba(154,195,28,0.3)] pointer-events-auto transition-all"
           style={{
@@ -185,31 +264,21 @@ export default function VideoAttractOverlay({
         </div>
       </div>
 
-      {/* Indicadores Fijos en Esquina Superior Derecha: Audio, Stand y Cerrar */}
-      <div className="absolute top-6 right-6 flex items-center gap-2 pointer-events-auto z-20">
+      {/* Controles Compactos en Esquina Superior Derecha: Solo Iconos (Audio y Cerrar) */}
+      <div className="absolute top-4 right-4 flex items-center gap-2 pointer-events-auto z-20">
         <button
           type="button"
           onClick={toggleSound}
-          className="flex items-center gap-2 bg-zinc-950/85 hover:bg-zinc-900 backdrop-blur-md border border-[#9AC31C]/60 px-4 py-2 rounded-xl text-xs font-semibold shadow-lg transition-all active:scale-95 cursor-pointer"
+          className="w-9 h-9 rounded-full bg-zinc-950/90 hover:bg-zinc-900 border border-zinc-700 flex items-center justify-center p-0 transition-all cursor-pointer backdrop-blur-md shadow-lg active:scale-95"
           title={isMuted ? 'Activar Audio' : 'Silenciar Audio'}
+          aria-label={isMuted ? 'Activar Audio' : 'Silenciar Audio'}
         >
           {isMuted ? (
-            <>
-              <VolumeX className="w-4 h-4 text-red-400" />
-              <span className="text-zinc-300">Activar Audio</span>
-            </>
+            <VolumeX size={18} strokeWidth={2.5} className="text-red-400 shrink-0" />
           ) : (
-            <>
-              <Volume2 className="w-4 h-4 text-[#9AC31C] animate-pulse" />
-              <span className="text-[#9AC31C]">Audio Activo</span>
-            </>
+            <Volume2 size={18} strokeWidth={2.5} className="text-[#9AC31C] shrink-0" />
           )}
         </button>
-
-        <div className="bg-zinc-950/85 backdrop-blur-md border border-zinc-800 px-4 py-2 rounded-xl text-zinc-300 text-xs font-semibold flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#9AC31C] animate-ping" />
-          <span>Stand #{screenId}</span>
-        </div>
 
         <button
           type="button"
@@ -217,11 +286,18 @@ export default function VideoAttractOverlay({
             e.stopPropagation();
             onDismiss();
           }}
-          className="w-8 h-8 rounded-full bg-zinc-900/60 hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300 border border-zinc-800/80 flex items-center justify-center transition-all cursor-pointer backdrop-blur-sm shadow-md active:scale-95 ml-1"
+          className="w-9 h-9 rounded-full bg-zinc-950/90 hover:bg-zinc-900 border border-zinc-700 flex items-center justify-center p-0 transition-all cursor-pointer backdrop-blur-md shadow-lg active:scale-95"
           title="Cerrar video y mostrar ruleta"
+          aria-label="Cerrar video y mostrar ruleta"
         >
-          <X className="w-4 h-4" />
+          <X size={18} strokeWidth={2.5} className="text-white hover:text-[#9AC31C] shrink-0 transition-colors" />
         </button>
+      </div>
+
+      {/* Tag Discreto del Stand en Esquina Inferior Izquierda */}
+      <div className="absolute bottom-3 left-3 bg-zinc-950/60 backdrop-blur-sm border border-zinc-800/60 px-2.5 py-1 rounded-lg text-zinc-400/85 text-[10px] font-medium flex items-center gap-1.5 pointer-events-none z-20">
+        <span className="w-1.5 h-1.5 rounded-full bg-[#9AC31C]/80 shrink-0" />
+        <span>Stand #{screenId}</span>
       </div>
 
       {/* 3. Tarjeta Flotante con Código QR en Esquina Inferior Derecha (Fija y Original) */}

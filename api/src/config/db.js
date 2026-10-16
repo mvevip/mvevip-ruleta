@@ -146,13 +146,17 @@ async function checkConnection() {
         ALTER TABLE display_configs ADD COLUMN video_qr_position VARCHAR(50) NOT NULL DEFAULT 'top-center';
       `).catch(() => {});
 
+      await connection.query(`
+        ALTER TABLE display_configs ADD COLUMN video_logo_visible BOOLEAN NOT NULL DEFAULT FALSE;
+      `).catch(() => {});
+
       // Poblar configuraciones de pantalla iniciales si no existen
       await connection.query(`
-        INSERT INTO display_configs (screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent, wheel_scale_x, wheel_font_size, video_logo_scale, video_qr_scale, video_qr_position) VALUES
-        ('roulette', 'auto', 8, 'default', 'AzQlHkHx6HI', 55, 100, 100, 100, 100, 'top-center'),
-        ('qr', 'auto', 8, 'default', 'AzQlHkHx6HI', 55, 100, 100, 100, 100, 'top-center'),
-        ('slider', 'auto', 8, 'default', 'AzQlHkHx6HI', 55, 100, 100, 100, 100, 'top-center'),
-        ('combo', 'auto', 8, '55/45', 'AzQlHkHx6HI', 55, 100, 100, 100, 100, 'top-center')
+        INSERT INTO display_configs (screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent, wheel_scale_x, wheel_font_size, video_logo_scale, video_qr_scale, video_qr_position, video_logo_visible) VALUES
+        ('roulette', 'auto', 8, 'default', 'AzQlHkHx6HI', 55, 100, 100, 100, 100, 'top-center', FALSE),
+        ('qr', 'auto', 8, 'default', 'AzQlHkHx6HI', 55, 100, 100, 100, 100, 'top-center', FALSE),
+        ('slider', 'auto', 8, 'default', 'AzQlHkHx6HI', 55, 100, 100, 100, 100, 'top-center', FALSE),
+        ('combo', 'auto', 8, '55/45', 'AzQlHkHx6HI', 55, 100, 100, 100, 100, 'top-center', FALSE)
         ON DUPLICATE KEY UPDATE screen_key=VALUES(screen_key);
       `).catch(() => {});
 
