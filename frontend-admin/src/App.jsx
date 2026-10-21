@@ -39,6 +39,14 @@ const API_URL = isProduction
 export default function App() {
   const [pin, setPin] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [activeStand, setActiveStand] = useState(() => {
+    try {
+      return localStorage.getItem('vip_admin_stand') === 'ford' ? 'ford' : 'autos';
+    } catch (_) {
+      return 'autos';
+    }
+  });
+  const [leadStandFilter, setLeadStandFilter] = useState('all'); // 'all' | 'autos' | 'ford'
   const [activeTab, setActiveTab] = useState('prizes'); // 'prizes' | 'leads' | 'destinations' | 'displays' | 'redeem' | 'metrics'
   const [leadsSubTab, setLeadsSubTab] = useState('captured'); // 'captured' | 'test_users'
   
@@ -69,9 +77,16 @@ export default function App() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      loadData();
+      loadData(activeStand);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, activeStand]);
+
+  const handleSelectStand = (stand) => {
+    setActiveStand(stand);
+    try {
+      localStorage.setItem('vip_admin_stand', stand);
+    } catch (_) {}
+  };
 
   const getAdminHeaders = () => {
     const storedPin = localStorage.getItem('vip_admin_pin') || 'VIP2026';
@@ -100,14 +115,15 @@ export default function App() {
     localStorage.removeItem('vip_admin_pin');
   };
 
-  const loadData = async () => {
+  const loadData = async (standOverride = activeStand) => {
     setLoading(true);
     try {
       const headers = getAdminHeaders();
+      const standParam = encodeURIComponent(standOverride || activeStand || 'autos');
       const [resP, resL, resM, resD] = await Promise.all([
-        fetch(`${API_URL}/api/admin/prizes`, { headers }),
-        fetch(`${API_URL}/api/leads`, { headers }),
-        fetch(`${API_URL}/api/metrics`, { headers }),
+        fetch(`${API_URL}/api/admin/prizes?stand=${standParam}`, { headers }),
+        fetch(`${API_URL}/api/leads?stand=all`, { headers }),
+        fetch(`${API_URL}/api/metrics?stand=${standParam}`, { headers }),
         fetch(`${API_URL}/api/admin/destinations`, { headers })
       ]);
 
@@ -353,58 +369,98 @@ export default function App() {
     }
   };
 
-  // Filtrado de leads para búsqueda en móvil
+  // Filtrado de leads para búsqueda en móvil y filtro por Stand (Todos / Autos / Ford)
   const filteredLeads = leads.filter(l => {
+    if (leadStandFilter === 'autos' && l.stand !== 'autos') return false;
+    if (leadStandFilter === 'ford' && l.stand !== 'ford') return false;
     const q = searchQuery.toLowerCase();
+    if (!q) return true;
     return (
       (l.name && l.name.toLowerCase().includes(q)) ||
       (l.phone && l.phone.includes(q)) ||
       (l.ticket_code && l.ticket_code.toLowerCase().includes(q)) ||
-      (l.assigned_to && l.assigned_to.toLowerCase().includes(q))
+      (l.assigned_to && l.assigned_to.toLowerCase().includes(q)) ||
+      (l.stand_label && l.stand_label.toLowerCase().includes(q))
     );
   });
+
+  const isFordStand = activeStand === 'ford';
 
   return (
     <div className="min-h-screen carbon-bg text-white flex flex-col justify-between pb-20 select-none">
       {/* Header Fijo Móvil */}
-      <header className="sticky top-0 z-30 bg-zinc-950/95 border-b border-zinc-800 px-4 py-3 flex items-center justify-between backdrop-blur-md">
-        <div className="flex items-center gap-2">
-          <img
-            src="/logotipo.png"
-            alt="Marketing VIP"
-            className="h-9 w-auto object-contain drop-shadow-[0_0_10px_rgba(154,195,28,0.5)]"
-          />
-          <div>
-            <h1 className="font-racing font-bold text-sm text-white tracking-wider leading-none">
-              ADMIN <span className="text-[#9AC31C]">STAND</span>
-            </h1>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-[10px] text-zinc-400 font-sans">Marketing VIP Móvil</span>
-              {!isProduction && (
-                <span className="text-yellow-400 font-bold bg-yellow-400/20 px-1 py-0.2 rounded text-[8px] tracking-wide border border-yellow-400/30">
-                  [LOCAL 💻 DB DOCKER]
+      <header className="sticky top-0 z-30 bg-zinc-950/95 border-b border-zinc-800 px-4 py-3 flex flex-col gap-2.5 backdrop-blur-md">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <img
+              src={isFordStand ? '/logo_ford.jpeg' : '/logotipo.png'}
+              alt={isFordStand ? 'Ford | Quito Motors' : 'Marketing VIP'}
+              className="h-9 w-auto object-contain rounded drop-shadow-[0_0_10px_rgba(154,195,28,0.5)]"
+            />
+            <div>
+              <h1 className="font-racing font-bold text-sm text-white tracking-wider leading-none">
+                ADMIN <span className={isFordStand ? 'text-blue-400' : 'text-[#9AC31C]'}>
+                  {isFordStand ? 'FORD (PANTALLA 2)' : 'AUTOS (PANTALLA 1)'}
                 </span>
-              )}
+              </h1>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-[10px] text-zinc-400 font-sans">
+                  {isFordStand ? 'Ford | Quito Motors' : 'Marketing VIP Móvil'}
+                </span>
+                {!isProduction && (
+                  <span className="text-yellow-400 font-bold bg-yellow-400/20 px-1 py-0.2 rounded text-[8px] tracking-wide border border-yellow-400/30">
+                    [LOCAL 💻 DB DOCKER]
+                  </span>
+                )}
+              </div>
             </div>
           </div>
+
+          {isAuthenticated && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => loadData(activeStand)}
+                disabled={loading}
+                className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-[#9AC31C] active:scale-95"
+                title="Actualizar datos"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              </button>
+              <button
+                onClick={handleLogout}
+                className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 active:scale-95"
+                title="Cerrar sesión"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
 
+        {/* Selector Global de Stand (AUTOS vs FORD) */}
         {isAuthenticated && (
-          <div className="flex items-center gap-2">
+          <div className="max-w-md w-full mx-auto grid grid-cols-2 gap-1.5 p-1 bg-zinc-900 rounded-2xl border border-zinc-800">
             <button
-              onClick={loadData}
-              disabled={loading}
-              className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-[#9AC31C] active:scale-95"
-              title="Actualizar datos"
+              type="button"
+              onClick={() => handleSelectStand('autos')}
+              className={`py-2 px-3 rounded-xl font-racing font-bold text-[11px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                !isFordStand
+                  ? 'bg-[#9AC31C] text-black shadow-[0_0_15px_rgba(154,195,28,0.4)]'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              <span>🏎️ Stand 1: AUTOS</span>
             </button>
             <button
-              onClick={handleLogout}
-              className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 active:scale-95"
-              title="Cerrar sesión"
+              type="button"
+              onClick={() => handleSelectStand('ford')}
+              className={`py-2 px-3 rounded-xl font-racing font-bold text-[11px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                isFordStand
+                  ? 'bg-[#212650] text-white border border-blue-400/50 shadow-[0_0_15px_rgba(33,38,80,0.7)]'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
             >
-              <LogOut className="w-4 h-4" />
+              <span>🚘 Stand 2: FORD</span>
             </button>
           </div>
         )}
@@ -412,7 +468,7 @@ export default function App() {
 
       {/* Alerta flotante de guardado */}
       {savedMsg && (
-        <div className="fixed top-14 left-4 right-4 z-40 bg-[#9AC31C] text-black font-racing font-bold text-xs py-2 px-4 rounded-xl text-center shadow-2xl flex items-center justify-center gap-2">
+        <div className="fixed top-24 left-4 right-4 z-40 bg-[#9AC31C] text-black font-racing font-bold text-xs py-2 px-4 rounded-xl text-center shadow-2xl flex items-center justify-center gap-2">
           <Check className="w-4 h-4" />
           <span>{savedMsg}</span>
         </div>
@@ -428,7 +484,7 @@ export default function App() {
             Panel de Asesores
           </h2>
           <p className="text-xs text-zinc-400 text-center mb-6">
-            Acceso exclusivo para el equipo de Marketing VIP en la feria
+            Acceso exclusivo para el equipo de Marketing VIP y Ford en la feria
           </p>
 
           <form onSubmit={handleLogin} className="w-full space-y-4">
@@ -455,7 +511,23 @@ export default function App() {
       ) : (
         /* Contenido Principal con Pestañas */
         <main className={`flex-1 w-full mx-auto p-4 space-y-4 pb-24 ${activeTab === 'displays' ? 'max-w-2xl' : 'max-w-md'}`}>
-          
+          {/* Banner contextual indicando el Stand activo */}
+          <div className={`p-3 rounded-2xl border flex items-center justify-between text-xs ${
+            isFordStand
+              ? 'bg-[#212650] border-blue-400/50 text-white shadow-md'
+              : 'bg-zinc-900/90 border-[#9AC31C]/40 text-zinc-200'
+          }`}>
+            <div className="flex items-center gap-2">
+              <span className={`w-2.5 h-2.5 rounded-full animate-pulse ${isFordStand ? 'bg-white' : 'bg-[#9AC31C]'}`} />
+              <span className="font-racing font-bold uppercase tracking-wider">
+                {isFordStand ? 'Editando Stand 2: FORD (/pantalla2)' : 'Editando Stand 1: AUTOS (/pantalla)'}
+              </span>
+            </div>
+            <span className="text-[10px] font-mono opacity-85">
+              {isFordStand ? 'Form: /formulario2' : 'Form: /'}
+            </span>
+          </div>
+
           {/* PESTAÑA 1: GESTIÓN DE PREMIOS */}
           {activeTab === 'prizes' && (
             <div className="space-y-3">
@@ -463,7 +535,7 @@ export default function App() {
               <div className="bg-zinc-900/90 border border-[#9AC31C]/40 p-3 rounded-2xl flex items-start gap-2.5">
                 <Percent className="w-4 h-4 text-[#9AC31C] shrink-0 mt-0.5" />
                 <p className="text-[11px] text-zinc-300">
-                  <strong className="text-[#9AC31C]">Estrategia:</strong> Para premios grandes (Cancún, Crucero) pon <strong>Peso 1 o 2</strong> y Límite diario 1. Para recuerdos comunes pon <strong>Peso 300 - 450</strong>.
+                  <strong className="text-[#9AC31C]">Premios de {isFordStand ? 'Ford (Pantalla 2)' : 'Autos (Pantalla 1)'}:</strong> Cada stand tiene su propio inventario y probabilidades independientes.
                 </p>
               </div>
 
@@ -597,6 +669,37 @@ export default function App() {
                 />
               ) : (
                 <div className="space-y-3">
+                  {/* Filtro rápido de Leads por Stand (Todos / Autos / Ford) */}
+                  <div className="grid grid-cols-3 gap-1.5 p-1 bg-zinc-900 rounded-xl border border-zinc-800 text-[11px] font-racing font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setLeadStandFilter('all')}
+                      className={`py-1.5 rounded-lg uppercase transition-all cursor-pointer ${
+                        leadStandFilter === 'all' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      Todos ({leads.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLeadStandFilter('autos')}
+                      className={`py-1.5 rounded-lg uppercase transition-all cursor-pointer ${
+                        leadStandFilter === 'autos' ? 'bg-[#9AC31C] text-black' : 'text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      Autos ({leads.filter(l => l.stand === 'autos').length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLeadStandFilter('ford')}
+                      className={`py-1.5 rounded-lg uppercase transition-all cursor-pointer ${
+                        leadStandFilter === 'ford' ? 'bg-[#212650] text-white border border-blue-400/40' : 'text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      Ford ({leads.filter(l => l.stand === 'ford').length})
+                    </button>
+                  </div>
+
                   {/* Buscador de leads */}
                   <div className="relative">
                     <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-3.5" />
@@ -616,16 +719,23 @@ export default function App() {
                   {/* Tarjetas de leads */}
                   {filteredLeads.map((l) => (
                     <div key={l.id} className="brushed-metal p-3.5 rounded-2xl border border-zinc-800 space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-sm text-white uppercase">{l.name}</span>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                          <span className="font-bold text-sm text-white uppercase truncate">{l.name}</span>
+                          <span className={`text-[9px] font-racing font-bold px-2 py-0.5 rounded-full uppercase ${
+                            l.stand === 'ford'
+                              ? 'bg-[#212650] text-white border border-blue-400/50'
+                              : 'bg-[#9AC31C]/20 text-[#9AC31C] border border-[#9AC31C]/40'
+                          }`}>
+                            {l.stand === 'ford' ? '🚘 FORD' : '🏎️ AUTOS'}
+                          </span>
                           {l.is_test ? (
                             <span className="text-[9px] font-mono text-purple-300 bg-purple-950/80 border border-purple-500/40 px-1.5 py-0.5 rounded font-bold">
                               DEMO
                             </span>
                           ) : null}
                         </div>
-                        <span className="font-mono text-xs font-bold text-[#9AC31C] bg-zinc-900 px-2 py-0.5 rounded border border-[#9AC31C]/30">
+                        <span className="font-mono text-xs font-bold text-[#9AC31C] bg-zinc-900 px-2 py-0.5 rounded border border-[#9AC31C]/30 shrink-0">
                           {l.ticket_code || 'SIN TICKET'}
                         </span>
                       </div>
@@ -676,7 +786,7 @@ export default function App() {
                   Canjeador de Premios
                 </h3>
                 <p className="text-xs text-zinc-400 mt-0.5">
-                  Ingresa el código del ticket presentado por el visitante
+                  Ingresa el código del ticket presentado por el visitante (VIP-XXXX o FORD-XXXX)
                 </p>
               </div>
 
@@ -687,7 +797,7 @@ export default function App() {
                     type="text"
                     value={ticketInput}
                     onChange={(e) => setTicketInput(e.target.value.toUpperCase())}
-                    placeholder="Ej: VIP-ABCD"
+                    placeholder="Ej: VIP-ABCD o FORD-ABCD"
                     className="w-full pl-11 pr-4 py-3 rounded-2xl bg-zinc-900 border-2 border-zinc-700 text-white font-mono text-base tracking-widest text-center uppercase focus:outline-none focus:border-[#9AC31C]"
                   />
                 </div>
@@ -708,7 +818,9 @@ export default function App() {
               {ticketData && (
                 <div className="brushed-metal p-5 rounded-3xl border-2 border-[#9AC31C] space-y-3">
                   <div className="flex items-center justify-between border-b border-zinc-700 pb-2">
-                    <span className="font-racing text-xs text-zinc-400">TICKET VIP</span>
+                    <span className="font-racing text-xs text-zinc-400">
+                      TICKET {ticketData.stand === 'ford' ? 'FORD' : 'VIP'}
+                    </span>
                     <span className="font-mono text-sm font-bold text-[#9AC31C]">{ticketData.ticket_code}</span>
                   </div>
 
@@ -748,7 +860,7 @@ export default function App() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-zinc-900 p-4 rounded-2xl border border-zinc-800 text-center">
-                  <span className="text-[10px] text-zinc-400 font-racing uppercase">Leads Captados</span>
+                  <span className="text-[10px] text-zinc-400 font-racing uppercase">Leads ({isFordStand ? 'Ford' : 'Autos'})</span>
                   <p className="text-2xl font-racing font-black text-[#9AC31C] mt-1">{metrics.totalLeads}</p>
                 </div>
                 <div className="bg-zinc-900 p-4 rounded-2xl border border-zinc-800 text-center">
@@ -765,10 +877,29 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Resumen Global Comparativo por Stand */}
+              {metrics.byStand && (
+                <div className="bg-zinc-900 p-4 rounded-2xl border border-zinc-800 space-y-2">
+                  <h4 className="font-racing text-xs text-white uppercase font-bold">
+                    Comparativa Global de Stands
+                  </h4>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-zinc-950 p-3 rounded-xl border border-[#9AC31C]/30 flex justify-between items-center">
+                      <span className="text-[#9AC31C] font-racing font-bold">🏎️ AUTOS</span>
+                      <span className="font-mono font-bold text-white">{metrics.byStand.autos || 0} leads</span>
+                    </div>
+                    <div className="bg-[#212650]/40 p-3 rounded-xl border border-blue-400/40 flex justify-between items-center">
+                      <span className="text-blue-200 font-racing font-bold">🚘 FORD</span>
+                      <span className="font-mono font-bold text-white">{metrics.byStand.ford || 0} leads</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Top Destinos */}
               <div className="bg-zinc-900 p-4 rounded-2xl border border-zinc-800">
                 <h4 className="font-racing text-xs text-[#9AC31C] uppercase font-bold mb-2">
-                  Destinos Más Votados
+                  {isFordStand ? 'Intereses Registrados (Ford)' : 'Destinos Más Votados (Autos)'}
                 </h4>
                 <div className="space-y-1.5 text-xs text-zinc-300">
                   {metrics.topDestinations && metrics.topDestinations.map((d, i) => (
@@ -930,6 +1061,7 @@ export default function App() {
             <DisplaysManager
               apiUrl={API_URL}
               getAdminHeaders={getAdminHeaders}
+              stand={activeStand}
               onNotification={(msg) => {
                 setSavedMsg(msg);
                 setTimeout(() => setSavedMsg(''), 3000);

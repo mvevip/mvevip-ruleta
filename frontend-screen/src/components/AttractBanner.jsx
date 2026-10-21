@@ -1,7 +1,57 @@
 import React from 'react';
-import { Plane, Compass, Sparkles, Award } from 'lucide-react';
+import { Plane, Car, Sparkles, Award } from 'lucide-react';
+import { getScreenBrandConfig } from '../brand';
 
 export default function AttractBanner() {
+  const brand = getScreenBrandConfig();
+
+  if (brand.isFord) {
+    return (
+      <div className="w-full flex flex-col items-center select-none">
+        {/* Barra superior con marca Ford | Quito Motors en #ffffff y #212650 */}
+        <div className="w-full flex items-center justify-between px-8 py-3 bg-white border-b-2 border-[#212650]/20 shadow-md">
+          <div className="flex items-center gap-4">
+            <img
+              src={brand.logoSrc}
+              alt={brand.logoAlt}
+              className="h-14 md:h-16 w-auto object-contain rounded-lg"
+              onError={(e) => {
+                e.currentTarget.src = brand.logoFallbackSrc;
+              }}
+            />
+            <div className="hidden sm:flex flex-col">
+              <span className="font-racing font-black text-xl md:text-2xl tracking-wider text-[#212650]">
+                FORD <span className="text-[#212650]">| QUITO MOTORS</span>
+              </span>
+              <p className="text-xs text-[#212650]/80 tracking-widest font-sans uppercase -mt-0.5 flex items-center gap-1 font-bold">
+                <Sparkles className="w-3 h-3 text-[#212650]" /> Stand Oficial • Ruleta de Premios
+              </p>
+            </div>
+          </div>
+
+          {/* Badges corporativos Ford */}
+          <div className="hidden md:flex items-center gap-3">
+            <div className="flex items-center gap-2 bg-[#212650] px-4 py-1.5 rounded-full border border-[#212650] shadow-md">
+              <Award className="w-4 h-4 text-white" />
+              <span className="font-racing text-xs font-bold text-white uppercase tracking-widest">
+                Gran Evento Ford 2026
+              </span>
+            </div>
+            <div className="flex items-center gap-2 bg-[#212650]/10 px-3 py-1.5 rounded-full border border-[#212650]/30 text-[#212650] text-xs font-bold">
+              <Car className="w-3.5 h-3.5 text-[#212650]" />
+              <span>Souvenirs • Experiencias • Beneficios</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Franja Ticker Corporativa Azul Ford #212650 */}
+        <div className="w-full bg-[#212650] py-1.5 px-4 text-center text-xs font-racing font-bold tracking-widest uppercase text-white shadow-md">
+          <span>🚘 Gira la Ruleta Oficial Ford | Quito Motors • Escanea el Código QR • Gana Premios al Instante 🏆</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full flex flex-col items-center select-none">
       {/* Barra superior con marca Marketing VIP en #9AC31C */}
@@ -12,6 +62,9 @@ export default function AttractBanner() {
             src="/logotipo.png"
             alt="Marketing VIP - Especialistas en sueños"
             className="h-14 md:h-18 w-auto object-contain drop-shadow-[0_0_20px_rgba(154,195,28,0.45)]"
+            onError={(e) => {
+              e.currentTarget.src = '/pantalla/logotipo.png';
+            }}
           />
           <div className="hidden sm:flex flex-col">
             <span className="font-racing font-black text-xl md:text-2xl tracking-wider text-white">
@@ -45,3 +98,4 @@ export default function AttractBanner() {
     </div>
   );
 }
+

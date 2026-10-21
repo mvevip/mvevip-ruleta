@@ -5,7 +5,7 @@
 CREATE DATABASE IF NOT EXISTS marketingvip_roulette;
 USE marketingvip_roulette;
 
--- 1. Tabla de Premios de la Ruleta (Con pesos ponderados y límites diarios)
+-- 1. Tabla de Premios de la Ruleta (Con pesos ponderados, límites diarios y soporte multi-stand)
 CREATE TABLE IF NOT EXISTS prizes (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(150) NOT NULL,
@@ -17,7 +17,9 @@ CREATE TABLE IF NOT EXISTS prizes (
     stock INT NOT NULL DEFAULT 100,
     max_daily_wins INT NOT NULL DEFAULT 0, -- 0 = sin límite diario, > 0 = tope de veces por día
     active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    stand VARCHAR(30) NOT NULL DEFAULT 'autos',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_prizes_stand (stand)
 );
 
 -- 2. Tabla de Leads (Con device_id y validación de Ecuador)
@@ -31,10 +33,12 @@ CREATE TABLE IF NOT EXISTS leads (
     device_id VARCHAR(64) NOT NULL DEFAULT 'unknown',
     ip_address VARCHAR(50) NULL,
     user_agent TEXT NULL,
+    assigned_to VARCHAR(100) NULL DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_phone (phone),
     INDEX idx_email (email),
-    INDEX idx_device (device_id)
+    INDEX idx_device (device_id),
+    INDEX idx_screen_id (screen_id)
 );
 
 -- 3. Tabla de Giros de Ruleta (Historial & Canjes)
@@ -53,16 +57,23 @@ CREATE TABLE IF NOT EXISTS spins (
     INDEX idx_created_at (created_at)
 );
 
--- Inserción de premios con paleta corporativa (#9AC31C y contraste oscuro) y estrategia de pesos
-INSERT INTO prizes (id, name, description, category, color_hex, text_color, weight, stock, max_daily_wins) VALUES
-(1, 'Gorra Oficial VIP', 'Gorra oficial Marketing VIP edición motorsport.', 'SOUVENIR', '#9AC31C', '#000000', 450, 500, 0),
-(2, 'Bono $100 Paquetes', 'Bono de $100 USD en cualquier paquete internacional.', 'DESCUENTO', '#18181B', '#FFFFFF', 350, 400, 0),
-(3, 'Termo Deportivo', 'Termo metálico térmico de alta gama para viajes.', 'SOUVENIR', '#9AC31C', '#000000', 150, 200, 15),
-(4, 'Bono $200 Vuelos', 'Bono de $200 USD aplicable en vuelos internacionales.', 'VUELO', '#27272A', '#FFFFFF', 60, 100, 5),
-(5, 'Maleta de Mano', 'Maleta de mano deportiva para cabina de avión.', 'SOUVENIR', '#9AC31C', '#000000', 25, 30, 3),
-(6, 'Upgrade All-Inclusive', 'Pase VIP a categoría All-Inclusive Luxury en tu reserva.', 'EXPERIENCIA', '#18181B', '#FFFFFF', 8, 15, 2),
-(7, 'Vuelo 2x1 Caribe', 'Segunda persona viaja gratis en vuelos a Cancún/Punta Cana.', 'VUELO', '#27272A', '#FFFFFF', 2, 8, 1),
-(8, 'Noche Cancún Resort', '1 noche gratis en resort 5 estrellas todo incluido en Cancún.', 'ALOJAMIENTO', '#9AC31C', '#000000', 1, 5, 1)
+-- Inserción de premios Stand 1 (Autos / Marketing VIP)
+INSERT INTO prizes (id, name, description, category, color_hex, text_color, weight, stock, max_daily_wins, stand) VALUES
+(1, 'Gorra Oficial VIP', 'Gorra oficial Marketing VIP edición motorsport.', 'SOUVENIR', '#9AC31C', '#000000', 450, 500, 0, 'autos'),
+(2, 'Bono $100 Paquetes', 'Bono de $100 USD en cualquier paquete internacional.', 'DESCUENTO', '#18181B', '#FFFFFF', 350, 400, 0, 'autos'),
+(3, 'Termo Deportivo', 'Termo metálico térmico de alta gama para viajes.', 'SOUVENIR', '#9AC31C', '#000000', 150, 200, 15, 'autos'),
+(4, 'Bono $200 Vuelos', 'Bono de $200 USD aplicable en vuelos internacionales.', 'VUELO', '#27272A', '#FFFFFF', 60, 100, 5, 'autos'),
+(5, 'Maleta de Mano', 'Maleta de mano deportiva para cabina de avión.', 'SOUVENIR', '#9AC31C', '#000000', 25, 30, 3, 'autos'),
+(6, 'Upgrade All-Inclusive', 'Pase VIP a categoría All-Inclusive Luxury en tu reserva.', 'EXPERIENCIA', '#18181B', '#FFFFFF', 8, 15, 2, 'autos'),
+(7, 'Vuelo 2x1 Caribe', 'Segunda persona viaja gratis en vuelos a Cancún/Punta Cana.', 'VUELO', '#27272A', '#FFFFFF', 2, 8, 1, 'autos'),
+(8, 'Noche Cancún Resort', '1 noche gratis en resort 5 estrellas todo incluido en Cancún.', 'ALOJAMIENTO', '#9AC31C', '#000000', 1, 5, 1, 'autos'),
+-- Inserción de premios Stand 2 (Ford | Quito Motors)
+(101, 'Gorra Oficial Ford', 'Gorra oficial Ford | Quito Motors edición especial.', 'SOUVENIR', '#212650', '#FFFFFF', 350, 300, 0, 'ford'),
+(102, 'Termo Ford Performance', 'Termo metálico deportivo edición Ford.', 'SOUVENIR', '#FFFFFF', '#212650', 250, 200, 15, 'ford'),
+(103, 'Llavero Metálico Ford', 'Llavero metálico coleccionable Ford | Quito Motors.', 'SOUVENIR', '#212650', '#FFFFFF', 400, 400, 0, 'ford'),
+(104, 'Bono Accesorios Ford', 'Bono especial para accesorios originales en Quito Motors.', 'DESCUENTO', '#FFFFFF', '#212650', 120, 100, 10, 'ford'),
+(105, 'Camiseta Oficial Ford', 'Camiseta edición feria automotriz Ford | Quito Motors.', 'SOUVENIR', '#212650', '#FFFFFF', 150, 150, 10, 'ford'),
+(106, 'Kit Souvenir Ford', 'Kit oficial de souvenirs corporativos Ford.', 'EXPERIENCIA', '#FFFFFF', '#212650', 80, 80, 5, 'ford')
 ON DUPLICATE KEY UPDATE 
     name=VALUES(name),
     description=VALUES(description),
@@ -71,7 +82,8 @@ ON DUPLICATE KEY UPDATE
     text_color=VALUES(text_color),
     weight=VALUES(weight),
     stock=VALUES(stock),
-    max_daily_wins=VALUES(max_daily_wins);
+    max_daily_wins=VALUES(max_daily_wins),
+    stand=VALUES(stand);
 
 -- 4. Tabla de Destinos Soñados (Gestionable desde Admin)
 CREATE TABLE IF NOT EXISTS destinations (
@@ -113,7 +125,7 @@ CREATE TABLE IF NOT EXISTS spin_queue (
     FOREIGN KEY (prize_id) REFERENCES prizes(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB;
 
--- 6. Tabla de Imágenes de Slider (Cartelería Digital)
+-- 6. Tabla de Imágenes de Slider (Cartelería Digital por Stand)
 CREATE TABLE IF NOT EXISTS slider_images (
     id INT AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(255) NOT NULL DEFAULT '',
@@ -121,9 +133,11 @@ CREATE TABLE IF NOT EXISTS slider_images (
     duration_seconds INT NOT NULL DEFAULT 8,
     sort_order INT NOT NULL DEFAULT 0,
     active BOOLEAN DEFAULT TRUE,
+    stand VARCHAR(30) NOT NULL DEFAULT 'autos',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_active_order (active, sort_order)
+    INDEX idx_active_order (active, sort_order),
+    INDEX idx_slider_stand (stand)
 ) ENGINE=InnoDB;
 
 -- 7. Tabla de Configuraciones de Pantalla (Orientación y Opciones)
@@ -137,19 +151,24 @@ CREATE TABLE IF NOT EXISTS display_configs (
     wheel_scale_x INT NOT NULL DEFAULT 100,
     wheel_font_size INT NOT NULL DEFAULT 100,
     video_logo_scale INT NOT NULL DEFAULT 100,
+    video_logo_visible BOOLEAN NOT NULL DEFAULT FALSE,
     video_qr_scale INT NOT NULL DEFAULT 100,
     video_qr_position VARCHAR(50) NOT NULL DEFAULT 'top-center',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
-INSERT INTO display_configs (screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent, wheel_scale_x, wheel_font_size, video_logo_scale, video_qr_scale, video_qr_position) VALUES
-('roulette', 'auto', 8, 'default', 'AzQlHkHx6HI', 55, 100, 100, 100, 100, 'top-center'),
-('qr', 'auto', 8, 'default', 'AzQlHkHx6HI', 55, 100, 100, 100, 100, 'top-center'),
-('slider', 'auto', 8, 'default', 'AzQlHkHx6HI', 55, 100, 100, 100, 100, 'top-center'),
-('combo', 'auto', 8, '55/45', 'AzQlHkHx6HI', 55, 100, 100, 100, 100, 'top-center')
+INSERT INTO display_configs (screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent, wheel_scale_x, wheel_font_size, video_logo_scale, video_logo_visible, video_qr_scale, video_qr_position) VALUES
+('roulette', 'auto', 8, 'default', 'AzQlHkHx6HI', 55, 100, 100, 100, FALSE, 100, 'top-center'),
+('qr', 'auto', 8, 'default', 'AzQlHkHx6HI', 55, 100, 100, 100, FALSE, 100, 'top-center'),
+('slider', 'auto', 8, 'default', 'AzQlHkHx6HI', 55, 100, 100, 100, FALSE, 100, 'top-center'),
+('combo', 'auto', 8, '55/45', 'AzQlHkHx6HI', 55, 100, 100, 100, FALSE, 100, 'top-center'),
+('ford_roulette', 'auto', 8, 'default', 'AzQlHkHx6HI', 55, 100, 100, 100, FALSE, 100, 'top-center'),
+('ford_qr', 'auto', 8, 'default', 'AzQlHkHx6HI', 55, 100, 100, 100, FALSE, 100, 'top-center'),
+('ford_slider', 'auto', 8, 'default', 'AzQlHkHx6HI', 55, 100, 100, 100, FALSE, 100, 'top-center'),
+('ford_combo', 'auto', 8, '55/45', 'AzQlHkHx6HI', 55, 100, 100, 100, FALSE, 100, 'top-center')
 ON DUPLICATE KEY UPDATE screen_key=VALUES(screen_key);
 
--- 8. Tabla de Sincronización Remota de Sistema (Control Remoto en Tiempo Real)
+-- 8. Tabla de Sincronización Remota de Sistema (Control Remoto en Tiempo Real por Stand)
 CREATE TABLE IF NOT EXISTS system_sync (
     sync_key VARCHAR(50) PRIMARY KEY,
     version_timestamp BIGINT NOT NULL,
@@ -158,7 +177,8 @@ CREATE TABLE IF NOT EXISTS system_sync (
 ) ENGINE=InnoDB;
 
 INSERT INTO system_sync (sync_key, version_timestamp, action) VALUES
-('global_displays', 1728830000000, 'INITIAL')
+('global_displays', 1728830000000, 'INITIAL'),
+('displays_ford', 1728830000000, 'INITIAL')
 ON DUPLICATE KEY UPDATE sync_key=VALUES(sync_key);
 
 -- 9. Tabla de Usuarios de Prueba (Modo Demo Stand)

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Smartphone, Sparkles, Trophy, Zap } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import useRemoteDisplaySync from '../hooks/useRemoteDisplaySync';
+import { getScreenBrandConfig } from '../brand';
 
-export default function DisplayComboView({ mobileUrl = '', screenId = 'STAND_01' }) {
+export default function DisplayComboView({ mobileUrl = '', screenId = '' }) {
+  const brand = getScreenBrandConfig();
   const { displayConfig, sliderImages } = useRemoteDisplaySync('combo');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -21,16 +23,9 @@ export default function DisplayComboView({ mobileUrl = '', screenId = 'STAND_01'
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const isProduction = typeof window !== 'undefined' && (
-    window.location.hostname === 'autos.mvevip.com' ||
-    window.location.hostname.endsWith('.mvevip.com')
-  );
-  const effectiveMobileUrl = mobileUrl || (
-    isProduction
-      ? (typeof window !== 'undefined' ? `${window.location.origin}/` : 'https://autos.mvevip.com/')
-      : (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:5503/` : 'http://localhost:5503/')
-  );
-  const fullUrl = `${effectiveMobileUrl}?screen=${screenId}`;
+  const effectiveScreenId = screenId || brand.screenId;
+  const effectiveMobileUrl = mobileUrl || brand.mobileUrl;
+  const fullUrl = `${effectiveMobileUrl}${effectiveMobileUrl.includes('?') ? '&' : '?'}screen=${effectiveScreenId}`;
   
   // Orientación efectiva
   const configOrientation = displayConfig?.orientation || 'auto';
@@ -42,22 +37,39 @@ export default function DisplayComboView({ mobileUrl = '', screenId = 'STAND_01'
   const qrScale = displayConfig?.qr_scale_percent ? Number(displayConfig.qr_scale_percent) : 55;
 
   // Diapositivas por defecto
-  const defaultSlides = [
-    {
-      id: 'combo-1',
-      title: 'Marketing VIP - Autos 2026',
-      image_url: '',
-      heading: 'TU PRÓXIMO AUTO ESTÁ AQUÍ',
-      subheading: 'Aprovecha las promociones exclusivas de feria en nuestro stand'
-    },
-    {
-      id: 'combo-2',
-      title: 'Premios Inmediatos',
-      image_url: '',
-      heading: '¡ESCANEA Y GIRA LA RULETA!',
-      subheading: 'Gana gorras oficiales, termos térmicos, bonos de viaje y noches de resort'
-    }
-  ];
+  const defaultSlides = brand.isFord
+    ? [
+        {
+          id: 'combo-ford-1',
+          title: 'Ford | Quito Motors 2026',
+          image_url: '',
+          heading: 'TU PRÓXIMO FORD ESTÁ AQUÍ',
+          subheading: 'Aprovecha las promociones exclusivas de feria en Quito Motors'
+        },
+        {
+          id: 'combo-ford-2',
+          title: 'Premios Inmediatos Ford',
+          image_url: '',
+          heading: '¡ESCANEA Y GIRA LA RULETA!',
+          subheading: 'Gana gorras oficiales Ford, termos deportivos, llaveros y bonos de accesorios'
+        }
+      ]
+    : [
+        {
+          id: 'combo-1',
+          title: 'Marketing VIP - Autos 2026',
+          image_url: '',
+          heading: 'TU PRÓXIMO AUTO ESTÁ AQUÍ',
+          subheading: 'Aprovecha las promociones exclusivas de feria en nuestro stand'
+        },
+        {
+          id: 'combo-2',
+          title: 'Premios Inmediatos',
+          image_url: '',
+          heading: '¡ESCANEA Y GIRA LA RULETA!',
+          subheading: 'Gana gorras oficiales, termos térmicos, bonos de viaje y noches de resort'
+        }
+      ];
 
   const activeSlides = sliderImages && sliderImages.length > 0 ? sliderImages : defaultSlides;
   const currentSlide = activeSlides[currentIndex % activeSlides.length] || activeSlides[0];
@@ -84,7 +96,11 @@ export default function DisplayComboView({ mobileUrl = '', screenId = 'STAND_01'
 
   // Componente de los 3 Pasos Dinámicos - Compacto y protegido contra desbordes
   const renderStepsBanner = (extraClasses = '') => (
-    <div className={`relative z-20 w-full bg-gradient-to-r from-zinc-950 via-zinc-900 to-zinc-950 border-y border-[#9AC31C]/60 py-1.5 sm:py-2 px-2 sm:px-4 shadow-[0_0_25px_rgba(154,195,28,0.25)] flex-shrink-0 ${extraClasses}`}>
+    <div className={`relative z-20 w-full border-y border-[#9AC31C]/60 py-1.5 sm:py-2 px-2 sm:px-4 flex-shrink-0 ${
+      brand.isFord
+        ? 'bg-[#212650] shadow-md'
+        : 'bg-gradient-to-r from-zinc-950 via-zinc-900 to-zinc-950 shadow-[0_0_25px_rgba(154,195,28,0.25)]'
+    } ${extraClasses}`}>
       <div className="w-full max-w-xl mx-auto grid grid-cols-3 gap-1 sm:gap-2">
         {/* Paso 1: Escanea */}
         <div 
@@ -119,7 +135,7 @@ export default function DisplayComboView({ mobileUrl = '', screenId = 'STAND_01'
             <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[#9AC31C] animate-ping opacity-75" />
           </div>
           <div className="min-w-0 flex-1">
-            <span className="font-racing font-bold text-[10px] sm:text-xs text-[#9AC31C] uppercase tracking-wider block truncate">
+            <span className="font-racing font-bold text-[10px] sm:text-xs text-white uppercase tracking-wider block truncate">
               Regístrate
             </span>
             <span className="text-[8px] sm:text-[10px] text-zinc-400 block truncate font-light leading-tight">
@@ -153,7 +169,9 @@ export default function DisplayComboView({ mobileUrl = '', screenId = 'STAND_01'
   );
 
   return (
-    <div className={`w-full h-screen bg-black overflow-hidden flex select-none ${
+    <div className={`w-full h-screen overflow-hidden flex select-none ${
+      brand.isFord ? 'bg-white' : 'bg-black'
+    } ${
       isPortrait ? 'flex-col' : isLandscape ? 'flex-row' : 'flex-col lg:flex-row'
     }`}>
       <style>{`
@@ -164,7 +182,7 @@ export default function DisplayComboView({ mobileUrl = '', screenId = 'STAND_01'
       `}</style>
 
       {/* SECCIÓN 1: Slider de Imágenes Publicitarias */}
-      <div className={`relative overflow-hidden bg-zinc-950 ${
+      <div className={`relative overflow-hidden ${brand.isFord ? 'bg-slate-100' : 'bg-zinc-950'} ${
         isPortrait 
           ? 'h-[44%] w-full flex-shrink-0' 
           : isLandscape 
@@ -187,23 +205,33 @@ export default function DisplayComboView({ mobileUrl = '', screenId = 'STAND_01'
                   className="w-full h-full object-cover object-center"
                 />
               ) : (
-                <div className="w-full h-full bg-gradient-to-br from-zinc-900 via-zinc-950 to-black flex flex-col items-center justify-center text-center p-6 relative">
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-[#9AC31C]/15 via-transparent to-transparent pointer-events-none" />
+                <div className={`w-full h-full flex flex-col items-center justify-center text-center p-6 relative ${
+                  brand.isFord
+                    ? 'bg-gradient-to-br from-white via-slate-50 to-slate-100 text-[#212650]'
+                    : 'bg-gradient-to-br from-zinc-900 via-zinc-950 to-black text-white'
+                }`}>
+                  {!brand.isFord && (
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-[#9AC31C]/15 via-transparent to-transparent pointer-events-none" />
+                  )}
                   <img
-                    src="logotipo.png"
-                    alt="Marketing VIP"
+                    src={brand.logoSrc}
+                    alt={brand.logoAlt}
                     className="h-14 sm:h-16 w-auto mb-3 drop-shadow-[0_0_20px_rgba(154,195,28,0.5)]"
                     onError={(e) => {
-                      e.currentTarget.src = '/pantalla/logotipo.png';
+                      e.currentTarget.src = brand.logoFallbackSrc;
                     }}
                   />
                   <span className="text-[11px] font-racing font-bold text-[#9AC31C] tracking-widest uppercase mb-1.5">
-                    ESPECIALISTAS EN SUEÑOS
+                    {brand.tagline}
                   </span>
-                  <h2 className="text-xl sm:text-3xl font-racing font-black text-white uppercase max-w-xl">
+                  <h2 className={`text-xl sm:text-3xl font-racing font-black uppercase max-w-xl ${
+                    brand.isFord ? 'text-[#212650]' : 'text-white'
+                  }`}>
                     {slide.heading}
                   </h2>
-                  <p className="text-xs sm:text-sm text-zinc-300 mt-2 max-w-md font-light">
+                  <p className={`text-xs sm:text-sm mt-2 max-w-md font-light ${
+                    brand.isFord ? 'text-[#212650]/80' : 'text-zinc-300'
+                  }`}>
                     {slide.subheading}
                   </p>
                 </div>
@@ -225,30 +253,38 @@ export default function DisplayComboView({ mobileUrl = '', screenId = 'STAND_01'
       {isPortrait && renderStepsBanner()}
 
       {/* SECCIÓN 2: Contenedor del Código QR */}
-      <div className={`relative bg-gradient-to-b from-zinc-950 via-zinc-900 to-black flex flex-col items-center justify-between text-white overflow-hidden ${
+      <div className={`relative flex flex-col items-center justify-between overflow-hidden ${
+        brand.isFord
+          ? 'bg-white text-[#212650]'
+          : 'bg-gradient-to-b from-zinc-950 via-zinc-900 to-black text-white'
+      } ${
         isPortrait 
           ? 'flex-1 w-full min-h-0 px-3 py-2 sm:px-6 sm:py-3' 
           : isLandscape 
           ? 'w-[48%] h-full px-3 py-2 sm:px-6 sm:py-3' 
           : 'flex-1 lg:h-full w-full lg:w-[48%] min-h-0 px-3 py-2 sm:px-6 sm:py-3'
       }`}>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-[#9AC31C]/10 via-transparent to-transparent pointer-events-none" />
+        {!brand.isFord && (
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-[#9AC31C]/10 via-transparent to-transparent pointer-events-none" />
+        )}
 
         {/* En modo Landscape, los pasos dinámicos se colocan en la parte superior sobre el QR */}
         {!isPortrait && renderStepsBanner('mb-2 rounded-xl border')}
 
-        {/* Encabezado - Flex-shrink-0 para que NUNCA se comprima ni se solape */}
+        {/* Encabezado */}
         <div className="text-center relative z-10 w-full flex-shrink-0">
           <div className="inline-flex items-center gap-1.5 bg-[#9AC31C]/20 border border-[#9AC31C] px-3 py-0.5 rounded-full text-[#9AC31C] text-[10px] sm:text-xs font-racing font-bold tracking-widest uppercase mb-1 shadow-[0_0_12px_rgba(154,195,28,0.25)] animate-pulse">
             <Sparkles className="w-3 h-3 text-[#9AC31C]" />
             <span>¡Gira la Ruleta en Vivo!</span>
           </div>
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-black font-racing uppercase tracking-tight text-white leading-none">
+          <h2 className={`text-xl sm:text-2xl md:text-3xl font-black font-racing uppercase tracking-tight leading-none ${
+            brand.isFord ? 'text-[#212650]' : 'text-white'
+          }`}>
             ESCANEA <span className="text-[#9AC31C]">Y GANA</span>
           </h2>
         </div>
 
-        {/* Área Central del Código QR - Encapsulado con flex-1, min-h-0 y overflow-hidden para que NUNCA toque los textos */}
+        {/* Área Central del Código QR */}
         <div className="relative z-10 flex-1 w-full min-h-0 flex flex-col items-center justify-center py-1 sm:py-2 overflow-hidden">
           <div 
             style={{
@@ -263,21 +299,27 @@ export default function DisplayComboView({ mobileUrl = '', screenId = 'STAND_01'
               style={{ width: '100%', height: '100%' }}
               level="H"
               includeMargin={false}
+              fgColor={brand.isFord ? '#212650' : '#000000'}
               className="w-full h-full"
             />
           </div>
           
-          <span className="text-[10px] sm:text-xs font-racing font-bold text-zinc-400 uppercase tracking-widest mt-1.5 sm:mt-2 flex items-center gap-1.5 flex-shrink-0">
+          <span className={`text-[10px] sm:text-xs font-racing font-bold uppercase tracking-widest mt-1.5 sm:mt-2 flex items-center gap-1.5 flex-shrink-0 ${
+            brand.isFord ? 'text-[#212650]' : 'text-zinc-400'
+          }`}>
             <span className="w-1.5 h-1.5 rounded-full bg-[#9AC31C] animate-ping" />
-            STAND • {screenId}
+            STAND • {effectiveScreenId}
           </span>
         </div>
 
-        {/* Pie / Instrucción inferior - Flex-shrink-0 */}
-        <p className="text-[9px] sm:text-[11px] text-zinc-400 text-center relative z-10 flex-shrink-0">
+        {/* Pie / Instrucción inferior */}
+        <p className={`text-[9px] sm:text-[11px] text-center relative z-10 flex-shrink-0 ${
+          brand.isFord ? 'text-[#212650]/75 font-medium' : 'text-zinc-400'
+        }`}>
           Apunta la cámara de tu celular • Completa tus datos • Presiona ENGINE START
         </p>
       </div>
     </div>
   );
 }
+

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Smartphone, Sparkles, Volume2, VolumeX, X } from 'lucide-react';
+import { getScreenBrandConfig } from '../brand';
 
 function extractYouTubeId(urlOrId) {
   if (!urlOrId) return 'AzQlHkHx6HI';
@@ -20,12 +21,15 @@ export default function VideoAttractOverlay({
   onDismiss,
   onVideoEnded,
   mobileUrl = '',
-  screenId = 'STAND_01',
+  screenId = '',
   videoId = 'AzQlHkHx6HI',
   isConfigLoaded = true,
   logoScale = 100,
   showLogo = false
 }) {
+  const brand = getScreenBrandConfig();
+  const effectiveScreenId = screenId || brand.screenId;
+  const effectiveMobileUrl = mobileUrl || brand.mobileUrl;
   const activeVideoId = extractYouTubeId(videoId);
   const safeLogoScale = Math.max(50, Math.min(250, Number(logoScale) || 100));
   const logoHeight = Math.round(54 * (safeLogoScale / 100));
@@ -73,16 +77,7 @@ export default function VideoAttractOverlay({
     };
   }, [activeVideoId]);
 
-  const isProduction = typeof window !== 'undefined' && (
-    window.location.hostname === 'autos.mvevip.com' ||
-    window.location.hostname.endsWith('.mvevip.com')
-  );
-  const effectiveMobileUrl = mobileUrl || (
-    isProduction
-      ? (typeof window !== 'undefined' ? `${window.location.origin}/` : 'https://autos.mvevip.com/')
-      : (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:5503/` : 'http://localhost:5503/')
-  );
-  const fullQrUrl = `${effectiveMobileUrl}?screen=${screenId}`;
+  const fullQrUrl = `${effectiveMobileUrl}${effectiveMobileUrl.includes('?') ? '&' : '?'}screen=${effectiveScreenId}`;
   const [isMuted, setIsMuted] = useState(false);
 
   const sendIframeCommand = (func, args = []) => {
@@ -247,19 +242,25 @@ export default function VideoAttractOverlay({
         }`}
       >
         <div
-          className="flex items-center justify-center bg-zinc-950/85 backdrop-blur-md border border-[#9AC31C]/60 rounded-2xl shadow-[0_0_25px_rgba(154,195,28,0.3)] pointer-events-auto transition-all"
+          className={`flex items-center justify-center backdrop-blur-md border rounded-2xl pointer-events-auto transition-all ${
+            brand.isFord
+              ? 'bg-white/95 border-[#212650] shadow-[0_0_25px_rgba(33,38,80,0.4)]'
+              : 'bg-zinc-950/85 border-[#9AC31C]/60 shadow-[0_0_25px_rgba(154,195,28,0.3)]'
+          }`}
           style={{
             padding: `${Math.max(8, Math.round(10 * (safeLogoScale / 100)))}px ${Math.max(12, Math.round(16 * (safeLogoScale / 100)))}px`
           }}
         >
           <img
-            src="/logotipo.png"
-            onError={(e) => { e.currentTarget.src = '/pantalla/logotipo.png'; }}
-            alt="Marketing VIP"
+            src={brand.logoSrc}
+            onError={(e) => { e.currentTarget.src = brand.logoFallbackSrc; }}
+            alt={brand.logoAlt}
             style={{
               height: `${logoHeight}px`
             }}
-            className="w-auto object-contain drop-shadow-[0_0_15px_rgba(154,195,28,0.6)] select-none transition-all"
+            className={`w-auto object-contain select-none transition-all ${
+              brand.isFord ? 'rounded-md' : 'drop-shadow-[0_0_15px_rgba(154,195,28,0.6)]'
+            }`}
           />
         </div>
       </div>
@@ -276,7 +277,7 @@ export default function VideoAttractOverlay({
           {isMuted ? (
             <VolumeX size={18} strokeWidth={2.5} className="text-red-400 shrink-0" />
           ) : (
-            <Volume2 size={18} strokeWidth={2.5} className="text-[#9AC31C] shrink-0" />
+            <Volume2 size={18} strokeWidth={2.5} className="text-white shrink-0" />
           )}
         </button>
 
@@ -290,19 +291,21 @@ export default function VideoAttractOverlay({
           title="Cerrar video y mostrar ruleta"
           aria-label="Cerrar video y mostrar ruleta"
         >
-          <X size={18} strokeWidth={2.5} className="text-white hover:text-[#9AC31C] shrink-0 transition-colors" />
+          <X size={18} strokeWidth={2.5} className="text-white shrink-0 transition-colors" />
         </button>
       </div>
 
       {/* Tag Discreto del Stand en Esquina Inferior Izquierda */}
-      <div className="absolute bottom-3 left-3 bg-zinc-950/60 backdrop-blur-sm border border-zinc-800/60 px-2.5 py-1 rounded-lg text-zinc-400/85 text-[10px] font-medium flex items-center gap-1.5 pointer-events-none z-20">
+      <div className="absolute bottom-3 left-3 bg-zinc-950/60 backdrop-blur-sm border border-zinc-800/60 px-2.5 py-1 rounded-lg text-zinc-300/90 text-[10px] font-medium flex items-center gap-1.5 pointer-events-none z-20">
         <span className="w-1.5 h-1.5 rounded-full bg-[#9AC31C]/80 shrink-0" />
-        <span>Stand #{screenId}</span>
+        <span>Stand #{effectiveScreenId}</span>
       </div>
 
-      {/* 3. Tarjeta Flotante con Código QR en Esquina Inferior Derecha (Fija y Original) */}
+      {/* 3. Tarjeta Flotante con Código QR en Esquina Inferior Derecha */}
       <div
-        className="absolute bottom-8 right-8 z-30 brushed-metal p-5 rounded-3xl border-2 border-[#9AC31C] shadow-[0_0_40px_rgba(154,195,28,0.5)] flex flex-col items-center w-72 text-center backdrop-blur-xl"
+        className={`absolute bottom-8 right-8 z-30 brushed-metal p-5 rounded-3xl border-2 border-[#9AC31C] flex flex-col items-center w-72 text-center backdrop-blur-xl ${
+          brand.isFord ? 'shadow-[0_0_40px_rgba(33,38,80,0.45)]' : 'shadow-[0_0_40px_rgba(154,195,28,0.5)]'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2 mb-2">
@@ -310,23 +313,25 @@ export default function VideoAttractOverlay({
           <span className="font-racing text-xs font-black tracking-wider text-[#9AC31C] uppercase">
             ¡Escanea para Girar!
           </span>
-          <Sparkles className="w-4 h-4 text-yellow-400" />
+          <Sparkles className="w-4 h-4 text-yellow-500" />
         </div>
 
         {/* Código QR Generado */}
-        <div className="bg-white p-3 rounded-2xl shadow-[0_0_20px_rgba(154,195,28,0.5)] border border-[#9AC31C] mb-3">
+        <div className="bg-white p-3 rounded-2xl shadow-md border border-[#9AC31C] mb-3">
           <QRCodeSVG
             value={fullQrUrl}
             size={160}
             level="H"
             includeMargin={false}
+            fgColor={brand.isFord ? '#212650' : '#000000'}
           />
         </div>
 
-        <p className="text-xs text-zinc-300 font-semibold leading-tight">
+        <p className={`text-xs font-semibold leading-tight ${brand.isFord ? 'text-[#212650]' : 'text-zinc-300'}`}>
           Apunta la cámara de tu celular para registrarte y jugar
         </p>
       </div>
     </div>
   );
 }
+

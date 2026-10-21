@@ -2,15 +2,18 @@
  * Gestor de eventos en tiempo real con Socket.io
  */
 
+const { normalizeScreenId } = require('../config/stands');
+
 const defaultRoom = process.env.NODE_ENV === 'production' ? 'STAND_01' : 'STAND_LOCAL';
 
 function setupSocket(io) {
   io.on('connection', (socket) => {
     console.log(`[Socket] Nuevo cliente conectado: ${socket.id}`);
 
-    // Unirse a una sala específica de pantalla (ej: STAND_LOCAL o STAND_01)
+    // Unirse a una sala específica de pantalla (ej: STAND_LOCAL, STAND_LOCAL_2, STAND_01, STAND_02)
     socket.on('JOIN_ROOM', (roomData) => {
-      const roomId = typeof roomData === 'string' ? roomData : roomData?.screenId || defaultRoom;
+      const rawRoom = typeof roomData === 'string' ? roomData : roomData?.screenId;
+      const roomId = normalizeScreenId(rawRoom, defaultRoom);
       const role = roomData?.role || 'viewer'; // 'screen' | 'mobile'
 
       socket.join(roomId);
@@ -28,7 +31,7 @@ function setupSocket(io) {
 
     // El móvil notifica que el usuario escaneó o está activo en el formulario
     socket.on('USER_ENGAGED', (data) => {
-      const roomId = data?.screenId || defaultRoom;
+      const roomId = normalizeScreenId(data?.screenId, defaultRoom);
       socket.to(roomId).emit('USER_ENGAGED', {
         socketId: socket.id,
         timestamp: new Date().toISOString()
@@ -37,7 +40,7 @@ function setupSocket(io) {
 
     // El móvil notifica que el usuario está escribiendo o listo para presionar Start
     socket.on('USER_READY_TO_START', (data) => {
-      const roomId = data?.screenId || defaultRoom;
+      const roomId = normalizeScreenId(data?.screenId, defaultRoom);
       socket.to(roomId).emit('DRIVER_READY', {
         name: data?.name || 'Nuevo Visitante',
         message: '¡Encendiendo motores... A punto de girar!'
@@ -46,7 +49,7 @@ function setupSocket(io) {
 
     // Notificar fin de giro desde la pantalla grande
     socket.on('SPIN_COMPLETED', (data) => {
-      const roomId = data?.screenId || defaultRoom;
+      const roomId = normalizeScreenId(data?.screenId, defaultRoom);
       socket.to(roomId).emit('SPIN_FINISHED', data);
       console.log(`[Socket] Giro completado para ticket en ${roomId}:`, data?.ticketCode);
     });

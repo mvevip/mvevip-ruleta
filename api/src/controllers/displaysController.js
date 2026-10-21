@@ -1,32 +1,44 @@
 const { pool } = require('../config/db');
+const {
+  resolveStand,
+  screenIdsOf,
+  displayKey,
+  syncKeyOf,
+  STANDS
+} = require('../config/stands');
 
 /**
- * Actualiza la versión de sincronización del sistema y emite eventos en tiempo real
+ * Actualiza la versión de sincronización del stand y emite eventos en tiempo real
+ * únicamente a las salas de ese stand (Autos y Ford no se interfieren).
  */
-async function touchSystemSync(action = 'CONFIG_UPDATED', io = null) {
+async function touchSystemSync(action = 'CONFIG_UPDATED', io = null, stand = 'autos') {
   const version = Date.now();
   try {
     await pool.query(
       `INSERT INTO system_sync (sync_key, version_timestamp, action)
-       VALUES ('global_displays', ?, ?)
+       VALUES (?, ?, ?)
        ON DUPLICATE KEY UPDATE version_timestamp = VALUES(version_timestamp), action = VALUES(action)`,
-      [version, action]
+      [syncKeyOf(stand), version, action]
     );
 
     const socketInstance = io || global.io;
     if (socketInstance) {
-      socketInstance.emit('ADMIN_REMOTE_RELOAD', {
-        action,
-        version,
-        timestamp: new Date().toISOString()
+      screenIdsOf(stand).forEach((room) => {
+        socketInstance.to(room).emit('ADMIN_REMOTE_RELOAD', {
+          action,
+          version,
+          stand,
+          timestamp: new Date().toISOString()
+        });
       });
-      console.log(`[RemoteSync] Emitido ADMIN_REMOTE_RELOAD (${action}) con versión ${version}`);
+      console.log(`[RemoteSync] Emitido ADMIN_REMOTE_RELOAD (${action}) stand=${stand} con versión ${version}`);
     }
   } catch (err) {
     console.warn('[RemoteSync] Error al actualizar system_sync:', err.message);
   }
   return version;
 }
+
 
 function extractYouTubeId(urlOrId) {
   if (!urlOrId) return 'AzQlHkHx6HI';
@@ -46,13 +58,18 @@ function extractYouTubeId(urlOrId) {
  */
 async function getDisplaysConfig(req, res) {
   try {
+    const stand = resolveStand(req);
+    const prefix = STANDS[stand].displayPrefix;
     const [configs] = await pool.query('SELECT * FROM display_configs');
-    const [syncRows] = await pool.query("SELECT * FROM system_sync WHERE sync_key = 'global_displays'");
+    const [syncRows] = await pool.query('SELECT * FROM system_sync WHERE sync_key = ?', [syncKeyOf(stand)]);
     const currentVersion = syncRows[0]?.version_timestamp || Date.now();
 
     const configMap = {};
-    configs.forEach(row => {
-      configMap[row.screen_key] = {
+    configs
+      .filter(row => (prefix ? row.screen_key.startsWith(prefix) : !row.screen_key.startsWith('ford_')))
+      .forEach(row => {
+      const logicalKey = prefix ? row.screen_key.slice(prefix.length) : row.screen_key;
+      configMap[logicalKey] = {
         orientation: row.orientation || 'auto',
         slide_duration: row.slide_duration || 8,
         layout_ratio: row.layout_ratio || '55/45',
@@ -89,6 +106,8 @@ async function updateDisplayConfig(req, res) {
       return res.status(400).json({ success: false, error: 'screen_key es requerido' });
     }
 
+    const stand = resolveStand(req);
+    const dbKey = displayKey(stand, screen_key);
     const cleanOrientation = ['auto', 'portrait', 'landscape'].includes(orientation) ? orientation : 'auto';
     const cleanDuration = Number(slide_duration) > 0 ? Number(slide_duration) : 8;
     const cleanRatio = layout_ratio || '55/45';
@@ -131,7 +150,7 @@ async function updateDisplayConfig(req, res) {
            video_logo_visible = IF(? IS NOT NULL, VALUES(video_logo_visible), video_logo_visible),
            video_qr_scale = IF(VALUES(video_qr_scale) IS NOT NULL, VALUES(video_qr_scale), video_qr_scale),
            video_qr_position = IF(VALUES(video_qr_position) IS NOT NULL, VALUES(video_qr_position), video_qr_position)`,
-        [screen_key, cleanOrientation, cleanDuration, cleanRatio, cleanVideo, cleanScale, cleanWheelScale, cleanWheelFontSize, cleanVideoLogoScale, cleanVideoLogoVisible, cleanVideoQrScale, cleanVideoQrPosition, cleanVideoLogoVisible]
+        [dbKey, cleanOrientation, cleanDuration, cleanRatio, cleanVideo, cleanScale, cleanWheelScale, cleanWheelFontSize, cleanVideoLogoScale, cleanVideoLogoVisible, cleanVideoQrScale, cleanVideoQrPosition, cleanVideoLogoVisible]
       );
     } catch (sqlErr) {
       console.warn('[Displays] Error SQL en updateDisplayConfig, intentando auto-migración de columnas:', sqlErr.message);
@@ -159,11 +178,11 @@ async function updateDisplayConfig(req, res) {
            video_logo_visible = IF(? IS NOT NULL, VALUES(video_logo_visible), video_logo_visible),
            video_qr_scale = IF(VALUES(video_qr_scale) IS NOT NULL, VALUES(video_qr_scale), video_qr_scale),
            video_qr_position = IF(VALUES(video_qr_position) IS NOT NULL, VALUES(video_qr_position), video_qr_position)`,
-        [screen_key, cleanOrientation, cleanDuration, cleanRatio, cleanVideo, cleanScale, cleanWheelScale, cleanWheelFontSize, cleanVideoLogoScale, cleanVideoLogoVisible, cleanVideoQrScale, cleanVideoQrPosition, cleanVideoLogoVisible]
+        [dbKey, cleanOrientation, cleanDuration, cleanRatio, cleanVideo, cleanScale, cleanWheelScale, cleanWheelFontSize, cleanVideoLogoScale, cleanVideoLogoVisible, cleanVideoQrScale, cleanVideoQrPosition, cleanVideoLogoVisible]
       );
     }
 
-    const version = await touchSystemSync(`DISPLAY_CONFIG_${screen_key.toUpperCase()}`, req.io);
+    const version = await touchSystemSync(`DISPLAY_CONFIG_${screen_key.toUpperCase()}`, req.io, stand);
 
     return res.json({
       success: true,
@@ -189,14 +208,17 @@ async function updateDisplayConfig(req, res) {
  */
 async function getSliderImages(req, res) {
   try {
+    const stand = resolveStand(req);
     const [images] = await pool.query(
-      'SELECT id, title, image_url, duration_seconds, sort_order FROM slider_images WHERE active = TRUE ORDER BY sort_order ASC, id ASC'
+      'SELECT id, title, image_url, duration_seconds, sort_order FROM slider_images WHERE active = TRUE AND stand = ? ORDER BY sort_order ASC, id ASC',
+      [stand]
     );
-    const [syncRows] = await pool.query("SELECT * FROM system_sync WHERE sync_key = 'global_displays'");
+    const [syncRows] = await pool.query('SELECT * FROM system_sync WHERE sync_key = ?', [syncKeyOf(stand)]);
     const currentVersion = syncRows[0]?.version_timestamp || Date.now();
 
     return res.json({
       success: true,
+      stand,
       images,
       version: currentVersion
     });
@@ -211,11 +233,14 @@ async function getSliderImages(req, res) {
  */
 async function getAdminSliderImages(req, res) {
   try {
+    const stand = resolveStand(req);
     const [images] = await pool.query(
-      'SELECT * FROM slider_images ORDER BY sort_order ASC, id ASC'
+      'SELECT * FROM slider_images WHERE stand = ? ORDER BY sort_order ASC, id ASC',
+      [stand]
     );
     return res.json({
       success: true,
+      stand,
       images
     });
   } catch (error) {
@@ -234,20 +259,22 @@ async function createSliderImage(req, res) {
       return res.status(400).json({ success: false, error: 'image_url es requerido' });
     }
 
+    const stand = resolveStand(req);
     const duration = Number(duration_seconds) > 0 ? Number(duration_seconds) : 8;
     const order = Number(sort_order) >= 0 ? Number(sort_order) : 0;
     const isActive = active !== undefined ? Boolean(active) : true;
 
     const [result] = await pool.query(
-      'INSERT INTO slider_images (title, image_url, duration_seconds, sort_order, active) VALUES (?, ?, ?, ?, ?)',
-      [title || '', image_url, duration, order, isActive]
+      'INSERT INTO slider_images (title, image_url, duration_seconds, sort_order, active, stand) VALUES (?, ?, ?, ?, ?, ?)',
+      [title || '', image_url, duration, order, isActive, stand]
     );
 
-    const version = await touchSystemSync('SLIDER_IMAGE_CREATED', req.io);
+    const version = await touchSystemSync('SLIDER_IMAGE_CREATED', req.io, stand);
 
     return res.status(201).json({
       success: true,
       id: result.insertId,
+      stand,
       message: 'Imagen agregada exitosamente',
       version
     });
@@ -270,6 +297,7 @@ async function updateSliderImage(req, res) {
       return res.status(404).json({ success: false, error: 'Imagen no encontrada' });
     }
 
+    const stand = existing[0].stand || resolveStand(req);
     const duration = duration_seconds !== undefined ? Number(duration_seconds) : existing[0].duration_seconds;
     const order = sort_order !== undefined ? Number(sort_order) : existing[0].sort_order;
     const isActive = active !== undefined ? Boolean(active) : existing[0].active;
@@ -280,7 +308,7 @@ async function updateSliderImage(req, res) {
       [imageTitle, duration, order, isActive, id]
     );
 
-    const version = await touchSystemSync('SLIDER_IMAGE_UPDATED', req.io);
+    const version = await touchSystemSync('SLIDER_IMAGE_UPDATED', req.io, stand);
 
     return res.json({
       success: true,
@@ -303,13 +331,14 @@ async function reorderSliderImages(req, res) {
       return res.status(400).json({ success: false, error: 'items debe ser un array de objetos' });
     }
 
+    const stand = resolveStand(req);
     for (const item of items) {
       if (item.id && typeof item.sort_order === 'number') {
         await pool.query('UPDATE slider_images SET sort_order = ? WHERE id = ?', [item.sort_order, item.id]);
       }
     }
 
-    const version = await touchSystemSync('SLIDER_REORDERED', req.io);
+    const version = await touchSystemSync('SLIDER_REORDERED', req.io, stand);
 
     return res.json({
       success: true,
@@ -328,12 +357,15 @@ async function reorderSliderImages(req, res) {
 async function deleteSliderImage(req, res) {
   try {
     const { id } = req.params;
+    const [existing] = await pool.query('SELECT stand FROM slider_images WHERE id = ?', [id]);
+    const stand = existing[0]?.stand || resolveStand(req);
+
     const [result] = await pool.query('DELETE FROM slider_images WHERE id = ?', [id]);
     if (result.affectedRows === 0) {
       return res.status(404).json({ success: false, error: 'Imagen no encontrada' });
     }
 
-    const version = await touchSystemSync('SLIDER_IMAGE_DELETED', req.io);
+    const version = await touchSystemSync('SLIDER_IMAGE_DELETED', req.io, stand);
 
     return res.json({
       success: true,
@@ -351,12 +383,14 @@ async function deleteSliderImage(req, res) {
  */
 async function getSyncStatus(req, res) {
   try {
-    const [rows] = await pool.query("SELECT * FROM system_sync WHERE sync_key = 'global_displays'");
+    const stand = resolveStand(req);
+    const [rows] = await pool.query('SELECT * FROM system_sync WHERE sync_key = ?', [syncKeyOf(stand)]);
     const currentVersion = rows[0]?.version_timestamp || 0;
     const currentAction = rows[0]?.action || 'NONE';
 
     return res.json({
       success: true,
+      stand,
       version: currentVersion,
       action: currentAction
     });
@@ -374,12 +408,14 @@ async function getSyncStatus(req, res) {
  */
 async function triggerRemoteReload(req, res) {
   try {
+    const stand = resolveStand(req);
     const { action = 'FORCE_RELOAD' } = req.body || {};
-    const version = await touchSystemSync(action, req.io);
+    const version = await touchSystemSync(action, req.io, stand);
 
     return res.json({
       success: true,
-      message: 'Comando de recarga y sincronización enviado a todas las pantallas',
+      stand,
+      message: `Comando de recarga y sincronización enviado a las pantallas de ${STANDS[stand]?.label || stand}`,
       version
     });
   } catch (error) {

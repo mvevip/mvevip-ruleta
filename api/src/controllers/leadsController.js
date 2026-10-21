@@ -1,8 +1,32 @@
 const { pool } = require('../config/db');
 const { OFFICIAL_ADVISORS } = require('../config/advisorsList');
+const {
+  standFromScreenId,
+  screenIdsOf,
+  STANDS,
+  isValidStand
+} = require('../config/stands');
+
+function deriveLeadStand(screenId) {
+  const mapped = standFromScreenId(screenId);
+  return mapped || 'autos';
+}
 
 async function getLeads(req, res) {
   try {
+    const requestedStand = (req.query && req.query.stand) ? String(req.query.stand).toLowerCase() : 'all';
+    const filterByStand = isValidStand(requestedStand) ? requestedStand : null;
+
+    let whereSql = '';
+    let params = [];
+    if (filterByStand === 'ford') {
+      whereSql = 'WHERE l.screen_id IN (?)';
+      params = [screenIdsOf('ford')];
+    } else if (filterByStand === 'autos') {
+      whereSql = 'WHERE (l.screen_id IS NULL OR l.screen_id NOT IN (?))';
+      params = [screenIdsOf('ford')];
+    }
+
     const [rows] = await pool.query(
       `SELECT l.id, l.name, l.email, l.phone, l.dream_destination, l.screen_id, l.device_id, l.created_at,
               l.assigned_to,
@@ -12,13 +36,26 @@ async function getLeads(req, res) {
        FROM leads l
        LEFT JOIN spins s ON s.lead_id = l.id
        LEFT JOIN prizes p ON s.prize_id = p.id
-       ORDER BY l.created_at DESC LIMIT 500`
+       ${whereSql}
+       ORDER BY l.created_at DESC LIMIT 500`,
+      params
     );
+
+    const enriched = rows.map(r => {
+      const st = deriveLeadStand(r.screen_id);
+      return {
+        ...r,
+        stand: st,
+        stand_label: STANDS[st]?.label || 'Autos'
+      };
+    });
+
     res.json({
       success: true,
-      count: rows.length,
+      stand: filterByStand || 'all',
+      count: enriched.length,
       advisors: OFFICIAL_ADVISORS,
-      data: rows
+      data: enriched
     });
   } catch (error) {
     console.error('Error al listar leads:', error);
@@ -68,37 +105,92 @@ async function assignAdvisorToLead(req, res) {
 
 async function getMetrics(req, res) {
   try {
-    const [[leadCount]] = await pool.query('SELECT COUNT(*) AS total_leads FROM leads WHERE is_test = 0 OR is_test IS NULL');
-    const [[spinCount]] = await pool.query('SELECT COUNT(*) AS total_spins FROM spins WHERE is_test = 0 OR is_test IS NULL');
-    const [[testSpinCount]] = await pool.query('SELECT COUNT(*) AS total_test_spins FROM spins WHERE is_test = 1');
-    const [[redeemedCount]] = await pool.query('SELECT COUNT(*) AS total_redeemed FROM spins WHERE redeemed = 1 AND (is_test = 0 OR is_test IS NULL)');
-    const [[deviceCount]] = await pool.query('SELECT COUNT(DISTINCT device_id) AS total_devices FROM leads WHERE device_id != "unknown" AND (is_test = 0 OR is_test IS NULL)');
+    const requestedStand = (req.query && req.query.stand) ? String(req.query.stand).toLowerCase() : 'all';
+    const filterByStand = isValidStand(requestedStand) ? requestedStand : null;
+    const fordScreens = screenIdsOf('ford');
+
+    let leadStandClause = '';
+    let spinStandClause = '';
+    let standParams = [];
+
+    if (filterByStand === 'ford') {
+      leadStandClause = ' AND screen_id IN (?)';
+      spinStandClause = ' AND s.screen_id IN (?)';
+      standParams = [fordScreens];
+    } else if (filterByStand === 'autos') {
+      leadStandClause = ' AND (screen_id IS NULL OR screen_id NOT IN (?))';
+      spinStandClause = ' AND (s.screen_id IS NULL OR s.screen_id NOT IN (?))';
+      standParams = [fordScreens];
+    }
+
+    const [[leadCount]] = await pool.query(
+      `SELECT COUNT(*) AS total_leads FROM leads WHERE (is_test = 0 OR is_test IS NULL)${leadStandClause}`,
+      standParams
+    );
+    const [[spinCount]] = await pool.query(
+      `SELECT COUNT(*) AS total_spins FROM spins s WHERE (s.is_test = 0 OR s.is_test IS NULL)${spinStandClause}`,
+      standParams
+    );
+    const [[testSpinCount]] = await pool.query(
+      `SELECT COUNT(*) AS total_test_spins FROM spins s WHERE s.is_test = 1${spinStandClause}`,
+      standParams
+    );
+    const [[redeemedCount]] = await pool.query(
+      `SELECT COUNT(*) AS total_redeemed FROM spins s WHERE s.redeemed = 1 AND (s.is_test = 0 OR s.is_test IS NULL)${spinStandClause}`,
+      standParams
+    );
+    const [[deviceCount]] = await pool.query(
+      `SELECT COUNT(DISTINCT device_id) AS total_devices FROM leads WHERE device_id != "unknown" AND (is_test = 0 OR is_test IS NULL)${leadStandClause}`,
+      standParams
+    );
 
     const [topDestinations] = await pool.query(
-      'SELECT dream_destination, COUNT(*) AS count FROM leads WHERE is_test = 0 OR is_test IS NULL GROUP BY dream_destination ORDER BY count DESC LIMIT 5'
+      `SELECT dream_destination, COUNT(*) AS count FROM leads WHERE (is_test = 0 OR is_test IS NULL)${leadStandClause} GROUP BY dream_destination ORDER BY count DESC LIMIT 5`,
+      standParams
     );
 
     const [recentPrizes] = await pool.query(
       `SELECT p.name AS prize, COUNT(s.id) AS count 
        FROM spins s 
        JOIN prizes p ON s.prize_id = p.id 
-       WHERE s.is_test = 0 OR s.is_test IS NULL
+       WHERE (s.is_test = 0 OR s.is_test IS NULL)${spinStandClause}
        GROUP BY p.name 
-       ORDER BY count DESC`
+       ORDER BY count DESC`,
+      standParams
     );
 
     // Detección de dispositivos sospechosos (más de 1 lead por dispositivo, excluyendo pruebas)
     const [suspiciousDevices] = await pool.query(
       `SELECT device_id, COUNT(*) AS leads_count, GROUP_CONCAT(name SEPARATOR ', ') AS names
        FROM leads
-       WHERE device_id != 'unknown' AND (is_test = 0 OR is_test IS NULL)
+       WHERE device_id != 'unknown' AND (is_test = 0 OR is_test IS NULL)${leadStandClause}
        GROUP BY device_id
        HAVING COUNT(*) > 1
-       ORDER BY leads_count DESC LIMIT 10`
+       ORDER BY leads_count DESC LIMIT 10`,
+      standParams
+    );
+
+    // Desglose por stand (siempre disponible para mostrar comparativa en Admin)
+    const [[autosLeadsRow]] = await pool.query(
+      'SELECT COUNT(*) AS count FROM leads WHERE (is_test = 0 OR is_test IS NULL) AND (screen_id IS NULL OR screen_id NOT IN (?))',
+      [fordScreens]
+    );
+    const [[fordLeadsRow]] = await pool.query(
+      'SELECT COUNT(*) AS count FROM leads WHERE (is_test = 0 OR is_test IS NULL) AND screen_id IN (?)',
+      [fordScreens]
+    );
+    const [[autosSpinsRow]] = await pool.query(
+      'SELECT COUNT(*) AS count FROM spins WHERE (is_test = 0 OR is_test IS NULL) AND (screen_id IS NULL OR screen_id NOT IN (?))',
+      [fordScreens]
+    );
+    const [[fordSpinsRow]] = await pool.query(
+      'SELECT COUNT(*) AS count FROM spins WHERE (is_test = 0 OR is_test IS NULL) AND screen_id IN (?)',
+      [fordScreens]
     );
 
     res.json({
       success: true,
+      stand: filterByStand || 'all',
       data: {
         totalLeads: leadCount.total_leads,
         totalSpins: spinCount.total_spins,
@@ -107,7 +199,17 @@ async function getMetrics(req, res) {
         totalDevices: deviceCount.total_devices,
         topDestinations,
         recentPrizes,
-        suspiciousDevices
+        suspiciousDevices,
+        byStand: {
+          autos: {
+            leads: autosLeadsRow.count,
+            spins: autosSpinsRow.count
+          },
+          ford: {
+            leads: fordLeadsRow.count,
+            spins: fordSpinsRow.count
+          }
+        }
       }
     });
   } catch (error) {
@@ -121,3 +223,4 @@ module.exports = {
   assignAdvisorToLead,
   getMetrics
 };
+

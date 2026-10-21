@@ -123,6 +123,9 @@ Write-Host "[OK] Bucket S3 Frontend:        $frontendBucket" -ForegroundColor Gr
 # 7. Compilar Frontends con Rutas Base
 $env:VITE_WS_URL = ""
 $env:VITE_API_URL = ""
+$env:VITE_MOBILE_URL = ""
+$env:VITE_SCREEN_URL = ""
+$env:VITE_ADMIN_URL = ""
 Write-Host "[*] Compilando App Movil Clientes (Root /)..." -ForegroundColor Cyan
 Push-Location frontend-mobile
 if ($TurnstileSiteKey) { $env:VITE_TURNSTILE_SITE_KEY = $TurnstileSiteKey }
@@ -150,10 +153,15 @@ Write-Host "[*] Subiendo Admin a s3://$frontendBucket/admin/..." -ForegroundColo
 aws s3 sync dist "s3://$frontendBucket/admin/" --delete --profile $Profile --region $Region
 Pop-Location
 
-# Asegurar logotipo corporativo en todas las ubicaciones
+# Asegurar logotipos corporativos en todas las ubicaciones (Autos y Ford)
 aws s3 cp logotipo.png "s3://$frontendBucket/logotipo.png" --profile $Profile --region $Region
 aws s3 cp logotipo.png "s3://$frontendBucket/pantalla/logotipo.png" --profile $Profile --region $Region
 aws s3 cp logotipo.png "s3://$frontendBucket/admin/logotipo.png" --profile $Profile --region $Region
+if (Test-Path "logo_ford.jpeg") {
+    aws s3 cp logo_ford.jpeg "s3://$frontendBucket/logo_ford.jpeg" --profile $Profile --region $Region
+    aws s3 cp logo_ford.jpeg "s3://$frontendBucket/pantalla/logo_ford.jpeg" --profile $Profile --region $Region
+    aws s3 cp logo_ford.jpeg "s3://$frontendBucket/admin/logo_ford.jpeg" --profile $Profile --region $Region
+}
 
 # 8. Invalidar Cache de CloudFront
 Write-Host "[*] Invalidando cache de CloudFront..." -ForegroundColor Cyan
@@ -162,8 +170,10 @@ aws cloudfront create-invalidation --distribution-id $cfId --paths "/*" --profil
 Write-Host "=======================================================" -ForegroundColor Green
 Write-Host "DESPLIEGUE FINALIZADO CON EXITO EN AWS" -ForegroundColor Green
 Write-Host "=======================================================" -ForegroundColor Green
-Write-Host "URL Publica:              $publicUrl" -ForegroundColor Yellow
-Write-Host "Pantalla Stand Ruleta:    $publicUrl/pantalla" -ForegroundColor Yellow
+Write-Host "Stand 1 (Autos) Movil:    $publicUrl" -ForegroundColor Yellow
+Write-Host "Stand 1 (Autos) Pantalla: $publicUrl/pantalla" -ForegroundColor Yellow
+Write-Host "Stand 2 (Ford)  Movil:    $publicUrl/formulario2" -ForegroundColor Yellow
+Write-Host "Stand 2 (Ford)  Pantalla: $publicUrl/pantalla2" -ForegroundColor Yellow
 Write-Host "App Asesores / Admin:     $publicUrl/admin" -ForegroundColor Yellow
 Write-Host "Dominio CloudFront:       $cfDomain" -ForegroundColor Yellow
 Write-Host "ID Distribucion:          $cfId" -ForegroundColor Yellow

@@ -23,6 +23,7 @@ const WS_URL = isProduction
   : (typeof window !== 'undefined' ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}:5500` : 'ws://localhost:5500');
 
 import TurnstileWidget from './components/TurnstileWidget';
+import { getMobileBrandConfig, applyMobileBrandAttribute } from './brand';
 
 // Obtener o generar identificador único de sesión/dispositivo aislado
 function getOrCreateDeviceId() {
@@ -39,8 +40,12 @@ function getOrCreateDeviceId() {
 }
 
 export default function App() {
-  const queryParams = new URLSearchParams(window.location.search);
-  const screenId = queryParams.get('screen') || (isProduction ? 'STAND_01' : 'STAND_LOCAL');
+  const brand = getMobileBrandConfig();
+  const screenId = brand.screenId;
+
+  useEffect(() => {
+    applyMobileBrandAttribute();
+  }, []);
 
   const [gameState, setGameState] = useState('FORM'); // 'FORM' | 'READY_TO_SPIN' | 'WAITING_QUEUE' | 'SPINNING' | 'WON'
   const [formData, setFormData] = useState({
@@ -332,7 +337,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-zinc-100 via-zinc-200 to-zinc-300 text-zinc-900 flex flex-col justify-between">
+    <div className="ford-mobile-shell min-h-screen bg-gradient-to-b from-zinc-100 via-zinc-200 to-zinc-300 text-zinc-900 flex flex-col justify-between">
       <Header />
 
       <main className="flex-1 max-w-md w-full mx-auto px-4 py-5 flex flex-col justify-center">
@@ -350,6 +355,7 @@ export default function App() {
               onChange={handleInputChange}
               errors={errors}
               destinations={destinations}
+              hideDestinations={brand.isFord}
             />
 
             <div className="my-2 w-full flex justify-center">
@@ -374,7 +380,7 @@ export default function App() {
             <button
               type="button"
               onClick={handleProceedToSpin}
-              className="w-full mt-3 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-[#9AC31C] via-[#b2dc27] to-[#84A816] hover:brightness-110 active:scale-98 text-black font-racing font-black text-base uppercase tracking-wider shadow-lg shadow-[#9AC31C]/30 flex items-center justify-center gap-2 cursor-pointer transition-all"
+              className="ford-primary-btn w-full mt-3 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-[#9AC31C] via-[#b2dc27] to-[#84A816] hover:brightness-110 active:scale-98 text-black font-racing font-black text-base uppercase tracking-wider shadow-lg shadow-[#9AC31C]/30 flex items-center justify-center gap-2 cursor-pointer transition-all"
             >
               <span>¡Juega y Gana!</span>
               <ArrowRight className="w-5 h-5 stroke-[2.5]" />
@@ -392,7 +398,7 @@ export default function App() {
           <div className="bg-white/95 border border-zinc-200/80 rounded-3xl p-5 shadow-xl shadow-zinc-400/20 backdrop-blur-md min-h-[72vh] flex flex-col justify-between items-center text-center">
             {/* 1. MENSAJE EN LA PARTE SUPERIOR */}
             <div className="w-full max-w-sm pt-1">
-              <div className="p-3.5 rounded-2xl bg-zinc-900 border-2 border-[#9AC31C] text-white shadow-[0_0_25px_rgba(154,195,28,0.35)] transition-all">
+              <div className="ford-callout-box p-3.5 rounded-2xl bg-zinc-900 border-2 border-[#9AC31C] text-white shadow-[0_0_25px_rgba(154,195,28,0.35)] transition-all">
                 <div className="flex items-center justify-center gap-2 font-racing font-black text-sm tracking-widest text-[#9AC31C] uppercase">
                   <Tv className="w-4 h-4 text-[#9AC31C] shrink-0" />
                   <span>¡MIRA LA PANTALLA GIGANTE!</span>
@@ -474,7 +480,7 @@ export default function App() {
       </main>
 
       <footer className="w-full py-2.5 px-4 bg-white/80 border-t border-zinc-300 text-center text-[10px] text-zinc-500 font-sans">
-        <div>Marketing VIP • Especialistas en sueños • Stand Feria Automotriz 2026</div>
+        <div>{brand.footerText}</div>
         {!isProduction && (
           <div className="font-mono font-bold text-amber-600 text-[9px] mt-0.5 tracking-wider">
             [ENTORNO LOCAL 💻 - STAND #{screenId}]

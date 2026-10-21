@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { getScreenBrandConfig } from '../brand';
 
 // Función para dividir títulos de premios en 1 o 2 líneas balanceadas
 function splitTextForSlice(name = '') {
@@ -33,9 +34,10 @@ function splitTextForSlice(name = '') {
 
 /**
  * Componente de la Ruleta estilizada como Rin Deportivo de Alta Gama
- * Con acentos corporativos #9AC31C y textos multilínea adaptativos auto-ajustables
+ * Con acentos corporativos #9AC31C (Autos) o #212650 (Ford) y textos multilínea adaptativos auto-ajustables
  */
 export default function AlloyWheel({ prizes = [], rotationAngle = 0, isSpinning = false, isTestMode = false, wheelScaleX = 1, wheelFontSize = 100 }) {
+  const brand = getScreenBrandConfig();
   const totalSlices = prizes.length || 8;
   const sliceAngle = 360 / totalSlices;
 
@@ -107,9 +109,15 @@ export default function AlloyWheel({ prizes = [], rotationAngle = 0, isSpinning 
         transformOrigin: 'center center'
       }}
     >
-      {/* 1. Disco de Freno Ventilado Trasero con Acentos Corporativos #9AC31C */}
-      <div className="absolute w-[690px] h-[690px] rounded-full border-4 border-zinc-700 bg-gradient-to-br from-zinc-800 via-zinc-900 to-black shadow-2xl opacity-95 flex items-center justify-center">
-        <div className="w-[660px] h-[660px] rounded-full border-2 border-dashed border-[#9AC31C]/30" />
+      {/* 1. Disco de Freno Ventilado Trasero con Acentos Corporativos */}
+      <div className={`absolute w-[690px] h-[690px] rounded-full border-4 shadow-2xl opacity-95 flex items-center justify-center ${
+        brand.isFord
+          ? 'border-[#212650] bg-gradient-to-br from-[#212650] via-[#171b3a] to-[#0f1229]'
+          : 'border-zinc-700 bg-gradient-to-br from-zinc-800 via-zinc-900 to-black'
+      }`}>
+        <div className={`w-[660px] h-[660px] rounded-full border-2 border-dashed ${
+          brand.isFord ? 'border-white/35' : 'border-[#9AC31C]/30'
+        }`} />
       </div>
 
       {/* 2. Indicador Selector Deportivo Rojo con Efecto Clacker en Giro */}
@@ -139,78 +147,85 @@ export default function AlloyWheel({ prizes = [], rotationAngle = 0, isSpinning 
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="drop-shadow-2xl">
           <defs>
             <linearGradient id="rimChrome" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#9CA3AF" />
-              <stop offset="50%" stopColor="#27272A" />
+              <stop offset="0%" stopColor={brand.isFord ? '#E2E8F0' : '#9CA3AF'} />
+              <stop offset="50%" stopColor={brand.isFord ? '#212650' : '#27272A'} />
               <stop offset="100%" stopColor="#E5E7EB" />
             </linearGradient>
             <radialGradient id="centerHub" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="#9AC31C" />
-              <stop offset="65%" stopColor="#84A816" />
+              <stop offset="0%" stopColor={brand.accent} />
+              <stop offset="65%" stopColor={brand.isFord ? '#171b3a' : '#84A816'} />
               <stop offset="100%" stopColor="#0F172A" />
             </radialGradient>
+            <clipPath id="hubLogoClip">
+              <circle cx={center} cy={center} r="50" />
+            </clipPath>
           </defs>
 
-          {/* Aro Exterior del Rin con Anillo Neón #9AC31C */}
+          {/* Aro Exterior del Rin con Anillo Corporativo */}
           <circle cx={center} cy={center} r={radius + 8} fill="none" stroke="url(#rimChrome)" strokeWidth="16" />
-          <circle cx={center} cy={center} r={radius + 1} fill="none" stroke="#9AC31C" strokeWidth="2" opacity="0.8" />
-          <circle cx={center} cy={center} r={radius} fill="#111827" />
+          <circle cx={center} cy={center} r={radius + 1} fill="none" stroke={brand.accent} strokeWidth="2.5" opacity="0.9" />
+          <circle cx={center} cy={center} r={radius} fill={brand.isFord ? '#212650' : '#111827'} />
 
           {/* Gajos / Premios de la Ruleta */}
-          {slices.map((slice) => (
-            <g key={slice.id || slice.index}>
-              {/* Sector con color corporativo o de contraste */}
-              <path
-                d={slice.pathData}
-                fill={slice.color_hex || '#9AC31C'}
-                stroke="#18181B"
-                strokeWidth="2.5"
-                className="transition-colors duration-300"
-              />
-              {/* Radios divisorios cromados */}
-              <line
-                x1={center}
-                y1={center}
-                x2={center + radius * Math.cos(((slice.index * sliceAngle - 90) * Math.PI) / 180)}
-                y2={center + radius * Math.sin(((slice.index * sliceAngle - 90) * Math.PI) / 180)}
-                stroke="#E5E7EB"
-                strokeWidth="2.5"
-                opacity="0.85"
-              />
+          {slices.map((slice) => {
+            const sliceFill = slice.color_hex || brand.accent;
+            const isLightSlice = sliceFill.toUpperCase() === '#FFFFFF' || sliceFill.toUpperCase() === '#F8FAFC';
+            return (
+              <g key={slice.id || slice.index}>
+                {/* Sector con color corporativo o de contraste */}
+                <path
+                  d={slice.pathData}
+                  fill={sliceFill}
+                  stroke={brand.isFord ? '#212650' : '#18181B'}
+                  strokeWidth="2.5"
+                  className="transition-colors duration-300"
+                />
+                {/* Radios divisorios cromados */}
+                <line
+                  x1={center}
+                  y1={center}
+                  x2={center + radius * Math.cos(((slice.index * sliceAngle - 90) * Math.PI) / 180)}
+                  y2={center + radius * Math.sin(((slice.index * sliceAngle - 90) * Math.PI) / 180)}
+                  stroke={brand.isFord ? '#94A3B8' : '#E5E7EB'}
+                  strokeWidth="2.5"
+                  opacity="0.85"
+                />
 
-              {/* Texto del Premio Ajustado al Espacio (Multilínea para no salirse) */}
-              <g
-                transform={`rotate(${slice.midAngle + 90}, ${slice.textX}, ${slice.textY})`}
-              >
-                <text
-                  x={slice.textX}
-                  y={slice.textY}
-                  fill={slice.text_color || (slice.color_hex === '#9AC31C' ? '#000000' : '#FFFFFF')}
-                  fontSize={slice.fontSize}
-                  fontWeight="900"
-                  fontFamily="'Orbitron', sans-serif"
-                  letterSpacing="0.02em"
-                  textAnchor="middle"
-                  dominantBaseline="central"
-                  className="filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)] select-none"
+                {/* Texto del Premio Ajustado al Espacio (Multilínea para no salirse) */}
+                <g
+                  transform={`rotate(${slice.midAngle + 90}, ${slice.textX}, ${slice.textY})`}
                 >
-                  {slice.textLines.length === 1 ? (
-                    <tspan x={slice.textX} dy="0">
-                      {slice.textLines[0]}
-                    </tspan>
-                  ) : (
-                    <>
-                      <tspan x={slice.textX} dy="-0.65em">
+                  <text
+                    x={slice.textX}
+                    y={slice.textY}
+                    fill={slice.text_color || (isLightSlice ? '#212650' : (sliceFill === '#9AC31C' ? '#000000' : '#FFFFFF'))}
+                    fontSize={slice.fontSize}
+                    fontWeight="900"
+                    fontFamily="'Orbitron', sans-serif"
+                    letterSpacing="0.02em"
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    className={isLightSlice ? 'select-none' : 'filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)] select-none'}
+                  >
+                    {slice.textLines.length === 1 ? (
+                      <tspan x={slice.textX} dy="0">
                         {slice.textLines[0]}
                       </tspan>
-                      <tspan x={slice.textX} dy="1.3em">
-                        {slice.textLines[1]}
-                      </tspan>
-                    </>
-                  )}
-                </text>
+                    ) : (
+                      <>
+                        <tspan x={slice.textX} dy="-0.65em">
+                          {slice.textLines[0]}
+                        </tspan>
+                        <tspan x={slice.textX} dy="1.3em">
+                          {slice.textLines[1]}
+                        </tspan>
+                      </>
+                    )}
+                  </text>
+                </g>
               </g>
-            </g>
-          ))}
+            );
+          })}
 
           {/* Tornillos perimetrales */}
           {Array.from({ length: 16 }).map((_, i) => {
@@ -218,24 +233,26 @@ export default function AlloyWheel({ prizes = [], rotationAngle = 0, isSpinning 
             const bx = center + (radius - 8) * Math.cos(boltAngle);
             const by = center + (radius - 8) * Math.sin(boltAngle);
             return (
-              <circle key={i} cx={bx} cy={by} r="4" fill="#E5E7EB" stroke="#18181B" strokeWidth="1.5" />
+              <circle key={i} cx={bx} cy={by} r="4" fill="#E5E7EB" stroke={brand.isFord ? '#212650' : '#18181B'} strokeWidth="1.5" />
             );
           })}
 
-          {/* Centro del Rin con Logo Oficial Marketing VIP */}
-          <circle cx={center} cy={center} r="65" fill="#18181B" stroke="url(#rimChrome)" strokeWidth="6" />
+          {/* Centro del Rin con Logo Oficial */}
+          <circle cx={center} cy={center} r="65" fill={brand.isFord ? '#212650' : '#18181B'} stroke="url(#rimChrome)" strokeWidth="6" />
           <circle cx={center} cy={center} r="54" fill="#FFFFFF" />
           
           <image
-            href="/logotipo.png"
+            href={brand.logoSrc}
             x={center - 48}
             y={center - 48}
             width="96"
             height="96"
             preserveAspectRatio="xMidYMid meet"
+            clipPath="url(#hubLogoClip)"
           />
         </svg>
       </div>
     </div>
   );
 }
+

@@ -98,30 +98,30 @@ Resources:
       Name: !Sub 'MarketingVIP-Router-${AWS::Region}'
       AutoPublish: true
       FunctionConfig:
-        Comment: 'Enrutador SPA para autos.mvevip.com (/pantalla, /admin, /)'
+        Comment: 'Enrutador SPA para autos.mvevip.com (/pantalla, /pantalla2, /formulario2, /admin, /)'
         Runtime: cloudfront-js-2.0
       FunctionCode: |
         function handler(event) {
           var request = event.request;
           var uri = request.uri;
 
-          // Si la ruta es exactamente /pantalla o /pantalla/
-          if (uri === '/pantalla' || uri === '/pantalla/') {
+          // Si la ruta es exactamente /pantalla, /pantalla/, /pantalla2 o /pantalla2/
+          if (uri === '/pantalla' || uri === '/pantalla/' || uri === '/pantalla2' || uri === '/pantalla2/') {
             request.uri = '/pantalla/index.html';
           }
           // Si la ruta es exactamente /admin o /admin/
           else if (uri === '/admin' || uri === '/admin/') {
             request.uri = '/admin/index.html';
           }
-          // Rutas hijas de /pantalla/ sin punto (ej: navegación SPA interna)
-          else if (uri.startsWith('/pantalla/') && !uri.includes('.')) {
+          // Rutas hijas de /pantalla/ o /pantalla2/ sin punto (ej: navegación SPA interna)
+          else if ((uri.startsWith('/pantalla/') || uri.startsWith('/pantalla2/')) && !uri.includes('.')) {
             request.uri = '/pantalla/index.html';
           }
           // Rutas hijas de /admin/ sin punto
           else if (uri.startsWith('/admin/') && !uri.includes('.')) {
             request.uri = '/admin/index.html';
           }
-          // Rutas de la raíz sin extensión y que no sean API
+          // Rutas de la raíz sin extensión y que no sean API (incluye /formulario2)
           else if (!uri.includes('.') && !uri.startsWith('/api') && uri !== '/health') {
             request.uri = '/index.html';
           }

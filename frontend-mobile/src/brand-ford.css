@@ -1,0 +1,80 @@
+/* =====================================================================
+   TEMA FORD (Opción A: Fondo blanco #ffffff + Acentos #212650)
+   Solo aplica cuando <html data-brand="ford"> está presente (/formulario2)
+   ===================================================================== */
+
+html[data-brand="ford"],
+html[data-brand="ford"] body {
+  background-color: #ffffff !important;
+  color: #212650;
+}
+
+/* Fondo general blanco limpio con sutil matiz corporativo */
+html[data-brand="ford"] .ford-mobile-shell {
+  background: linear-gradient(180deg, #ffffff 0%, #f4f6fb 65%, #e8ecf7 100%) !important;
+  color: #212650 !important;
+}
+
+/* Sobrescribir acentos verdes (#9AC31C / #7A9E14 / #84A816) por azul Ford #212650 */
+html[data-brand="ford"] .text-\[\#9AC31C\],
+html[data-brand="ford"] .text-\[\#7A9E14\] {
+  color: #212650 !important;
+}
+
+html[data-brand="ford"] .border-\[\#9AC31C\] {
+  border-color: #212650 !important;
+}
+
+html[data-brand="ford"] .bg-\[\#9AC31C\] {
+  background-color: #212650 !important;
+  color: #ffffff !important;
+}
+
+html[data-brand="ford"] .bg-\[\#9AC31C\]\/15,
+html[data-brand="ford"] .bg-\[\#9AC31C\]\/20 {
+  background-color: rgba(33, 38, 80, 0.1) !important;
+}
+
+html[data-brand="ford"] .border-\[\#9AC31C\]\/60 {
+  border-color: rgba(33, 38, 80, 0.55) !important;
+}
+
+html[data-brand="ford"] .focus\:border-\[\#9AC31C\]:focus {
+  border-color: #212650 !important;
+}
+
+html[data-brand="ford"] .focus\:ring-\[\#9AC31C\]:focus,
+html[data-brand="ford"] .ring-\[\#9AC31C\] {
+  --tw-ring-color: #212650 !important;
+}
+
+html[data-brand="ford"] .accent-\[\#7A9E14\] {
+  accent-color: #212650 !important;
+}
+
+/* Botones principales (Juega y Gana / Reclama tu premio) en azul Ford #212650 con texto blanco */
+html[data-brand="ford"] .ford-primary-btn {
+  background: linear-gradient(90deg, #212650 0%, #2d356e 50%, #181c3d 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 10px 25px -5px rgba(33, 38, 80, 0.45) !important;
+}
+
+html[data-brand="ford"] .ford-primary-btn svg {
+  color: #ffffff !important;
+}
+
+/* Tarjeta de llamada a pantalla gigante y bloque de resultado en #212650 con texto #ffffff */
+html[data-brand="ford"] .ford-callout-box {
+  background-color: #212650 !important;
+  border-color: #212650 !important;
+  color: #ffffff !important;
+  box-shadow: 0 8px 24px rgba(33, 38, 80, 0.28) !important;
+}
+
+html[data-brand="ford"] .ford-callout-box .text-\[\#9AC31C\],
+html[data-brand="ford"] .ford-callout-box span,
+html[data-brand="ford"] .ford-callout-box p,
+html[data-brand="ford"] .ford-callout-box h3,
+html[data-brand="ford"] .ford-callout-box svg {
+  color: #ffffff !important;
+}

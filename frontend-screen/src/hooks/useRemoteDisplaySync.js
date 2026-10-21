@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { getScreenBrandConfig } from '../brand';
 
 const isProduction = typeof window !== 'undefined' && (
   window.location.hostname === 'autos.mvevip.com' ||
@@ -10,7 +11,11 @@ const API_URL = isProduction
   : (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:5500` : 'http://localhost:5500');
 
 export default function useRemoteDisplaySync(screenKey = 'roulette', socket = null) {
-  const storageKey = `vip_display_config_${screenKey}`;
+  const brand = getScreenBrandConfig();
+  const stand = brand.stand;
+  const storageKey = stand === 'ford'
+    ? `vip_display_config_ford_${screenKey}`
+    : `vip_display_config_${screenKey}`;
   const [displayConfig, setDisplayConfig] = useState(() => {
     try {
       const saved = typeof window !== 'undefined' ? localStorage.getItem(storageKey) : null;
@@ -41,8 +46,8 @@ export default function useRemoteDisplaySync(screenKey = 'roulette', socket = nu
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
     try {
-      // 1. Obtener configuraciones de pantallas
-      const resConfig = await fetch(`${API_URL}/api/displays/config`);
+      // 1. Obtener configuraciones de pantallas para el stand activo
+      const resConfig = await fetch(`${API_URL}/api/displays/config?stand=${encodeURIComponent(stand)}`);
       if (resConfig.ok) {
         const jsonConfig = await resConfig.json();
         if (jsonConfig.success && jsonConfig.configs) {
@@ -59,9 +64,9 @@ export default function useRemoteDisplaySync(screenKey = 'roulette', socket = nu
         }
       }
 
-      // 2. Si la pantalla utiliza slider (slider o combo), cargar imágenes activas
+      // 2. Si la pantalla utiliza slider (slider o combo), cargar imágenes activas del stand
       if (screenKey === 'slider' || screenKey === 'combo') {
-        const resImages = await fetch(`${API_URL}/api/displays/slider-images`);
+        const resImages = await fetch(`${API_URL}/api/displays/slider-images?stand=${encodeURIComponent(stand)}`);
         if (resImages.ok) {
           const jsonImages = await resImages.json();
           if (jsonImages.success && Array.isArray(jsonImages.images)) {
@@ -77,7 +82,7 @@ export default function useRemoteDisplaySync(screenKey = 'roulette', socket = nu
       setIsConfigLoaded(true);
       isFetchingRef.current = false;
     }
-  }, [screenKey, storageKey]);
+  }, [screenKey, storageKey, stand]);
 
   // Carga inicial al montar
   useEffect(() => {
@@ -89,6 +94,7 @@ export default function useRemoteDisplaySync(screenKey = 'roulette', socket = nu
     if (!socket) return;
 
     const handleRemoteReload = (data) => {
+      if (data?.stand && data.stand !== stand) return;
       console.log('[useRemoteDisplaySync] Recibido ADMIN_REMOTE_RELOAD por socket:', data);
       if (data?.action === 'FORCE_RELOAD') {
         window.location.reload();
@@ -101,13 +107,13 @@ export default function useRemoteDisplaySync(screenKey = 'roulette', socket = nu
     return () => {
       socket.off('ADMIN_REMOTE_RELOAD', handleRemoteReload);
     };
-  }, [socket, refreshAllData]);
+  }, [socket, refreshAllData, stand]);
 
   // 2. Polling ultra ligero de verificación de versión cada 3.5 segundos
   useEffect(() => {
     const pollInterval = setInterval(async () => {
       try {
-        const res = await fetch(`${API_URL}/api/displays/sync`);
+        const res = await fetch(`${API_URL}/api/displays/sync?stand=${encodeURIComponent(stand)}`);
         if (!res.ok) return;
         const data = await res.json();
 
@@ -120,7 +126,7 @@ export default function useRemoteDisplaySync(screenKey = 'roulette', socket = nu
 
           // Si el servidor emitió una nueva versión
           if (data.version > lastVersion) {
-            console.log(`[useRemoteDisplaySync] Nueva versión detectada: ${data.version} vs anterior: ${lastVersion}`);
+            console.log(`[useRemoteDisplaySync] Nueva versión detectada (${stand}): ${data.version} vs anterior: ${lastVersion}`);
             setLastVersion(data.version);
 
             if (data.action === 'FORCE_RELOAD') {
@@ -137,7 +143,7 @@ export default function useRemoteDisplaySync(screenKey = 'roulette', socket = nu
     }, 3500);
 
     return () => clearInterval(pollInterval);
-  }, [lastVersion, refreshAllData]);
+  }, [lastVersion, refreshAllData, stand]);
 
   return {
     displayConfig,
@@ -145,6 +151,8 @@ export default function useRemoteDisplaySync(screenKey = 'roulette', socket = nu
     sliderImages,
     lastSyncTime,
     refreshAllData,
-    apiUrl: API_URL
+    apiUrl: API_URL,
+    stand
   };
 }
+

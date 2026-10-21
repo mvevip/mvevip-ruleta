@@ -10,6 +10,7 @@ import DisplayQRView from './components/DisplayQRView';
 import DisplaySliderView from './components/DisplaySliderView';
 import DisplayComboView from './components/DisplayComboView';
 import useRemoteDisplaySync from './hooks/useRemoteDisplaySync';
+import { getScreenBrandConfig } from './brand';
 import { Radio, FlaskConical } from 'lucide-react';
 
 const isProduction = typeof window !== 'undefined' && (
@@ -25,13 +26,12 @@ const WS_URL = isProduction
   ? (import.meta.env.VITE_WS_URL || '')
   : (typeof window !== 'undefined' ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}:5500` : 'ws://localhost:5500');
 
-const MOBILE_BASE_URL = isProduction
-  ? (typeof window !== 'undefined' ? `${window.location.origin}/` : 'https://autos.mvevip.com/')
-  : (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:5503/` : 'http://localhost:5503/');
-
-const SCREEN_ID = isProduction ? 'STAND_01' : 'STAND_LOCAL';
+const BRAND_CONFIG = getScreenBrandConfig();
+const MOBILE_BASE_URL = BRAND_CONFIG.mobileUrl;
+const SCREEN_ID = BRAND_CONFIG.screenId;
 
 export default function App() {
+  const brand = BRAND_CONFIG;
   const [currentView, setCurrentView] = useState(() => {
     if (typeof window === 'undefined') return 'roulette';
     const path = window.location.pathname.toLowerCase();
@@ -210,26 +210,37 @@ export default function App() {
     }, 3500);
   };
 
-  // Cargar lista de premios desde la API
+  // Cargar lista de premios desde la API para el stand actual
   const fetchPrizes = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/prizes`);
+      const res = await fetch(`${API_URL}/api/prizes?stand=${encodeURIComponent(brand.stand)}`);
       const json = await res.json();
       if (json.success && json.data.length > 0) {
         setPrizes(json.data);
       }
     } catch (err) {
       console.warn('Usando premios semilla corporativos:', err.message);
-      setPrizes([
-        { id: 1, name: 'Gorra Oficial VIP', color_hex: '#9AC31C', text_color: '#000', description: 'Gorra oficial Marketing VIP' },
-        { id: 2, name: 'Bono $100 Paquetes', color_hex: '#18181B', text_color: '#fff', description: 'Bono de $100 en viajes' },
-        { id: 3, name: 'Termo Deportivo', color_hex: '#9AC31C', text_color: '#000', description: 'Termo térmico para viajes' },
-        { id: 4, name: 'Bono $200 Vuelos', color_hex: '#27272A', text_color: '#fff', description: 'Bono aplicable en vuelos' },
-        { id: 5, name: 'Maleta de Mano', color_hex: '#9AC31C', text_color: '#000', description: 'Maleta de mano cabina' },
-        { id: 6, name: 'Upgrade All-Inclusive', color_hex: '#18181B', text_color: '#fff', description: 'Categoría All-Inclusive Luxury' },
-        { id: 7, name: 'Vuelo 2x1 Caribe', color_hex: '#27272A', text_color: '#fff', description: 'Segunda persona gratis a Cancún' },
-        { id: 8, name: 'Noche Cancún Resort', color_hex: '#9AC31C', text_color: '#000', description: '1 noche en resort 5 estrellas' },
-      ]);
+      if (brand.isFord) {
+        setPrizes([
+          { id: 101, name: 'Gorra Oficial Ford', color_hex: '#212650', text_color: '#FFFFFF', description: 'Gorra oficial Ford | Quito Motors' },
+          { id: 102, name: 'Termo Ford Performance', color_hex: '#FFFFFF', text_color: '#212650', description: 'Termo deportivo edición Ford' },
+          { id: 103, name: 'Llavero Metálico Ford', color_hex: '#212650', text_color: '#FFFFFF', description: 'Llavero metálico coleccionable Ford' },
+          { id: 104, name: 'Bono Accesorios Ford', color_hex: '#FFFFFF', text_color: '#212650', description: 'Bono especial para accesorios originales' },
+          { id: 105, name: 'Camiseta Oficial Ford', color_hex: '#212650', text_color: '#FFFFFF', description: 'Camiseta edición feria Quito Motors' },
+          { id: 106, name: 'Kit Souvenir Ford', color_hex: '#FFFFFF', text_color: '#212650', description: 'Kit oficial de souvenirs Ford' },
+        ]);
+      } else {
+        setPrizes([
+          { id: 1, name: 'Gorra Oficial VIP', color_hex: '#9AC31C', text_color: '#000', description: 'Gorra oficial Marketing VIP' },
+          { id: 2, name: 'Bono $100 Paquetes', color_hex: '#18181B', text_color: '#fff', description: 'Bono de $100 en viajes' },
+          { id: 3, name: 'Termo Deportivo', color_hex: '#9AC31C', text_color: '#000', description: 'Termo térmico para viajes' },
+          { id: 4, name: 'Bono $200 Vuelos', color_hex: '#27272A', text_color: '#fff', description: 'Bono aplicable en vuelos' },
+          { id: 5, name: 'Maleta de Mano', color_hex: '#9AC31C', text_color: '#000', description: 'Maleta de mano cabina' },
+          { id: 6, name: 'Upgrade All-Inclusive', color_hex: '#18181B', text_color: '#fff', description: 'Categoría All-Inclusive Luxury' },
+          { id: 7, name: 'Vuelo 2x1 Caribe', color_hex: '#27272A', text_color: '#fff', description: 'Segunda persona gratis a Cancún' },
+          { id: 8, name: 'Noche Cancún Resort', color_hex: '#9AC31C', text_color: '#000', description: '1 noche en resort 5 estrellas' },
+        ]);
+      }
     }
   };
 
@@ -521,12 +532,12 @@ export default function App() {
             currentPilot={activePilot}
           />
           
-          <div className="bg-zinc-900/90 border border-zinc-800 p-3 rounded-2xl w-72 text-center shadow-lg">
-            <div className="flex items-center justify-center gap-2 text-xs font-racing text-zinc-400">
-              <Radio className={`w-3.5 h-3.5 ${socketConnected ? 'text-[#9AC31C]' : 'text-red-500 animate-pulse'}`} />
+          <div className={`${brand.isFord ? 'bg-white border-2 border-[#212650]/30 text-[#212650]' : 'bg-zinc-900/90 border border-zinc-800'} p-3 rounded-2xl w-72 text-center shadow-lg`}>
+            <div className={`flex items-center justify-center gap-2 text-xs font-racing ${brand.isFord ? 'text-[#212650] font-bold' : 'text-zinc-400'}`}>
+              <Radio className={`w-3.5 h-3.5 ${socketConnected ? (brand.isFord ? 'text-[#212650]' : 'text-[#9AC31C]') : 'text-red-500 animate-pulse'}`} />
               <span>{socketConnected ? 'TELEMETRÍA STAND ACTIVA' : 'CONECTANDO...'}</span>
             </div>
-            <p className="text-[11px] text-zinc-400 mt-1 font-mono">
+            <p className={`text-[11px] mt-1 font-mono ${brand.isFord ? 'text-[#212650]/70' : 'text-zinc-400'}`}>
               Sincronización en vivo 0ms
             </p>
           </div>
@@ -554,7 +565,7 @@ export default function App() {
       </div>
 
       <footer className="w-full py-2.5 px-8 bg-zinc-950/80 border-t border-zinc-900 flex items-center justify-between text-xs text-zinc-400 font-sans">
-        <span>© {new Date().getFullYear()} Marketing VIP - Especialistas en sueños</span>
+        <span>© {new Date().getFullYear()} {brand.name} — {brand.tagline}</span>
         <span className="font-racing text-[#9AC31C] font-bold flex items-center gap-2">
           <span>Feria del Automóvil 2026 • Stand #{SCREEN_ID}</span>
           {!isProduction && (

@@ -1,7 +1,10 @@
 # MEMORIA DEL PROYECTO: MARKETING VIP - RULETA DE FERIA
-**Última actualización:** 16 de Octubre de 2026  
+**Última actualización:** 21 de Octubre de 2026  
 **Dominio de Producción:** [https://autos.mvevip.com](https://autos.mvevip.com)  
 **Infraestructura:** AWS 100% Serverless (CloudFront `d16kuftm1n5423.cloudfront.net` + S3 + API Gateway + Lambda + RDS MySQL)
+**Repositorios:**
+- Personal (respaldo de actividad): `https://github.com/caloloc2/mvevip_ruleta.git`
+- Empresa (principal colaborador): `https://github.com/mvevip/mvevip-ruleta.git`
 
 ---
 
@@ -14,104 +17,83 @@
 >    - En entorno local, la API se conecta única y exclusivamente al contenedor MySQL local de Docker (`marketingvip_db` en el puerto `5501`).
 >    - Las credenciales de AWS RDS de producción NUNCA se conectan desde el código local.
 > 3. **Aislamiento de WebSockets y Tráfico de Red:**
->    - La pantalla y el móvil local se comunican en salas separadas (`STAND_LOCAL` / `local`) y rechazan orígenes de producción `autos.mvevip.com`.
+>    - La pantalla y el móvil local se comunican en salas separadas (`STAND_LOCAL` / `STAND_LOCAL_2`) y rechazan orígenes de producción `autos.mvevip.com`.
 >    - Jugar o probar en local NUNCA debe emitir eventos hacia las pantallas ni formularios de producción.
 > 4. **Insignias Visuales de Entorno:**
 >    - La pantalla local y el panel admin muestran siempre distintivos visibles (`[ENTORNO LOCAL 💻]`, `[DOCKER DB LOCAL]`) para confirmar en todo momento que se opera en el ambiente aislado.
 
 ---
 
-## 1. Arquitectura y Enrutamiento en Producción
+## 1. Arquitectura y Enrutamiento Multi-Stand
 
-| URL | Componente | Descripción |
-| :--- | :--- | :--- |
-| `https://autos.mvevip.com` | `frontend-mobile` | PWA para participantes: registro de leads en 2 pasos (datos + botón START ENGINE), selección de destino, Cloudflare Turnstile. |
-| `https://autos.mvevip.com/pantalla` | `frontend-screen` | Pantalla principal del stand: ruleta rim motorsport, video corporativo de standby al 100% horizontal/vertical con alternancia automática de 20s hacia la ruleta sin recarga. |
-| `https://autos.mvevip.com/pantalla?view=qr` | `frontend-screen` | Cartelería: Solo QR Gigante "Escanea y Gana" con detección de orientación (horizontal completo / vertical tótem maximizado). |
-| `https://autos.mvevip.com/pantalla?view=slider` | `frontend-screen` | Cartelería: Slider continuo de banners publicitarios en loop infinito con tiempos configurables. |
-| `https://autos.mvevip.com/pantalla?view=combo` | `frontend-screen` | Cartelería: Pantalla híbrida (Slider arriba, franja central con 3 pasos dinámicos, y QR al porcentaje calibrado abajo sin solapamientos). |
-| `https://autos.mvevip.com/admin` | `frontend-admin` | PWA para operadores y asesores: gestión de premios, pesos, stock, usuarios demo, control remoto de pantallas, slider de imágenes, cambio de video de YouTube y visibilidad/tamaño de logotipo corporativo. |
-| `https://autos.mvevip.com/api/*` | `api` (AWS Lambda) | Endpoints REST protegidos con PIN, rate limiter y conexión resiliente a RDS MySQL. |
-
----
-
-## 2. Historial de Implementaciones Recientes
-
-### A. Corrección del Algoritmo de Premios ("Bug de Visado")
-1. **Inclusión de columna `active`:** En `rouletteController.js`, se corrigió la consulta SQL de premios disponibles (`SELECT id, name, ..., active FROM prizes WHERE active = 1`) para evitar campos `undefined`.
-2. **Selección Ponderada Confiable:** En `rouletteLogic.js`, se endureció la función `selectWeightedPrize`. Si un premio tiene probabilidad configurada, compite con su peso real en la ruleta, erradicando el problema donde siempre caía el primer premio ("Visado").
-
-### B. Corrección de Desfase de Ángulo en Ruleta
-- En `frontend-screen/src/App.jsx`, se corrigió la fórmula de acumulación de giro:
-  `deltaAngle = (targetModAngle - currentModAngle) % 360`
-- Con esto, giros consecutivos de la ruleta mantienen alineación física al 100% con la aguja indicadora superior, sin derivas acumulativas.
-
-### C. Video Standby / Attract en Pantalla Principal (100% Pantalla y Alternancia 20s)
-1. **Ajuste al 100% Horizontal y Vertical sin Recortes:**
-   - Detección dinámica de la relación de aspecto nativa del video mediante `oEmbed` de YouTube y cálculo de transformación `scale(scaleX, scaleY)` ajustado a `window.innerWidth` × `window.innerHeight`.
-   - Eliminación del zoom `1.4x` y de sombras oscuras superiores para mostrar el 100% del cuadro del video sin cortes.
-2. **Alternancia Automática Video ↔ Ruleta (20 Segundos) con Carga Única:**
-   - El `<iframe>` se carga una sola vez al entrar a la página (`isConfigLoaded`) y permanece en memoria.
-   - Al terminar el video (`playerState === 0`), se rebobina a `0s` (`seekTo(0, true)`) y se pausa (`pauseVideo`) en memoria, mostrando la **ruleta durante 20 segundos (`ROULETTE_PAUSE_MS = 20000`)** antes de reanudar el video desde el inicio sin volver a cargarlo.
-3. **Controles Superiores Derechos de Solo Icono y Tag de Stand Discreto:**
-   - En la esquina superior derecha (`top-4 right-4`) solo se muestran 2 botones circulares de icono (`Audio` y `Cerrar`) con alto contraste (`bg-zinc-950/90`, `strokeWidth={2.5}`) sin texto que tape el video.
-   - El identificador `Stand #...` se ubica en la esquina inferior izquierda (`bottom-3 left-3`) en formato pequeño y discreto (`10px`).
-4. **Logotipo Oculto por Defecto con Control Mostrar/Ocultar en Admin:**
-   - Columna `video_logo_visible BOOLEAN NOT NULL DEFAULT FALSE` en `display_configs`.
-   - El logotipo permanece escondido por defecto en el video y puede mostrarse u ocultarse en tiempo real desde `/admin` (*Pantallas → Ruleta Principal*).
-5. **Código QR en Alta Resolución para Impresión:**
-   - Exportado en `QR_Ruleta_MarketingVIP_AltaResolucion.png` (`2400 × 2400 px`, `300 DPI`, nivel `H`).
-
-### D. Flujo Móvil en 2 Pasos (Registro + Lanzamiento)
-1. **Paso 1 (Registro de Lead):** Formulario ergonómico con validación de teléfono (10 dígitos Ecuador), correo y selección de vehículo/destino, rematado con botón prominente **`¡JUGAR Y GANAR!`**.
-2. **Paso 2 (Lanzamiento):** Pantalla limpia que enfoca la atención del usuario hacia el stand: **`¡MIRA LA PANTALLA GIGANTE! 👀`** con el botón centrado **`START ENGINE`**. Al pulsarlo, activa el giro en la pantalla física del stand.
-
-### E. Ensanchamiento Horizontal de la Ruleta y Tipografía Adaptativa
-- Ensanchamiento elíptico configurable desde `/admin` (`wheel_scale_x`) con proyección `scaleX` y contra-escala en el clacker superior.
-- Ajuste de tipografía de premios (`wheel_font_size`) con cálculo automático para evitar solapamientos con las divisiones del rin.
-
-### F. Gestión de Usuarios de Prueba (Modo Demo Stand)
-- Módulo en `/admin` para registrar asesores con teléfono/email demo.
-- Permite giros ilimitados sin bloqueo `already_played`, sin restar stock de premios reales y sin contaminar las estadísticas de leads oficiales.
-
-### G. Asignación de Asesores en Leads con Búsqueda y Validación Estricta
-- **Catálogo Oficial (28 asesores):** Definido en `api/src/config/advisorsList.js` y `frontend-admin/src/components/StrictAdvisorSelect.jsx` a partir de `asesores.csv` (normalizado sin espacios finales).
-- **Base de Datos y Backend (`leads.assigned_to`):**
-  - Columna `assigned_to VARCHAR(150) DEFAULT NULL` en la tabla `leads` (creada manualmente en producción mediante script SQL autorizado por el usuario).
-  - `GET /api/leads` incluye `l.assigned_to` y el catálogo `advisors`.
-  - `PUT /api/leads/:id/assign` valida estrictamente que el nombre coincida con uno de los 28 asesores oficiales (o vacío para limpiar) y devuelve `{ success: true, lead_id, assigned_to, data: { lead_id, assigned_to } }`.
-- **Frontend Admin (`StrictAdvisorSelect.jsx`):**
-  - Selector desplegable buscable integrado en cada tarjeta de **Leads → Captados** (`frontend-admin/src/App.jsx`).
-  - Permite filtrar mientras se escribe y revierte automáticamente cualquier texto libre que no pertenezca a la lista oficial de 28 asesores.
-  - El buscador general superior de Leads también filtra por el nombre del asesor asignado.
+| URL (Local / Prod) | Stand | Componente | Descripción |
+| :--- | :--- | :--- | :--- |
+| `/` (`https://autos.mvevip.com`) | Autos (Stand 1) | `frontend-mobile` | PWA participantes Stand Autos: registro en 2 pasos, selección de destino, tema oscuro motorsport + `#9AC31C`. |
+| `/formulario2` | Ford (Stand 2) | `frontend-mobile` | PWA participantes Stand Ford \| Quito Motors: registro sin selector de destino, tema blanco corporativo + `#212650` y logo Ford. |
+| `/pantalla` (`.../pantalla`) | Autos (Stand 1) | `frontend-screen` | Pantalla ruleta rin motorsport Stand Autos: video de espera alternado 20s, QR a `/`, sala `STAND_01`/`STAND_LOCAL`. |
+| `/pantalla2` | Ford (Stand 2) | `frontend-screen` | Pantalla ruleta Stand Ford: diseño blanco corporativo con acentos `#212650`, logo Ford, QR a `/formulario2`, sala `STAND_02`/`STAND_LOCAL_2`. |
+| `/pantalla?view=qr` / `/pantalla2?view=qr` | Autos / Ford | `frontend-screen` | Cartelería: Solo QR Gigante "Escanea y Gana" adaptado a cada stand. |
+| `/pantalla?view=slider` / `/pantalla2?view=slider` | Autos / Ford | `frontend-screen` | Cartelería: Slider continuo de banners publicitarios independientes por stand. |
+| `/pantalla?view=combo` / `/pantalla2?view=combo` | Autos / Ford | `frontend-screen` | Cartelería: Pantalla híbrida (Slider + Pasos + QR) adaptada a la marca del stand. |
+| `/admin` (`.../admin`) | Global (Ambos) | `frontend-admin` | Panel de control unificado: selector superior `🏎️ Stand 1: AUTOS` \| `🚘 Stand 2: FORD`. Gestión independiente de premios, pantallas, videos, métricas y leads filtrables. |
+| `/api/*` (`.../api/*`) | Ambos | `api` (Node.js 20) | API REST multi-stand con resolución automática de stand vía query param `?stand=autos|ford` o screen id. |
 
 ---
 
-## 3. Credenciales y Reglas Críticas de Despliegue
+## 2. Historial de Implementaciones
 
-- **Perfil AWS:** `marketingvip` (Región `us-west-2`)
-- **Bucket Frontend:** `marketingvip-autos-frontend-021891594659-us-west-2`
-- **Bucket Artefactos Lambda:** `mvevip-recursos` (`marketingvip-roulette/api.zip`)
-- **Función Lambda:** `MarketingVIP-Roulette-Api-prod`
-- **ID CloudFront:** `E1ZMRVAW1NYIDC`
-- **PIN Administrativo:** `VIP2026`
-- **Script de Despliegue Oficial Completo:** `powershell -ExecutionPolicy Bypass -File deploy\deploy_aws.ps1`
-- **Regla Crítica al Compilar Frontends Individualmente:**
-  - `frontend-admin` **SIEMPRE** debe compilarse con `$env:VITE_BASE_PATH = "/admin/"` antes de `npm run build` y restaurar `logotipo.png` en `s3://.../admin/logotipo.png`.
-  - `frontend-screen` **SIEMPRE** debe compilarse con `$env:VITE_BASE_PATH = "/pantalla/"` antes de `npm run build` y restaurar `logotipo.png` en `s3://.../pantalla/logotipo.png`.
-- **Regla Crítica de Base de Datos en Producción:**
-  - Nunca ejecutar cambios de esquema (`ALTER TABLE` / `CREATE TABLE`) automáticos en producción desde el agente; entregar siempre el script SQL al usuario para que él lo ejecute y autorice el despliegue.
-- **Repositorio Git:** `https://github.com/caloloc2/mvevip_ruleta.git` (Rama `main`)
+### A. Soporte Multi-Stand (Stand 1: Autos | Stand 2: Ford Quito Motors)
+1. **Aislamiento Total de Disparo (Sockets):**
+   - El escaneo y giro en `/formulario2` (`STAND_02` / `STAND_LOCAL_2`) acciona **únicamente** la ruleta de `/pantalla2`.
+   - `/pantalla` (Autos) no se inmuta ni recibe eventos de Ford, garantizando operación independiente en la misma feria.
+2. **Regla de 1 Participación por Stand:**
+   - Un asistente puede jugar 1 vez en Stand Autos y 1 vez en Stand Ford con el mismo teléfono/email.
+   - Bloqueo de duplicados contextualizado por stand en `rouletteController.js`.
+3. **Catálogo de Premios y Contenidos Separados:**
+   - Columna `stand` en tablas `prizes` y `slider_images`.
+   - Semilla oficial de 6 premios para Ford (`id` 101–106) con colores `#212650` y `#FFFFFF`.
+   - Configuraciones independientes en `display_configs` (`ford_roulette`, `ford_qr`, `ford_slider`, `ford_combo`).
+4. **Branding Dinámico por Stand:**
+   - Detección en frontend vía ruta (`/formulario2`, `/pantalla2`) o parámetro.
+   - Inyección de variables CSS y assets (`logo_ford.jpeg` vs `logotipo.png`).
+5. **Panel Admin Unificado:**
+   - Switcher en barra superior para administrar premios, pantallas y métricas de cada stand por separado.
+   - Vista de leads con indicador de procedencia y filtros específicos.
+
+### B. Corrección de Algoritmo de Premios y Ángulo
+- Columna `active` asegurada en consultas SQL.
+- Selección ponderada real sin favorecer el primer premio.
+- Fórmula de rotación incremental `deltaAngle = (targetModAngle - currentModAngle) % 360` eliminando desvíos acumulativos.
+
+### C. Video Standby / Attract (100% Pantalla y Ciclo de 20s)
+- Iframe de YouTube cargado en memoria, detección de aspecto vía oEmbed, escalado al 100% viewport.
+- Al culminar, rebobina y se pausa en memoria, mostrando la ruleta 20 segundos antes de reiniciar sin recarga.
+- Controles discretos tipo icono y visibilidad de logo conmutable desde Admin.
+
+### D. Asignación Estricta de Asesores
+- Catálogo oficial de 28 asesores (`asesores.csv`).
+- Columna `assigned_to` en tabla `leads`.
+- Componente `StrictAdvisorSelect.jsx` buscable con validación en tiempo real.
 
 ---
 
-## 4. Estado Actual del Sistema (Cierre de Sesión - 16 de Octubre de 2026)
+## 3. Estado Actual y Tareas Pendientes
 
-- **Producción AWS:** 100% desplegada, verificada (HTTP 200 en `/`, `/pantalla`, `/admin` y `/api/*`) y activa en `https://autos.mvevip.com`.
-- **Git:** Todos los cambios confirmados y sincronizados en GitHub (`origin/main`).
-- **Entorno Local Docker:** Operativo e independiente en puertos:
-  - Pantalla: `http://localhost:5502`
-  - Móvil: `http://localhost:5503`
-  - Admin: `http://localhost:5504`
-  - API: `http://localhost:5500`
-  - DB: `localhost:5501`
+### ✅ Estado Actual (21 de Octubre de 2026)
+- **Local (Docker):** Implementación Multi-Stand (Ford + Autos) 100% operativa y verificada en `localhost:5500–5504`.
+- **Producción:** Activa y estable en `https://autos.mvevip.com` con la versión single-stand (Autos).
+- **Rollback preparado:** Script `deploy/rollback_pre_ford.ps1` listo para restaurar instantáneamente en AWS si fuese necesario.
+
+### ⏳ Pendientes / Próximos Pasos
+1. **Sincronización Dual de Repositorios Git:**
+   - Configuración de `origin` para lectura desde repo empresa (`https://github.com/mvevip/mvevip-ruleta.git`) y push simultáneo a empresa + personal (`https://github.com/caloloc2/mvevip_ruleta.git`).
+2. **Integración Transaccional Brevo (API v3):**
+   - Plan técnico completado (`implementation_plan.md`).
+   - Pendiente entrega por parte del usuario de:
+     - `BREVO_API_KEY` (v3).
+     - ID de plantillas (`templateId` para Autos y Ford).
+     - Mapeo exacto de variables (`params`).
+     - Correo de prueba.
+3. **Despliegue a Producción de Multi-Stand (Stand Ford):**
+   - Requiere ejecución manual previa de migración SQL en RDS: `deploy/migrations/002_stand_support.sql`.
+   - Autorización explícita del usuario para ejecutar `deploy_aws.ps1`.

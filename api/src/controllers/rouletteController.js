@@ -7,14 +7,25 @@ const {
 } = require('../services/rouletteLogic');
 const config = require('../config/env');
 const { touchSystemSync } = require('./displaysController');
+const {
+  resolveStand,
+  standFromScreenId,
+  normalizeScreenId,
+  screenIdsOf
+} = require('../config/stands');
 
-// Obtener lista de premios activos para la ruleta visual
+// Stand 'autos' = comportamiento histórico; 'ford' = Formulario2/Pantalla2
+const DEFAULT_SCREEN_ID = process.env.NODE_ENV === 'production' ? 'STAND_01' : 'STAND_LOCAL';
+
+// Obtener lista de premios activos para la ruleta visual (del stand solicitado)
 async function getPrizes(req, res) {
   try {
+    const stand = resolveStand(req);
     const [rows] = await pool.query(
-      'SELECT id, name, description, category, color_hex, text_color, weight, stock, max_daily_wins, active FROM prizes WHERE active = 1 ORDER BY id ASC'
+      'SELECT id, name, description, category, color_hex, text_color, weight, stock, max_daily_wins, active FROM prizes WHERE active = 1 AND stand = ? ORDER BY id ASC',
+      [stand]
     );
-    res.json({ success: true, data: rows });
+    res.json({ success: true, stand, data: rows });
   } catch (error) {
     console.error('Error al obtener premios:', error);
     res.status(500).json({ success: false, message: 'Error interno al consultar premios' });
@@ -24,8 +35,10 @@ async function getPrizes(req, res) {
 // Obtener lista completa de premios para el Panel Administrativo (con % de probabilidad)
 async function getAdminPrizes(req, res) {
   try {
+    const stand = resolveStand(req);
     const [rows] = await pool.query(
-      'SELECT id, name, description, category, color_hex, text_color, weight, stock, max_daily_wins, active, created_at FROM prizes ORDER BY id ASC'
+      'SELECT id, name, description, category, color_hex, text_color, weight, stock, max_daily_wins, active, created_at FROM prizes WHERE stand = ? ORDER BY id ASC',
+      [stand]
     );
 
     // Calcular suma total de pesos de premios activos con stock
@@ -44,14 +57,14 @@ async function getAdminPrizes(req, res) {
       };
     });
 
-    res.json({ success: true, totalActiveWeight, data: enriched });
+    res.json({ success: true, stand, totalActiveWeight, data: enriched });
   } catch (error) {
     console.error('Error al obtener premios para admin:', error);
     res.status(500).json({ success: false, message: 'Error al consultar premios administrativos' });
   }
 }
 
-// Crear nuevo premio (Admin)
+// Crear nuevo premio (Admin) en el stand seleccionado
 async function createPrize(req, res) {
   const { name, description, category = 'DESCUENTO', color_hex = '#DC2626', text_color = '#FFFFFF', weight = 100, stock = 100, max_daily_wins = 0 } = req.body;
   if (!name) {
@@ -59,12 +72,13 @@ async function createPrize(req, res) {
   }
 
   try {
+    const stand = resolveStand(req);
     const [result] = await pool.query(
-      `INSERT INTO prizes (name, description, category, color_hex, text_color, weight, stock, max_daily_wins, active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-      [name, description || '', category, color_hex, text_color, Number(weight), Number(stock), Number(max_daily_wins)]
+      `INSERT INTO prizes (name, description, category, color_hex, text_color, weight, stock, max_daily_wins, active, stand)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+      [name, description || '', category, color_hex, text_color, Number(weight), Number(stock), Number(max_daily_wins), stand]
     );
-    await touchSystemSync('PRIZES_UPDATED', req.io);
+    await touchSystemSync('PRIZES_UPDATED', req.io, stand);
     res.json({ success: true, message: 'Premio creado exitosamente', id: result.insertId });
   } catch (error) {
     console.error('Error creando premio:', error);
@@ -97,12 +111,46 @@ async function updatePrize(req, res) {
       return res.status(404).json({ success: false, message: 'Premio no encontrado' });
     }
 
-    await touchSystemSync('PRIZES_UPDATED', req.io);
+    const [[prizeRow]] = await pool.query('SELECT stand FROM prizes WHERE id = ?', [id]);
+    await touchSystemSync('PRIZES_UPDATED', req.io, prizeRow ? prizeRow.stand : 'autos');
     res.json({ success: true, message: 'Premio actualizado exitosamente' });
   } catch (error) {
     console.error('Error actualizando premio:', error);
     res.status(500).json({ success: false, message: 'Error al actualizar premio' });
   }
+}
+
+
+// Mensaje de WhatsApp según stand (Ford no usa destino de viaje)
+function buildWhatsappUrl({ stand, name, ticketCode, prizeName, destination, alreadyPlayed }) {
+  const rawWaNumber = config.COMPANY.whatsapp.replace(/[^0-9]/g, '');
+  let text;
+  if (stand === 'ford') {
+    text = alreadyPlayed
+      ? `¡Hola Ford Quito Motors! Ya participé en la ruleta 🏎️\n\n` +
+        `👤 Nombre: ${name}\n` +
+        `🎟️ Código: ${ticketCode}\n` +
+        `🎁 Premio: ${prizeName}\n\n` +
+        `¡Quiero consultar cómo canjear mi premio!`
+      : `¡Hola Ford Quito Motors! Acabo de ganar *${prizeName}* en la ruleta 🏎️\n\n` +
+        `👤 Mi Nombre: ${name}\n` +
+        `🎟️ Código: ${ticketCode}\n\n` +
+        `¡Quiero reclamar mi premio!`;
+  } else {
+    text = alreadyPlayed
+      ? `¡Hola ${config.COMPANY.name}! Ya participé en la ruleta de la Feria de Autos 🏎️\n\n` +
+        `👤 Nombre: ${name}\n` +
+        `🎟️ Código VIP: ${ticketCode}\n` +
+        `🎁 Premio: ${prizeName}\n` +
+        `🌴 Destino: ${destination}\n\n` +
+        `¡Quiero consultar cómo canjear mi premio!`
+      : `¡Hola ${config.COMPANY.name}! Acabo de ganar *${prizeName}* en la ruleta de la Feria de Autos 🏎️\n\n` +
+        `👤 Mi Nombre: ${name}\n` +
+        `🎟️ Código VIP: ${ticketCode}\n` +
+        `🌴 Mi destino soñado: ${destination}\n\n` +
+        `¡Quiero reclamar mi premio y asesoría para mi viaje!`;
+  }
+  return `https://wa.me/${rawWaNumber}?text=${encodeURIComponent(text)}`;
 }
 
 // Procesar tiro de ruleta con validaciones estrictas y control de duplicados
@@ -112,9 +160,13 @@ async function processSpin(req, res) {
     email: rawEmail,
     phone: rawPhone,
     dream_destination = '🌴 Cancún',
-    screen_id = 'STAND_01',
+    screen_id: rawScreenId,
     device_id = 'unknown'
   } = req.body;
+
+  // screen_id validado contra lista blanca; el stand (autos/ford) se deriva siempre en servidor
+  const screen_id = normalizeScreenId(rawScreenId, DEFAULT_SCREEN_ID);
+  const stand = standFromScreenId(screen_id) || 'autos';
 
   // 1. Validar nombre
   if (!name || name.trim().length < 3) {
@@ -165,9 +217,9 @@ async function processSpin(req, res) {
          FROM leads l
          JOIN spins s ON s.lead_id = l.id
          JOIN prizes p ON s.prize_id = p.id
-         WHERE l.phone = ? OR l.email = ?
+         WHERE (l.phone = ? OR l.email = ?) AND l.screen_id ${stand === 'autos' ? 'NOT IN' : 'IN'} (?)
          ORDER BY s.id DESC LIMIT 1`,
-        [cleanPhone, cleanEmail]
+        [cleanPhone, cleanEmail, stand === 'autos' ? screenIdsOf('ford') : screenIdsOf(stand)]
       );
 
       if (existingSpins.length > 0) {
@@ -175,16 +227,9 @@ async function processSpin(req, res) {
         const prev = existingSpins[0];
 
         // Construir mensaje de WhatsApp para el premio existente
-        const rawWaNumber = config.COMPANY.whatsapp.replace(/[^0-9]/g, '');
-        const waText = encodeURIComponent(
-          `¡Hola ${config.COMPANY.name}! Ya participé en la ruleta de la Feria de Autos 🏎️\n\n` +
-          `👤 Nombre: ${prev.lead_name}\n` +
-          `🎟️ Código VIP: ${prev.ticket_code}\n` +
-          `🎁 Premio: ${prev.prize_name}\n` +
-          `🌴 Destino: ${prev.dream_destination}\n\n` +
-          `¡Quiero consultar cómo canjear mi premio!`
-        );
-        const whatsappUrl = `https://wa.me/${rawWaNumber}?text=${waText}`;
+        const whatsappUrl = buildWhatsappUrl({
+          stand, name: prev.lead_name, ticketCode: prev.ticket_code, prizeName: prev.prize_name, destination: prev.dream_destination, alreadyPlayed: true
+        });
 
         return res.json({
           success: true,
@@ -222,7 +267,8 @@ async function processSpin(req, res) {
 
     // 6. Obtener premios activos y verificar cuántos premios se han entregado hoy (para límite diario)
     const [prizes] = await connection.query(
-      'SELECT id, name, description, category, color_hex, text_color, weight, stock, max_daily_wins, active FROM prizes WHERE active = 1 ORDER BY id ASC'
+      'SELECT id, name, description, category, color_hex, text_color, weight, stock, max_daily_wins, active FROM prizes WHERE active = 1 AND stand = ? ORDER BY id ASC',
+      [stand]
     );
 
     if (prizes.length === 0) {
@@ -320,15 +366,9 @@ async function processSpin(req, res) {
       await connection.commit();
 
       // Construir WhatsApp URL
-      const rawWaNumber = config.COMPANY.whatsapp.replace(/[^0-9]/g, '');
-      const waText = encodeURIComponent(
-        `¡Hola ${config.COMPANY.name}! Acabo de ganar *${winningPrize.name}* en la ruleta de la Feria de Autos 🏎️\n\n` +
-        `👤 Mi Nombre: ${name.trim()}\n` +
-        `🎟️ Código VIP: ${ticketCode}\n` +
-        `🌴 Mi destino soñado: ${finalDestination}\n\n` +
-        `¡Quiero reclamar mi premio y asesoría para mi viaje!`
-      );
-      const whatsappUrl = `https://wa.me/${rawWaNumber}?text=${waText}`;
+      const whatsappUrl = buildWhatsappUrl({
+        stand, name: name.trim(), ticketCode, prizeName: winningPrize.name, destination: finalDestination, alreadyPlayed: false
+      });
 
       return res.json({
         success: true,
@@ -368,15 +408,9 @@ async function processSpin(req, res) {
       await connection.commit();
 
       // Construir WhatsApp URL
-      const rawWaNumber = config.COMPANY.whatsapp.replace(/[^0-9]/g, '');
-      const waText = encodeURIComponent(
-        `¡Hola ${config.COMPANY.name}! Acabo de ganar *${winningPrize.name}* en la ruleta de la Feria de Autos 🏎️\n\n` +
-        `👤 Mi Nombre: ${name.trim()}\n` +
-        `🎟️ Código VIP: ${ticketCode}\n` +
-        `🌴 Mi destino soñado: ${finalDestination}\n\n` +
-        `¡Quiero reclamar mi premio y asesoría para mi viaje!`
-      );
-      const whatsappUrl = `https://wa.me/${rawWaNumber}?text=${waText}`;
+      const whatsappUrl = buildWhatsappUrl({
+        stand, name: name.trim(), ticketCode, prizeName: winningPrize.name, destination: finalDestination, alreadyPlayed: false
+      });
 
       // Emitir evento Socket a la pantalla gigante
       if (req.io) {
@@ -431,7 +465,8 @@ async function processSpin(req, res) {
 
 // Consultar estado de la cola para un usuario en espera (Polling / Sockets)
 async function getQueueStatus(req, res) {
-  const { queue_id, ticket_code, screen_id = 'STAND_01' } = req.query;
+  const { queue_id, ticket_code } = req.query;
+  const screen_id = normalizeScreenId(req.query.screen_id, DEFAULT_SCREEN_ID);
 
   try {
     // 1. Auto-expirar turnos atascados en SPINNING > 60s
@@ -490,7 +525,8 @@ async function getQueueStatus(req, res) {
 
 // Despachar el siguiente participante de la cola cuando la pantalla termina
 async function nextInQueue(req, res) {
-  const { screen_id = 'STAND_01', ticket_code } = req.body || {};
+  const { ticket_code } = req.body || {};
+  const screen_id = normalizeScreenId((req.body || {}).screen_id, DEFAULT_SCREEN_ID);
 
   const connection = await pool.getConnection();
   try {
@@ -559,7 +595,8 @@ async function nextInQueue(req, res) {
 
     // Obtener premios activos para conocer sliceIndex
     const [allPrizes] = await connection.query(
-      'SELECT id FROM prizes WHERE active = 1 ORDER BY id ASC'
+      'SELECT id FROM prizes WHERE active = 1 AND stand = ? ORDER BY id ASC',
+      [standFromScreenId(screen_id) || 'autos']
     );
     const sliceIndex = allPrizes.findIndex(p => p.id === nextParticipant.prize_id);
 
@@ -611,7 +648,7 @@ async function verifyTicket(req, res) {
   try {
     const [rows] = await pool.query(
       `SELECT s.id, s.ticket_code, s.redeemed, s.redeemed_at, s.created_at,
-              l.name AS lead_name, l.phone AS lead_phone, l.email AS lead_email, l.dream_destination, l.device_id,
+              l.name AS lead_name, l.phone AS lead_phone, l.email AS lead_email, l.dream_destination, l.device_id, l.screen_id,
               p.name AS prize_name, p.description AS prize_description
        FROM spins s
        JOIN leads l ON s.lead_id = l.id
@@ -657,7 +694,7 @@ const screenActivityMap = new Map();
 // Registrar actividad de un lead (escaneo de QR o llenado de formulario)
 function recordScreenActivity(req, res) {
   const defaultScreen = process.env.NODE_ENV === 'production' ? 'STAND_01' : 'STAND_LOCAL';
-  const screenId = req.query.screen_id || (req.body && req.body.screen_id) || defaultScreen;
+  const screenId = normalizeScreenId(req.query.screen_id || (req.body && req.body.screen_id), defaultScreen);
   screenActivityMap.set(screenId, Date.now());
 
   if (req.io) {
@@ -670,7 +707,7 @@ function recordScreenActivity(req, res) {
 // Obtener último tiro registrado para una pantalla específica (Sincronización en vivo / Polling)
 async function getLatestSpin(req, res) {
   const defaultScreen = process.env.NODE_ENV === 'production' ? 'STAND_01' : 'STAND_LOCAL';
-  const { screen_id = defaultScreen } = req.query;
+  const screen_id = normalizeScreenId(req.query.screen_id, defaultScreen);
   const lastActivityAt = screenActivityMap.get(screen_id) || 0;
 
   try {

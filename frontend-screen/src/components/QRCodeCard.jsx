@@ -1,24 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Smartphone, Move, RotateCcw } from 'lucide-react';
+import { getScreenBrandConfig } from '../brand';
 
 export default function QRCodeCard({
   mobileUrl = '',
-  screenId = 'STAND_01',
+  screenId = '',
   driverConnected = false,
   isDraggable = true,
-  storageKey = 'mvevip_screen_qr_pos'
+  storageKey = ''
 }) {
-  const isProduction = typeof window !== 'undefined' && (
-    window.location.hostname === 'autos.mvevip.com' ||
-    window.location.hostname.endsWith('.mvevip.com')
-  );
-  const effectiveMobileUrl = mobileUrl || (
-    isProduction
-      ? (typeof window !== 'undefined' ? `${window.location.origin}/` : 'https://autos.mvevip.com/')
-      : (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:5503/` : 'http://localhost:5503/')
-  );
-  const fullUrl = `${effectiveMobileUrl}?screen=${screenId}`;
+  const brand = getScreenBrandConfig();
+  const effectiveScreenId = screenId || brand.screenId;
+  const effectiveMobileUrl = mobileUrl || brand.mobileUrl;
+  const effectiveStorageKey = storageKey || (brand.isFord ? 'mvevip_screen_qr_pos_ford' : 'mvevip_screen_qr_pos');
+  const fullUrl = `${effectiveMobileUrl}${effectiveMobileUrl.includes('?') ? '&' : '?'}screen=${effectiveScreenId}`;
   const cardRef = useRef(null);
 
   const [position, setPosition] = useState(null); // { x: number, y: number } or null (default layout)
@@ -27,7 +23,7 @@ export default function QRCodeCard({
 
   const loadSavedPosition = () => {
     try {
-      const saved = localStorage.getItem(storageKey);
+      const saved = localStorage.getItem(effectiveStorageKey);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
@@ -55,7 +51,7 @@ export default function QRCodeCard({
       window.removeEventListener('storage', handleSync);
       window.removeEventListener('qr-position-updated', handleSync);
     };
-  }, [isDraggable, storageKey]);
+  }, [isDraggable, effectiveStorageKey]);
 
   // 2. Control de inicio de arrastre (Mouse / Touch)
   const handlePointerDown = (e) => {
@@ -108,7 +104,7 @@ export default function QRCodeCard({
 
     if (position) {
       try {
-        localStorage.setItem(storageKey, JSON.stringify(position));
+        localStorage.setItem(effectiveStorageKey, JSON.stringify(position));
         window.dispatchEvent(new Event('qr-position-updated'));
       } catch (err) {
         console.warn('Error guardando posición de QR:', err);
@@ -121,7 +117,7 @@ export default function QRCodeCard({
     e.stopPropagation();
     setPosition(null);
     try {
-      localStorage.removeItem(storageKey);
+      localStorage.removeItem(effectiveStorageKey);
       window.dispatchEvent(new Event('qr-position-updated'));
     } catch (_) {}
   };
@@ -147,13 +143,15 @@ export default function QRCodeCard({
         isDraggable ? 'cursor-grab active:cursor-grabbing' : ''
       } ${isDragging ? 'shadow-[0_0_50px_rgba(154,195,28,0.6)] ring-2 ring-[#9AC31C] scale-[1.02]' : ''}`}
     >
-      {/* Resplandor decorativo verde lima */}
+      {/* Resplandor decorativo */}
       <div className="absolute -top-12 -right-12 w-32 h-32 bg-[#9AC31C]/15 rounded-full blur-2xl pointer-events-none" />
 
       {/* Barra de Mover y Botón de Reset si ha sido movido */}
       {isDraggable && (
-        <div className="w-full flex items-center justify-between mb-2 text-zinc-400 text-[10px] tracking-wider uppercase font-semibold border-b border-zinc-800/80 pb-1.5">
-          <div className="flex items-center gap-1 text-zinc-400 hover:text-[#9AC31C] transition-colors">
+        <div className={`w-full flex items-center justify-between mb-2 text-[10px] tracking-wider uppercase font-semibold border-b pb-1.5 ${
+          brand.isFord ? 'text-[#212650]/70 border-[#212650]/20' : 'text-zinc-400 border-zinc-800/80'
+        }`}>
+          <div className={`flex items-center gap-1 transition-colors ${brand.isFord ? 'text-[#212650]' : 'text-zinc-400 hover:text-[#9AC31C]'}`}>
             <Move className="w-3.5 h-3.5 text-[#9AC31C]" />
             <span>Mover QR libremente</span>
           </div>
@@ -162,7 +160,7 @@ export default function QRCodeCard({
               type="button"
               onClick={handleResetPosition}
               title="Restablecer a posición original"
-              className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 bg-red-950/40 hover:bg-red-900/60 px-2 py-0.5 rounded-md border border-red-800/50 transition-all cursor-pointer"
+              className="flex items-center gap-1 text-xs text-red-500 hover:text-red-400 bg-red-950/20 hover:bg-red-900/40 px-2 py-0.5 rounded-md border border-red-800/50 transition-all cursor-pointer"
             >
               <RotateCcw className="w-3 h-3" />
               <span>Reset</span>
@@ -180,38 +178,56 @@ export default function QRCodeCard({
       </div>
 
       {/* Contenedor del Código QR */}
-      <div className="bg-white p-3.5 rounded-2xl shadow-[0_0_25px_rgba(154,195,28,0.4)] border-2 border-[#9AC31C] mb-3 relative">
+      <div className={`bg-white p-3.5 rounded-2xl border-2 border-[#9AC31C] mb-3 relative ${
+        brand.isFord ? 'shadow-[0_8px_25px_rgba(33,38,80,0.2)]' : 'shadow-[0_0_25px_rgba(154,195,28,0.4)]'
+      }`}>
         <QRCodeSVG
           value={fullUrl}
           size={160}
           level="H"
           includeMargin={false}
+          fgColor={brand.isFord ? '#212650' : '#000000'}
         />
       </div>
 
       {/* Indicador de Stand */}
       <div className="w-full mb-3">
-        <div className="flex items-center justify-center gap-2 bg-zinc-900/90 border border-zinc-800 px-3 py-1.5 rounded-xl text-zinc-400 text-xs font-semibold">
-          <span className="w-2 h-2 rounded-full bg-[#9AC31C]" />
-          <span>Feria Automotriz • {screenId}</span>
+        <div className={`flex items-center justify-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold ${
+          brand.isFord
+            ? 'bg-[#212650] text-white border border-[#212650]'
+            : 'bg-zinc-900/90 border border-zinc-800 text-zinc-400'
+        }`}>
+          <span className={`w-2 h-2 rounded-full ${brand.isFord ? 'bg-white animate-pulse' : 'bg-[#9AC31C]'}`} />
+          <span>{brand.isFord ? 'Stand Ford' : 'Feria Automotriz'} • {effectiveScreenId}</span>
         </div>
       </div>
 
       {/* Pasos Rápidos */}
-      <div className="space-y-1.5 text-left w-full text-xs text-zinc-300">
-        <div className="flex items-center gap-2 bg-zinc-900/80 p-1.5 rounded-lg border border-zinc-800">
-          <span className="w-5 h-5 rounded-full bg-red-600 font-racing font-bold text-[10px] flex items-center justify-center text-white shrink-0">1</span>
+      <div className={`space-y-1.5 text-left w-full text-xs ${brand.isFord ? 'text-[#212650]' : 'text-zinc-300'}`}>
+        <div className={`flex items-center gap-2 p-1.5 rounded-lg border ${
+          brand.isFord ? 'bg-white border-[#212650]/20 font-medium' : 'bg-zinc-900/80 border-zinc-800'
+        }`}>
+          <span className={`w-5 h-5 rounded-full font-racing font-bold text-[10px] flex items-center justify-center text-white shrink-0 ${
+            brand.isFord ? 'bg-[#212650]' : 'bg-red-600'
+          }`}>1</span>
           <span>Apunta con la cámara de tu celular</span>
         </div>
-        <div className="flex items-center gap-2 bg-zinc-900/80 p-1.5 rounded-lg border border-zinc-800">
+        <div className={`flex items-center gap-2 p-1.5 rounded-lg border ${
+          brand.isFord ? 'bg-white border-[#212650]/20 font-medium' : 'bg-zinc-900/80 border-zinc-800'
+        }`}>
           <span className="w-5 h-5 rounded-full bg-[#9AC31C] font-racing font-bold text-[10px] flex items-center justify-center text-black shrink-0">2</span>
           <span>Completa tu nombre y celular</span>
         </div>
-        <div className="flex items-center gap-2 bg-zinc-900/80 p-1.5 rounded-lg border border-zinc-800">
-          <span className="w-5 h-5 rounded-full bg-red-600 font-racing font-bold text-[10px] flex items-center justify-center text-white shrink-0">3</span>
+        <div className={`flex items-center gap-2 p-1.5 rounded-lg border ${
+          brand.isFord ? 'bg-white border-[#212650]/20 font-medium' : 'bg-zinc-900/80 border-zinc-800'
+        }`}>
+          <span className={`w-5 h-5 rounded-full font-racing font-bold text-[10px] flex items-center justify-center text-white shrink-0 ${
+            brand.isFord ? 'bg-[#212650]' : 'bg-red-600'
+          }`}>3</span>
           <span>Presiona <strong>ENGINE START</strong></span>
         </div>
       </div>
     </div>
   );
 }
+

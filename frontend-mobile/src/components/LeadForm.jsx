@@ -10,7 +10,7 @@ const DESTINATIONS = [
   '☀️ Miami Beach'
 ];
 
-export default function LeadForm({ formData, onChange, errors = {}, destinations = [] }) {
+export default function LeadForm({ formData, onChange, errors = {}, destinations = [], hideDestinations = false }) {
   const handlePhoneChange = (e) => {
     let raw = e.target.value;
     let clean = raw.replace(/\D/g, '');
@@ -144,36 +144,38 @@ export default function LeadForm({ formData, onChange, errors = {}, destinations
         )}
       </div>
 
-      {/* Pregunta Estratégica: Destino Soñado (Opcional) */}
-      <div>
-        <div className="flex items-center justify-between mb-1.5">
-          <label className="text-xs font-semibold text-zinc-800 uppercase tracking-wider flex items-center gap-1.5 font-bold">
-            <Compass className="w-3.5 h-3.5 text-[#7A9E14]" />
-            ¿A qué destino sueñas viajar?
-          </label>
-          <span className="text-[10px] text-zinc-500 uppercase font-semibold">Opcional</span>
+      {/* Pregunta Estratégica: Destino Soñado (Opcional - solo en stand Autos) */}
+      {!hideDestinations && (
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-xs font-semibold text-zinc-800 uppercase tracking-wider flex items-center gap-1.5 font-bold">
+              <Compass className="w-3.5 h-3.5 text-[#7A9E14]" />
+              ¿A qué destino sueñas viajar?
+            </label>
+            <span className="text-[10px] text-zinc-500 uppercase font-semibold">Opcional</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {((destinations && destinations.length > 0) ? destinations : DESTINATIONS).map((dest) => {
+              const destName = typeof dest === 'object' ? dest.name : dest;
+              const destKey = typeof dest === 'object' ? dest.id : dest;
+              const isSelected = formData.dream_destination === destName;
+              return (
+                <button
+                  type="button"
+                  key={destKey}
+                  onClick={() => onChange({ target: { name: 'dream_destination', value: isSelected ? '' : destName } })}
+                  className={`py-2 px-2.5 rounded-xl text-xs font-semibold text-left transition-all border shadow-xs ${isSelected
+                      ? 'bg-[#9AC31C]/20 border-[#9AC31C] text-zinc-950 font-bold ring-1 ring-[#9AC31C]'
+                      : 'bg-white border-zinc-200 text-zinc-700 hover:border-zinc-300'
+                    }`}
+                >
+                  {destName}
+                </button>
+              );
+            })}
+          </div>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          {((destinations && destinations.length > 0) ? destinations : DESTINATIONS).map((dest) => {
-            const destName = typeof dest === 'object' ? dest.name : dest;
-            const destKey = typeof dest === 'object' ? dest.id : dest;
-            const isSelected = formData.dream_destination === destName;
-            return (
-              <button
-                type="button"
-                key={destKey}
-                onClick={() => onChange({ target: { name: 'dream_destination', value: isSelected ? '' : destName } })}
-                className={`py-2 px-2.5 rounded-xl text-xs font-semibold text-left transition-all border shadow-xs ${isSelected
-                    ? 'bg-[#9AC31C]/20 border-[#9AC31C] text-zinc-950 font-bold ring-1 ring-[#9AC31C]'
-                    : 'bg-white border-zinc-200 text-zinc-700 hover:border-zinc-300'
-                  }`}
-              >
-                {destName}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      )}
     </div>
   );
 }

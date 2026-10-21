@@ -1,14 +1,16 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { getScreenBrandConfig } from '../brand';
 
 /**
  * Odómetro / Velocímetro réplica exacta de la imagen del tacómetro automotriz
  * - Carátula negra con bisel metálico circular
  * - Escala estática 0 - 200 km/h
  * - Aguja indicadora roja deportiva que se mueve dinámicamente
- * - Las letras y números se iluminan con el color corporativo #9AC31C conforme sube la aguja
+ * - Las letras y números se iluminan con el color corporativo conforme sube la aguja
  * - Display LCD digital en la parte inferior con odómetro activo
  */
 export default function Tachometer({ isSpinning = false, isTestMode = false, currentPilot = null }) {
+  const brand = getScreenBrandConfig();
   const [speed, setSpeed] = useState(0);
 
   useEffect(() => {
@@ -120,11 +122,13 @@ export default function Tachometer({ isSpinning = false, isTestMode = false, cur
       <div className="relative w-80 h-80 rounded-full p-2 bg-gradient-to-b from-zinc-700 via-zinc-800 to-zinc-950 shadow-[0_10px_35px_rgba(0,0,0,0.9)] border-4 border-zinc-600/80 flex items-center justify-center">
         
         {/* Aro interior biselado */}
-        <div className="w-full h-full rounded-full bg-black border-2 border-zinc-800 relative flex items-center justify-center overflow-hidden shadow-inner">
+        <div className={`w-full h-full rounded-full border-2 relative flex items-center justify-center overflow-hidden shadow-inner ${
+          brand.isFord ? 'bg-[#212650] border-[#171b3a]' : 'bg-black border-zinc-800'
+        }`}>
           
           <svg viewBox="0 0 400 400" className="w-full h-full">
             <defs>
-              {/* Filtro de resplandor para el color corporativo #9AC31C */}
+              {/* Filtro de resplandor */}
               <filter id="glowGreen" x="-20%" y="-20%" width="140%" height="140%">
                 <feGaussianBlur stdDeviation="3.5" result="blur" />
                 <feComposite in="SourceGraphic" in2="blur" operator="over" />
@@ -149,7 +153,7 @@ export default function Tachometer({ isSpinning = false, isTestMode = false, cur
                         ${t.x1 + 3.5 * t.cosA},${t.y1 + 3.5 * t.sinA}
                         ${t.x2},${t.y2}
                       `}
-                      fill={isPassed ? "#9AC31C" : "#FFFFFF"}
+                      fill={isPassed ? (brand.isFord ? "#60A5FA" : "#9AC31C") : "#FFFFFF"}
                       filter={isPassed ? "url(#glowGreen)" : undefined}
                       className="transition-colors duration-100"
                     />
@@ -160,7 +164,7 @@ export default function Tachometer({ isSpinning = false, isTestMode = false, cur
                       y1={t.y1}
                       x2={t.x2}
                       y2={t.y2}
-                      stroke={isPassed ? "#9AC31C" : "#9CA3AF"}
+                      stroke={isPassed ? (brand.isFord ? "#60A5FA" : "#9AC31C") : "#9CA3AF"}
                       strokeWidth="2.5"
                       strokeLinecap="round"
                       className="transition-colors duration-100"
@@ -171,7 +175,6 @@ export default function Tachometer({ isSpinning = false, isTestMode = false, cur
             })}
 
             {/* 2. Números de Velocidad (0, 20, 40 ... 200) */}
-            {/* Se ponen del color corporativo #9AC31C conforme sube la aguja */}
             {numbers.map((n) => {
               const isPassed = speed >= n.v;
               return (
@@ -179,7 +182,7 @@ export default function Tachometer({ isSpinning = false, isTestMode = false, cur
                   key={n.v}
                   x={n.x}
                   y={n.y + 7}
-                  fill={isPassed ? "#9AC31C" : "#FFFFFF"}
+                  fill={isPassed ? (brand.isFord ? "#60A5FA" : "#9AC31C") : "#FFFFFF"}
                   fontSize="24"
                   fontWeight="900"
                   fontFamily="'Montserrat', 'Orbitron', sans-serif"
@@ -196,7 +199,7 @@ export default function Tachometer({ isSpinning = false, isTestMode = false, cur
             <text
               x={cx}
               y={cy - 48}
-              fill={speed > 30 ? "#9AC31C" : "#FFFFFF"}
+              fill={speed > 30 ? (brand.isFord ? "#60A5FA" : "#9AC31C") : "#FFFFFF"}
               fontSize="22"
               fontWeight="900"
               fontFamily="'Montserrat', sans-serif"
@@ -240,7 +243,7 @@ export default function Tachometer({ isSpinning = false, isTestMode = false, cur
               <text
                 x="152"
                 y="19"
-                fill={speed > 0 ? "#9AC31C" : "#E4E4E7"}
+                fill={speed > 0 ? (brand.isFord ? "#60A5FA" : "#9AC31C") : "#E4E4E7"}
                 fontSize="15"
                 fontWeight="900"
                 fontFamily="monospace"
@@ -254,7 +257,7 @@ export default function Tachometer({ isSpinning = false, isTestMode = false, cur
               <text
                 x="152"
                 y="38"
-                fill={speed > 0 ? "#9AC31C" : "#A1A1AA"}
+                fill={speed > 0 ? (brand.isFord ? "#60A5FA" : "#9AC31C") : "#A1A1AA"}
                 fontSize="16"
                 fontWeight="900"
                 fontFamily="monospace"
@@ -314,26 +317,36 @@ export default function Tachometer({ isSpinning = false, isTestMode = false, cur
         </div>
       </div>
 
-      {/* Indicador de Telemetría Dinámico: Nombre de Jugador en Pista en #9AC31C */}
-      <div className="mt-3 w-80 bg-zinc-950/95 border-2 border-zinc-800 rounded-2xl p-2.5 shadow-2xl flex flex-col items-center text-center transition-all">
+      {/* Indicador de Telemetría Dinámico: Nombre de Jugador en Pista */}
+      <div className={`mt-3 w-80 border-2 rounded-2xl p-2.5 shadow-2xl flex flex-col items-center text-center transition-all ${
+        brand.isFord
+          ? 'bg-white border-[#212650] text-[#212650]'
+          : 'bg-zinc-950/95 border-zinc-800'
+      }`}>
         {currentPilot ? (
           <>
-            <div className="flex items-center gap-1.5 text-[11px] font-racing text-zinc-400 uppercase tracking-widest">
+            <div className={`flex items-center gap-1.5 text-[11px] font-racing uppercase tracking-widest ${
+              brand.isFord ? 'text-[#212650]/75 font-bold' : 'text-zinc-400'
+            }`}>
               <span className="w-2 h-2 rounded-full bg-[#9AC31C] animate-ping" />
               <span>PILOTO EN PISTA</span>
             </div>
-            <div className="text-lg font-racing font-black text-[#9AC31C] tracking-wider uppercase truncate max-w-full drop-shadow-[0_0_12px_rgba(154,195,28,0.8)] mt-0.5">
+            <div className={`text-lg font-racing font-black text-[#9AC31C] tracking-wider uppercase truncate max-w-full mt-0.5 ${
+              brand.isFord ? '' : 'drop-shadow-[0_0_12px_rgba(154,195,28,0.8)]'
+            }`}>
               {currentPilot.name || currentPilot.leadName}
             </div>
-            {currentPilot.destination && (
+            {currentPilot.destination && !brand.isFord && (
               <span className="text-[10px] text-zinc-400 font-sans tracking-wide mt-0.5">
                 Rumbo a: <strong className="text-white">{currentPilot.destination}</strong>
               </span>
             )}
           </>
         ) : (
-          <div className="flex items-center gap-2 py-1 text-xs font-racing text-zinc-400">
-            <span className="w-2 h-2 rounded-full bg-zinc-600" />
+          <div className={`flex items-center gap-2 py-1 text-xs font-racing ${
+            brand.isFord ? 'text-[#212650] font-bold' : 'text-zinc-400'
+          }`}>
+            <span className={`w-2 h-2 rounded-full ${brand.isFord ? 'bg-[#212650]' : 'bg-zinc-600'}`} />
             <span>STAND LISTO • ESCANEA EL QR</span>
           </div>
         )}
@@ -341,3 +354,4 @@ export default function Tachometer({ isSpinning = false, isTestMode = false, cur
     </div>
   );
 }
+

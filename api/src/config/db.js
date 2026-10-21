@@ -203,6 +203,43 @@ async function checkConnection() {
         (1, 'Asesor Demo 1', '0990000001', 'demo1@mvevip.com', 'Demostración Stand', TRUE),
         (2, 'Asesor Demo 2', '0990000002', 'demo2@mvevip.com', 'Demostración Stand', TRUE);
       `).catch(() => {});
+
+      // 10. Soporte multi-stand (Autos / Ford). SOLO se auto-migra fuera de producción.
+      // En producción: ejecutar manualmente deploy/migrations/002_stand_support.sql
+      if (config.NODE_ENV !== 'production') {
+        await connection.query(`ALTER TABLE prizes ADD COLUMN stand VARCHAR(20) NOT NULL DEFAULT 'autos'`).catch(() => {});
+        await connection.query(`ALTER TABLE prizes ADD INDEX idx_prizes_stand (stand)`).catch(() => {});
+        await connection.query(`ALTER TABLE slider_images ADD COLUMN stand VARCHAR(20) NOT NULL DEFAULT 'autos'`).catch(() => {});
+        await connection.query(`ALTER TABLE slider_images ADD INDEX idx_slider_stand (stand)`).catch(() => {});
+        await connection.query(`ALTER TABLE leads ADD COLUMN assigned_to VARCHAR(150) DEFAULT NULL`).catch(() => {});
+
+        // Semilla Ford: copia editable con colores corporativos #212650 y #FFFFFF si Ford no tiene premios
+        const [[fordPrizes]] = await connection.query(`SELECT COUNT(*) AS count FROM prizes WHERE stand = 'ford'`);
+        if (fordPrizes.count === 0) {
+          console.log('[Database] Poblando premios semilla del stand Ford...');
+          await connection.query(`
+            INSERT INTO prizes (id, name, description, category, color_hex, text_color, weight, stock, max_daily_wins, active, stand) VALUES
+            (101, 'Gorra Oficial Ford', 'Gorra oficial Ford | Quito Motors edición especial.', 'SOUVENIR', '#212650', '#FFFFFF', 350, 300, 0, 1, 'ford'),
+            (102, 'Termo Ford Performance', 'Termo metálico deportivo edición Ford.', 'SOUVENIR', '#FFFFFF', '#212650', 250, 200, 15, 1, 'ford'),
+            (103, 'Llavero Metálico Ford', 'Llavero metálico coleccionable Ford | Quito Motors.', 'SOUVENIR', '#212650', '#FFFFFF', 400, 400, 0, 1, 'ford'),
+            (104, 'Bono Accesorios Ford', 'Bono especial para accesorios originales en Quito Motors.', 'DESCUENTO', '#FFFFFF', '#212650', 120, 100, 10, 1, 'ford'),
+            (105, 'Camiseta Oficial Ford', 'Camiseta edición feria automotriz Ford | Quito Motors.', 'SOUVENIR', '#212650', '#FFFFFF', 150, 150, 10, 1, 'ford'),
+            (106, 'Kit Souvenir Ford', 'Kit oficial de souvenirs corporativos Ford.', 'EXPERIENCIA', '#FFFFFF', '#212650', 80, 80, 5, 1, 'ford')
+            ON DUPLICATE KEY UPDATE color_hex=VALUES(color_hex), text_color=VALUES(text_color), stand=VALUES(stand)
+          `).catch(() => {});
+        }
+
+        // Configuración de pantallas de Ford (copia de los valores actuales de Autos)
+        await connection.query(`
+          INSERT IGNORE INTO display_configs (screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent, wheel_scale_x, wheel_font_size, video_logo_scale, video_qr_scale, video_qr_position, video_logo_visible)
+          SELECT CONCAT('ford_', screen_key), orientation, slide_duration, layout_ratio, video_url, qr_scale_percent, wheel_scale_x, wheel_font_size, video_logo_scale, video_qr_scale, video_qr_position, video_logo_visible
+          FROM display_configs WHERE screen_key IN ('roulette', 'qr', 'slider', 'combo')
+        `).catch(() => {});
+
+        await connection.query(`
+          INSERT IGNORE INTO system_sync (sync_key, version_timestamp, action) VALUES ('displays_ford', ${Date.now()}, 'INITIAL')
+        `).catch(() => {});
+      }
     } catch (migErr) {
       console.warn('[Database Migration] Nota durante chequeo de esquema:', migErr.message);
     }

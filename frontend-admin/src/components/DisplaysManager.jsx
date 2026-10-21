@@ -21,7 +21,11 @@ import {
   Type
 } from 'lucide-react';
 
-export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotification }) {
+export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotification, stand = 'autos' }) {
+  const isFord = stand === 'ford';
+  const screenBasePath = isFord ? '/pantalla2' : '/pantalla';
+  const mobileFormPath = isFord ? '/formulario2' : '/';
+
   const [displayConfigs, setDisplayConfigs] = useState({
     roulette: { orientation: 'auto', slide_duration: 8, layout_ratio: 'default', video_url: 'AzQlHkHx6HI', wheel_scale_x: 100, wheel_font_size: 100, video_logo_scale: 100, video_logo_visible: false },
     qr: { orientation: 'auto', slide_duration: 8, layout_ratio: 'default' },
@@ -66,13 +70,13 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
 
   useEffect(() => {
     loadAllDisplaysData();
-  }, []);
+  }, [stand]);
 
   const loadAllDisplaysData = async () => {
     setLoading(true);
     try {
-      // 1. Configuraciones de pantallas
-      const resConfig = await fetch(`${apiUrl}/api/admin/displays/config`, {
+      // 1. Configuraciones de pantallas del stand seleccionado
+      const resConfig = await fetch(`${apiUrl}/api/admin/displays/config?stand=${encodeURIComponent(stand)}`, {
         headers: getAdminHeaders()
       });
       if (resConfig.ok) {
@@ -95,8 +99,8 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
         }
       }
 
-      // 2. Lista completa de imágenes del slider
-      const resImages = await fetch(`${apiUrl}/api/admin/displays/slider-images`, {
+      // 2. Lista completa de imágenes del slider para el stand seleccionado
+      const resImages = await fetch(`${apiUrl}/api/admin/displays/slider-images?stand=${encodeURIComponent(stand)}`, {
         headers: getAdminHeaders()
       });
       if (resImages.ok) {
@@ -194,6 +198,7 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
         method: 'POST',
         headers: getAdminHeaders(),
         body: JSON.stringify({
+          stand,
           title: newTitle.trim(),
           image_url: compressedDataUrl,
           duration_seconds: Number(newDuration) || 8,
@@ -230,6 +235,7 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
         method: 'PUT',
         headers: getAdminHeaders(),
         body: JSON.stringify({
+          stand,
           screen_key: screenKey,
           orientation: newOrientation,
           slide_duration: current.slide_duration || 8,
@@ -258,6 +264,7 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
         method: 'PUT',
         headers: getAdminHeaders(),
         body: JSON.stringify({
+          stand,
           screen_key: screenKey,
           orientation: current.orientation || 'auto',
           slide_duration: current.slide_duration || 8,
@@ -294,6 +301,7 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
         method: 'PUT',
         headers: getAdminHeaders(),
         body: JSON.stringify({
+          stand,
           screen_key: 'roulette',
           orientation: current.orientation || 'auto',
           slide_duration: current.slide_duration || 8,
@@ -333,6 +341,7 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
         method: 'PUT',
         headers: getAdminHeaders(),
         body: JSON.stringify({
+          stand,
           screen_key: 'roulette',
           orientation: current.orientation || 'auto',
           slide_duration: current.slide_duration || 8,
@@ -372,6 +381,7 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
         method: 'PUT',
         headers: getAdminHeaders(),
         body: JSON.stringify({
+          stand,
           screen_key: 'roulette',
           orientation: current.orientation || 'auto',
           slide_duration: current.slide_duration || 8,
@@ -412,6 +422,7 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
         method: 'PUT',
         headers: getAdminHeaders(),
         body: JSON.stringify({
+          stand,
           screen_key: 'roulette',
           orientation: current.orientation || 'auto',
           slide_duration: current.slide_duration || 8,
@@ -451,6 +462,7 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
         method: 'PUT',
         headers: getAdminHeaders(),
         body: JSON.stringify({
+          stand,
           screen_key: screenKey,
           orientation: current.orientation || 'auto',
           slide_duration: current.slide_duration || 8,
@@ -526,7 +538,7 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
       const res = await fetch(`${apiUrl}/api/admin/displays/slider-images/reorder`, {
         method: 'PUT',
         headers: getAdminHeaders(),
-        body: JSON.stringify({ items: itemsPayload })
+        body: JSON.stringify({ stand, items: itemsPayload })
       });
       const json = await res.json();
       if (json.success) {
@@ -560,11 +572,11 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
       const res = await fetch(`${apiUrl}/api/admin/displays/reload`, {
         method: 'POST',
         headers: getAdminHeaders(),
-        body: JSON.stringify({ action: 'FORCE_RELOAD' })
+        body: JSON.stringify({ stand, action: 'FORCE_RELOAD' })
       });
       const json = await res.json();
       if (json.success) {
-        onNotification('¡Comando emitido! Todas las pantallas se están recargando');
+        onNotification(`¡Comando emitido! Las pantallas de ${isFord ? 'FORD (Pantalla 2)' : 'AUTOS (Pantalla 1)'} se están recargando`);
       } else {
         alert(json.error || 'Error al emitir recarga');
       }
@@ -575,20 +587,33 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
     }
   };
 
+  const screenHostUrl = typeof window !== 'undefined' && window.location.port === '5504'
+    ? `${window.location.protocol}//${window.location.hostname}:5502`
+    : '';
+  const mobileHostUrl = typeof window !== 'undefined' && window.location.port === '5504'
+    ? `${window.location.protocol}//${window.location.hostname}:5503`
+    : '';
+
   return (
     <div className="space-y-6">
       {/* TARJETA MANDO CONTROL REMOTO */}
-      <div className="bg-gradient-to-r from-zinc-900 via-zinc-950 to-zinc-900 p-4 rounded-2xl border-2 border-[#9AC31C]/60 shadow-[0_0_25px_rgba(154,195,28,0.2)] flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div className={`p-4 rounded-2xl border-2 flex flex-col sm:flex-row items-center justify-between gap-3 ${
+        isFord
+          ? 'bg-gradient-to-r from-[#212650] via-[#171b3a] to-[#212650] border-blue-400/60 shadow-[0_0_25px_rgba(33,38,80,0.4)]'
+          : 'bg-gradient-to-r from-zinc-900 via-zinc-950 to-zinc-900 border-[#9AC31C]/60 shadow-[0_0_25px_rgba(154,195,28,0.2)]'
+      }`}>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#9AC31C]/20 border border-[#9AC31C] flex items-center justify-center text-[#9AC31C]">
+          <div className={`w-10 h-10 rounded-xl border flex items-center justify-center ${
+            isFord ? 'bg-white/15 border-white/40 text-white' : 'bg-[#9AC31C]/20 border-[#9AC31C] text-[#9AC31C]'
+          }`}>
             <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} />
           </div>
           <div>
             <h3 className="font-racing font-bold text-sm text-white uppercase tracking-wider">
-              Control Remoto de Pantallas
+              Control Remoto • {isFord ? 'Stand 2 (Ford)' : 'Stand 1 (Autos)'}
             </h3>
-            <p className="text-[11px] text-zinc-400">
-              Sincroniza y recarga automáticamente todas las pantallas físicas del stand
+            <p className="text-[11px] text-zinc-300">
+              Sincroniza y recarga las pantallas de <strong className="text-white">{screenBasePath}</strong> (Formulario: <a href={`${mobileHostUrl}${mobileFormPath}`} target="_blank" rel="noreferrer" className="underline text-[#9AC31C]">{mobileFormPath}</a>)
             </p>
           </div>
         </div>
@@ -600,7 +625,7 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
           className="w-full sm:w-auto px-4 py-2.5 bg-gradient-to-r from-[#84A816] via-[#9AC31C] to-[#84A816] hover:brightness-110 active:scale-95 text-black font-racing font-bold text-xs uppercase tracking-wider rounded-xl shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all disabled:opacity-50"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-          <span>{isSyncing ? 'ENVIANDO SEÑAL...' : 'RECARGAR PANTALLAS'}</span>
+          <span>{isSyncing ? 'ENVIANDO SEÑAL...' : `RECARGAR ${isFord ? 'PANTALLA 2' : 'PANTALLA 1'}`}</span>
         </button>
       </div>
 
@@ -609,7 +634,7 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
         <div className="flex items-center gap-2">
           <Tv className="w-4 h-4 text-[#9AC31C]" />
           <h3 className="font-racing font-bold text-sm text-white uppercase tracking-wider">
-            Pantallas del Stand & Orientación
+            Pantallas de {isFord ? 'Ford (/pantalla2)' : 'Autos (/pantalla)'} & Orientación
           </h3>
         </div>
 
@@ -619,10 +644,10 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
             <div className="flex items-center justify-between">
               <span className="font-racing font-bold text-xs text-white uppercase flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-[#9AC31C]" />
-                Ruleta Principal
+                Ruleta Principal ({screenBasePath})
               </span>
               <a
-                href="/pantalla"
+                href={`${screenHostUrl}${screenBasePath}`}
                 target="_blank"
                 rel="noreferrer"
                 className="text-[11px] text-[#9AC31C] hover:underline flex items-center gap-1"
@@ -632,7 +657,7 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
               </a>
             </div>
             <p className="text-[11px] text-zinc-400">
-              Pantalla del juego con ruleta rin, telemetría y QR arrastrable.
+              Pantalla del juego con ruleta rin, telemetría y QR hacia <code className="text-zinc-200">{mobileFormPath}</code>.
             </p>
 
             {/* Video de YouTube de atracción */}
@@ -906,7 +931,7 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
                 Solo QR Gigante
               </span>
               <a
-                href="/pantalla?view=qr"
+                href={`${screenHostUrl}${screenBasePath}?view=qr`}
                 target="_blank"
                 rel="noreferrer"
                 className="text-[11px] text-[#9AC31C] hover:underline flex items-center gap-1"
@@ -969,7 +994,7 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
                 Solo Slider Banners
               </span>
               <a
-                href="/pantalla?view=slider"
+                href={`${screenHostUrl}${screenBasePath}?view=slider`}
                 target="_blank"
                 rel="noreferrer"
                 className="text-[11px] text-[#9AC31C] hover:underline flex items-center gap-1"
@@ -1000,7 +1025,7 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
                 Híbrida (Slider + QR)
               </span>
               <a
-                href="/pantalla?view=combo"
+                href={`${screenHostUrl}${screenBasePath}?view=combo`}
                 target="_blank"
                 rel="noreferrer"
                 className="text-[11px] text-[#9AC31C] hover:underline flex items-center gap-1"
