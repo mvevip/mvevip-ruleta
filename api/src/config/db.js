@@ -205,7 +205,7 @@ async function checkConnection() {
       `).catch(() => {});
 
       // 10. Soporte multi-stand (Autos / Ford). SOLO se auto-migra fuera de producción.
-      // En producción: ejecutar manualmente deploy/migrations/002_stand_support.sql
+      // En producción: ejecutar manualmente deploy/migrations/002_stand_support.sql y 003_mail_stand.sql
       if (config.NODE_ENV !== 'production') {
         await connection.query(`ALTER TABLE prizes ADD COLUMN stand VARCHAR(20) NOT NULL DEFAULT 'autos'`).catch(() => {});
         await connection.query(`ALTER TABLE prizes ADD INDEX idx_prizes_stand (stand)`).catch(() => {});
@@ -239,6 +239,17 @@ async function checkConnection() {
         await connection.query(`
           INSERT IGNORE INTO system_sync (sync_key, version_timestamp, action) VALUES ('displays_ford', ${Date.now()}, 'INITIAL')
         `).catch(() => {});
+
+        // Canal Correo (campaña Brevo): catálogo propio copiado del catálogo actual de Autos si aún no tiene premios
+        const [[mailPrizes]] = await connection.query(`SELECT COUNT(*) AS count FROM prizes WHERE stand = 'mail'`);
+        if (mailPrizes.count === 0) {
+          console.log('[Database] Poblando premios semilla del canal Correo...');
+          await connection.query(`
+            INSERT INTO prizes (name, description, category, color_hex, text_color, weight, stock, max_daily_wins, active, stand)
+            SELECT name, description, category, color_hex, text_color, weight, stock, 0, active, 'mail'
+            FROM prizes WHERE stand = 'autos' AND active = 1
+          `).catch(() => {});
+        }
       }
     } catch (migErr) {
       console.warn('[Database Migration] Nota durante chequeo de esquema:', migErr.message);

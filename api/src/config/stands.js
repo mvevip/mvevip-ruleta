@@ -2,6 +2,7 @@
  * Catálogo de stands. Un "stand" agrupa un formulario + una pantalla.
  *  - autos: Formulario `/` + Pantalla `/pantalla`   (screen_id STAND_01 / STAND_LOCAL)
  *  - ford:  Formulario `/formulario2` + Pantalla `/pantalla2` (screen_id STAND_02 / STAND_LOCAL_2)
+ *  - mail:  Campaña por correo `/?view=mail` (screen_id MAIL_01). Sin pantalla física, sin cola ni sockets.
  * El servidor deriva siempre el stand desde valores validados (lista blanca).
  */
 
@@ -11,7 +12,8 @@ const SCREEN_TO_STAND = {
   STAND_01: 'autos',
   STAND_LOCAL: 'autos',
   STAND_02: 'ford',
-  STAND_LOCAL_2: 'ford'
+  STAND_LOCAL_2: 'ford',
+  MAIL_01: 'mail'
 };
 
 const STANDS = {
@@ -28,6 +30,13 @@ const STANDS = {
     screenIds: ['STAND_02', 'STAND_LOCAL_2'],
     displayPrefix: 'ford_',
     syncKey: 'displays_ford'
+  },
+  mail: {
+    key: 'mail',
+    label: 'Correo',
+    screenIds: ['MAIL_01'],
+    displayPrefix: 'mail_',
+    syncKey: 'displays_mail'
   }
 };
 
@@ -62,6 +71,16 @@ function screenIdsOf(stand) {
   return STANDS[stand] ? STANDS[stand].screenIds : STANDS[DEFAULT_STAND].screenIds;
 }
 
+/**
+ * screen_id de todos los stands que NO son 'autos'. 'autos' es el stand histórico:
+ * se define por exclusión (todo lo que no pertenece a otro stand).
+ */
+function nonAutosScreenIds() {
+  return Object.values(STANDS)
+    .filter((st) => st.key !== DEFAULT_STAND)
+    .flatMap((st) => st.screenIds);
+}
+
 function displayKey(stand, key) {
   return `${STANDS[stand] ? STANDS[stand].displayPrefix : ''}${key}`;
 }
@@ -78,6 +97,7 @@ module.exports = {
   resolveStand,
   normalizeScreenId,
   screenIdsOf,
+  nonAutosScreenIds,
   displayKey,
   syncKeyOf
 };

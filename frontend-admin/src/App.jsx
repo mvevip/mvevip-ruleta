@@ -41,7 +41,8 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeStand, setActiveStand] = useState(() => {
     try {
-      return localStorage.getItem('vip_admin_stand') === 'ford' ? 'ford' : 'autos';
+      const saved = localStorage.getItem('vip_admin_stand');
+      return saved === 'ford' || saved === 'mail' ? saved : 'autos';
     } catch (_) {
       return 'autos';
     }
@@ -83,6 +84,8 @@ export default function App() {
 
   const handleSelectStand = (stand) => {
     setActiveStand(stand);
+    // El canal Correo no tiene pantallas físicas
+    if (stand === 'mail' && activeTab === 'displays') setActiveTab('prizes');
     try {
       localStorage.setItem('vip_admin_stand', stand);
     } catch (_) {}
@@ -373,6 +376,7 @@ export default function App() {
   const filteredLeads = leads.filter(l => {
     if (leadStandFilter === 'autos' && l.stand !== 'autos') return false;
     if (leadStandFilter === 'ford' && l.stand !== 'ford') return false;
+    if (leadStandFilter === 'mail' && l.stand !== 'mail') return false;
     const q = searchQuery.toLowerCase();
     if (!q) return true;
     return (
@@ -385,6 +389,7 @@ export default function App() {
   });
 
   const isFordStand = activeStand === 'ford';
+  const isMailStand = activeStand === 'mail';
 
   return (
     <div className="min-h-screen carbon-bg text-white flex flex-col justify-between pb-20 select-none">
@@ -400,7 +405,7 @@ export default function App() {
             <div>
               <h1 className="font-racing font-bold text-sm text-white tracking-wider leading-none">
                 ADMIN <span className={isFordStand ? 'text-blue-400' : 'text-[#9AC31C]'}>
-                  {isFordStand ? 'FORD (PANTALLA 2)' : 'AUTOS (PANTALLA 1)'}
+                  {isFordStand ? 'FORD (PANTALLA 2)' : isMailStand ? 'CORREO (CAMPAÑA)' : 'AUTOS (PANTALLA 1)'}
                 </span>
               </h1>
               <div className="flex items-center gap-1.5 mt-0.5">
@@ -439,28 +444,39 @@ export default function App() {
 
         {/* Selector Global de Stand (AUTOS vs FORD) */}
         {isAuthenticated && (
-          <div className="max-w-md w-full mx-auto grid grid-cols-2 gap-1.5 p-1 bg-zinc-900 rounded-2xl border border-zinc-800">
+          <div className="max-w-md w-full mx-auto grid grid-cols-3 gap-1.5 p-1 bg-zinc-900 rounded-2xl border border-zinc-800">
             <button
               type="button"
               onClick={() => handleSelectStand('autos')}
-              className={`py-2 px-3 rounded-xl font-racing font-bold text-[11px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                !isFordStand
+              className={`py-2 px-2 rounded-xl font-racing font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                !isFordStand && !isMailStand
                   ? 'bg-[#9AC31C] text-black shadow-[0_0_15px_rgba(154,195,28,0.4)]'
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
-              <span>🏎️ Stand 1: AUTOS</span>
+              <span>🏎️ 1: AUTOS</span>
             </button>
             <button
               type="button"
               onClick={() => handleSelectStand('ford')}
-              className={`py-2 px-3 rounded-xl font-racing font-bold text-[11px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              className={`py-2 px-2 rounded-xl font-racing font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 isFordStand
                   ? 'bg-[#212650] text-white border border-blue-400/50 shadow-[0_0_15px_rgba(33,38,80,0.7)]'
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
-              <span>🚘 Stand 2: FORD</span>
+              <span>🚘 2: FORD</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSelectStand('mail')}
+              className={`py-2 px-2 rounded-xl font-racing font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                isMailStand
+                  ? 'bg-amber-500 text-black shadow-[0_0_15px_rgba(245,158,11,0.5)]'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              <span>📧 CORREO</span>
             </button>
           </div>
         )}
@@ -520,11 +536,11 @@ export default function App() {
             <div className="flex items-center gap-2">
               <span className={`w-2.5 h-2.5 rounded-full animate-pulse ${isFordStand ? 'bg-white' : 'bg-[#9AC31C]'}`} />
               <span className="font-racing font-bold uppercase tracking-wider">
-                {isFordStand ? 'Editando Stand 2: FORD (/pantalla2)' : 'Editando Stand 1: AUTOS (/pantalla)'}
+                {isFordStand ? 'Editando Stand 2: FORD (/pantalla2)' : isMailStand ? 'Editando Canal CORREO (campaña Brevo)' : 'Editando Stand 1: AUTOS (/pantalla)'}
               </span>
             </div>
             <span className="text-[10px] font-mono opacity-85">
-              {isFordStand ? 'Form: /formulario2' : 'Form: /'}
+              {isFordStand ? 'Form: /formulario2' : isMailStand ? 'Form: /?view=mail' : 'Form: /'}
             </span>
           </div>
 
@@ -535,7 +551,7 @@ export default function App() {
               <div className="bg-zinc-900/90 border border-[#9AC31C]/40 p-3 rounded-2xl flex items-start gap-2.5">
                 <Percent className="w-4 h-4 text-[#9AC31C] shrink-0 mt-0.5" />
                 <p className="text-[11px] text-zinc-300">
-                  <strong className="text-[#9AC31C]">Premios de {isFordStand ? 'Ford (Pantalla 2)' : 'Autos (Pantalla 1)'}:</strong> Cada stand tiene su propio inventario y probabilidades independientes.
+                  <strong className="text-[#9AC31C]">Premios de {isFordStand ? 'Ford (Pantalla 2)' : isMailStand ? 'Correo (campaña)' : 'Autos (Pantalla 1)'}:</strong> Cada stand/canal tiene su propio inventario y probabilidades independientes.
                 </p>
               </div>
 
@@ -670,7 +686,7 @@ export default function App() {
               ) : (
                 <div className="space-y-3">
                   {/* Filtro rápido de Leads por Stand (Todos / Autos / Ford) */}
-                  <div className="grid grid-cols-3 gap-1.5 p-1 bg-zinc-900 rounded-xl border border-zinc-800 text-[11px] font-racing font-bold">
+                  <div className="grid grid-cols-4 gap-1.5 p-1 bg-zinc-900 rounded-xl border border-zinc-800 text-[10px] font-racing font-bold">
                     <button
                       type="button"
                       onClick={() => setLeadStandFilter('all')}
@@ -697,6 +713,15 @@ export default function App() {
                       }`}
                     >
                       Ford ({leads.filter(l => l.stand === 'ford').length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLeadStandFilter('mail')}
+                      className={`py-1.5 rounded-lg uppercase transition-all cursor-pointer ${
+                        leadStandFilter === 'mail' ? 'bg-amber-500 text-black' : 'text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      Correo ({leads.filter(l => l.stand === 'mail').length})
                     </button>
                   </div>
 
@@ -725,9 +750,11 @@ export default function App() {
                           <span className={`text-[9px] font-racing font-bold px-2 py-0.5 rounded-full uppercase ${
                             l.stand === 'ford'
                               ? 'bg-[#212650] text-white border border-blue-400/50'
-                              : 'bg-[#9AC31C]/20 text-[#9AC31C] border border-[#9AC31C]/40'
+                              : l.stand === 'mail'
+                                ? 'bg-amber-500/20 text-amber-300 border border-amber-400/40'
+                                : 'bg-[#9AC31C]/20 text-[#9AC31C] border border-[#9AC31C]/40'
                           }`}>
-                            {l.stand === 'ford' ? '🚘 FORD' : '🏎️ AUTOS'}
+                            {l.stand === 'ford' ? '🚘 FORD' : l.stand === 'mail' ? '📧 CORREO' : '🏎️ AUTOS'}
                           </span>
                           {l.is_test ? (
                             <span className="text-[9px] font-mono text-purple-300 bg-purple-950/80 border border-purple-500/40 px-1.5 py-0.5 rounded font-bold">
@@ -860,7 +887,7 @@ export default function App() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-zinc-900 p-4 rounded-2xl border border-zinc-800 text-center">
-                  <span className="text-[10px] text-zinc-400 font-racing uppercase">Leads ({isFordStand ? 'Ford' : 'Autos'})</span>
+                  <span className="text-[10px] text-zinc-400 font-racing uppercase">Leads ({isFordStand ? 'Ford' : isMailStand ? 'Correo' : 'Autos'})</span>
                   <p className="text-2xl font-racing font-black text-[#9AC31C] mt-1">{metrics.totalLeads}</p>
                 </div>
                 <div className="bg-zinc-900 p-4 rounded-2xl border border-zinc-800 text-center">
@@ -883,14 +910,18 @@ export default function App() {
                   <h4 className="font-racing text-xs text-white uppercase font-bold">
                     Comparativa Global de Stands
                   </h4>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="grid grid-cols-1 gap-2 text-xs">
                     <div className="bg-zinc-950 p-3 rounded-xl border border-[#9AC31C]/30 flex justify-between items-center">
                       <span className="text-[#9AC31C] font-racing font-bold">🏎️ AUTOS</span>
-                      <span className="font-mono font-bold text-white">{metrics.byStand.autos || 0} leads</span>
+                      <span className="font-mono font-bold text-white">{metrics.byStand.autos?.leads ?? metrics.byStand.autos ?? 0} leads</span>
                     </div>
                     <div className="bg-[#212650]/40 p-3 rounded-xl border border-blue-400/40 flex justify-between items-center">
                       <span className="text-blue-200 font-racing font-bold">🚘 FORD</span>
-                      <span className="font-mono font-bold text-white">{metrics.byStand.ford || 0} leads</span>
+                      <span className="font-mono font-bold text-white">{metrics.byStand.ford?.leads ?? metrics.byStand.ford ?? 0} leads</span>
+                    </div>
+                    <div className="bg-amber-950/40 p-3 rounded-xl border border-amber-400/40 flex justify-between items-center">
+                      <span className="text-amber-300 font-racing font-bold">📧 CORREO</span>
+                      <span className="font-mono font-bold text-white">{metrics.byStand.mail?.leads ?? 0} leads</span>
                     </div>
                   </div>
                 </div>
@@ -1105,6 +1136,7 @@ export default function App() {
             <span className="text-[9px] font-racing font-bold uppercase">Destinos</span>
           </button>
 
+          {!isMailStand && (
           <button
             onClick={() => setActiveTab('displays')}
             className={`flex flex-col items-center gap-0.5 py-1 px-1.5 rounded-xl transition-all ${
@@ -1114,6 +1146,7 @@ export default function App() {
             <Tv className="w-4 h-4" />
             <span className="text-[9px] font-racing font-bold uppercase">Pantallas</span>
           </button>
+          )}
 
           <button
             onClick={() => setActiveTab('redeem')}

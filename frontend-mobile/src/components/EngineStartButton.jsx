@@ -2,7 +2,8 @@ import React from 'react';
 import { mobileAudio } from '../utils/mobileSound';
 import { Eye, ArrowUp, Sparkles, Tv } from 'lucide-react';
 
-export default function EngineStartButton({ onClick, disabled = false, loading = false, showCallouts = true }) {
+export default function EngineStartButton({ onClick, disabled = false, loading = false, showCallouts = true, variant = 'stand' }) {
+  const isMail = variant === 'mail';
   const handleClick = (e) => {
     e.preventDefault();
     if (disabled || loading) return;
@@ -71,13 +72,13 @@ export default function EngineStartButton({ onClick, disabled = false, loading =
 
               {/* Texto Engine Start */}
               <span className="font-racing font-black text-xs tracking-widest text-white uppercase drop-shadow leading-tight">
-                {loading ? 'EN PISTA' : 'ENGINE'}
+                {loading ? (isMail ? 'SUERTE' : 'EN PISTA') : 'ENGINE'}
               </span>
               <span className="font-racing font-black text-sm tracking-wider text-amber-300 uppercase drop-shadow -mt-0.5">
                 {loading ? 'GIRANDO' : 'START'}
               </span>
               <span className="text-[9px] font-sans font-bold text-zinc-300 tracking-tighter uppercase mt-0.5">
-                {loading ? 'MIRA ARRIBA' : 'STOP'}
+                {loading ? (isMail ? 'GIRANDO...' : 'MIRA ARRIBA') : (isMail ? 'TOCA Y GIRA' : 'STOP')}
               </span>
             </div>
           </div>

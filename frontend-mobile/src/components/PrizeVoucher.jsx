@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { Trophy, Gift, Ticket, MessageCircle, Clock, CheckCircle2, Sparkles, Plane } from 'lucide-react';
+import { Trophy, Gift, Ticket, MessageCircle, Clock, CheckCircle2, Sparkles, Plane, CalendarCheck } from 'lucide-react';
 import { getMobileBrandConfig } from '../brand';
 
 export default function PrizeVoucher({ result }) {
@@ -21,7 +21,8 @@ export default function PrizeVoucher({ result }) {
     }
   }, [brand.isFord]);
 
-  const { winner, lead, ticketCode, whatsappUrl } = result;
+  const { winner, lead, ticketCode, whatsappUrl, appointment } = result;
+  const isMail = brand.isMail;
 
   return (
     <div className="w-full flex flex-col items-center my-4 animate-fadeIn select-none">
@@ -35,10 +36,10 @@ export default function PrizeVoucher({ result }) {
       </div>
 
       <span className={`font-racing text-xs font-black tracking-widest uppercase ${brand.isFord ? 'text-[#212650]' : 'text-red-600'}`}>
-        ¡TIEMPO RÉCORD EN PISTA!
+        {isMail ? '¡FELICITACIONES!' : '¡TIEMPO RÉCORD EN PISTA!'}
       </span>
       <h2 className="text-2xl font-racing font-black text-zinc-900 uppercase text-center mt-0.5 mb-4">
-        ¡PREMIO OBTENIDO!
+        {isMail ? '¡GANASTE!' : '¡PREMIO OBTENIDO!'}
       </h2>
 
       {/* Tarjeta Tipo Boarding Pass / Pase VIP */}
@@ -64,9 +65,9 @@ export default function PrizeVoucher({ result }) {
 
         {/* Datos del Piloto */}
         <div className="mb-4">
-          <span className="text-[10px] text-zinc-500 uppercase tracking-wider block font-semibold">Piloto Titular</span>
+          <span className="text-[10px] text-zinc-500 uppercase tracking-wider block font-semibold">{isMail ? 'Ganador' : 'Piloto Titular'}</span>
           <p className="text-base font-bold text-zinc-900 uppercase">{lead.name}</p>
-          {!brand.isFord && lead.dream_destination && (
+          {!brand.isFord && !isMail && lead.dream_destination && (
             <span className="text-xs text-[#7A9E14] font-medium flex items-center gap-1 mt-0.5 font-semibold">
               <Sparkles className="w-3 h-3 text-[#7A9E14]" /> Destino soñado: {lead.dream_destination}
             </span>
@@ -76,7 +77,7 @@ export default function PrizeVoucher({ result }) {
         {/* Premio Ganado */}
         <div className="ford-callout-box bg-zinc-900 border border-[#9AC31C] rounded-2xl p-4 text-center mb-4 shadow-md text-white">
           <span className="text-[10px] font-racing font-bold text-[#9AC31C] uppercase tracking-widest block mb-1">
-            RESULTADO DE LA RULETA
+            {isMail ? 'TU PREMIO' : 'RESULTADO DE LA RULETA'}
           </span>
           <h3 className="text-xl font-racing font-black text-[#9AC31C] uppercase leading-snug">
             {winner.name}
@@ -86,15 +87,30 @@ export default function PrizeVoucher({ result }) {
           </p>
         </div>
 
+        {/* Cita de canje (campaña por correo) */}
+        {isMail && appointment && (
+          <div className="rounded-2xl border-2 border-[#9AC31C] bg-[#9AC31C]/10 p-3.5 text-center">
+            <div className="flex items-center justify-center gap-1.5 text-[11px] font-racing font-black text-[#5f7d0c] uppercase tracking-widest">
+              <CalendarCheck className="w-4 h-4" />
+              <span>Tu cita</span>
+            </div>
+            <p className="text-sm font-bold text-zinc-900 mt-1 first-letter:uppercase">{appointment.dateText}</p>
+            <p className="text-lg font-racing font-black text-zinc-900">{appointment.timeText}</p>
+            <p className="text-xs text-zinc-600 mt-0.5 font-medium">en nuestras oficinas</p>
+          </div>
+        )}
+
         {/* Validez de Urgencia */}
-        <div className="flex items-center justify-center gap-1.5 text-xs text-zinc-600 font-medium">
-          <Clock className="w-3.5 h-3.5 text-[#7A9E14]" />
-          <span>
-            {brand.isFord
-              ? 'Válido para canjear hoy en el stand de Ford Quito Motors'
-              : 'Válido para canjear hoy en el stand de Marketing VIP'}
-          </span>
-        </div>
+        {!isMail && (
+          <div className="flex items-center justify-center gap-1.5 text-xs text-zinc-600 font-medium">
+            <Clock className="w-3.5 h-3.5 text-[#7A9E14]" />
+            <span>
+              {brand.isFord
+                ? 'Válido para canjear hoy en el stand de Ford Quito Motors'
+                : 'Válido para canjear hoy en el stand de Marketing VIP'}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Botón Estelar: RECLAMA TU PREMIO (WhatsApp) */}
@@ -105,11 +121,13 @@ export default function PrizeVoucher({ result }) {
         className="ford-primary-btn w-full max-w-sm py-4 px-6 rounded-2xl bg-gradient-to-r from-[#84A816] via-[#9AC31C] to-[#84A816] hover:opacity-95 text-black font-racing font-black text-base uppercase tracking-wider shadow-xl flex items-center justify-center gap-3 transition-transform active:scale-95 text-center group"
       >
         <MessageCircle className="w-6 h-6 text-black group-hover:scale-110 transition-transform" />
-        <span>¡Reclama tu premio!</span>
+        <span>{isMail ? 'Confirmar mi cita por WhatsApp' : '¡Reclama tu premio!'}</span>
       </a>
 
       <p className="text-xs text-zinc-600 text-center mt-3 max-w-xs font-medium">
-        Presiona el botón para abrir WhatsApp y validar tu premio con nuestros asesores.
+        {isMail
+          ? 'Presiona el botón para abrir WhatsApp y confirmar tu cita y tu premio con nuestro asistente.'
+          : 'Presiona el botón para abrir WhatsApp y validar tu premio con nuestros asesores.'}
       </p>
     </div>
   );

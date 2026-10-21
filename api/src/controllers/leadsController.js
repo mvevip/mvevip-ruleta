@@ -3,6 +3,7 @@ const { OFFICIAL_ADVISORS } = require('../config/advisorsList');
 const {
   standFromScreenId,
   screenIdsOf,
+  nonAutosScreenIds,
   STANDS,
   isValidStand
 } = require('../config/stands');
@@ -19,12 +20,12 @@ async function getLeads(req, res) {
 
     let whereSql = '';
     let params = [];
-    if (filterByStand === 'ford') {
-      whereSql = 'WHERE l.screen_id IN (?)';
-      params = [screenIdsOf('ford')];
-    } else if (filterByStand === 'autos') {
+    if (filterByStand === 'autos') {
       whereSql = 'WHERE (l.screen_id IS NULL OR l.screen_id NOT IN (?))';
-      params = [screenIdsOf('ford')];
+      params = [nonAutosScreenIds()];
+    } else if (filterByStand) {
+      whereSql = 'WHERE l.screen_id IN (?)';
+      params = [screenIdsOf(filterByStand)];
     }
 
     const [rows] = await pool.query(
@@ -108,19 +109,21 @@ async function getMetrics(req, res) {
     const requestedStand = (req.query && req.query.stand) ? String(req.query.stand).toLowerCase() : 'all';
     const filterByStand = isValidStand(requestedStand) ? requestedStand : null;
     const fordScreens = screenIdsOf('ford');
+    const mailScreens = screenIdsOf('mail');
+    const nonAutosScreens = nonAutosScreenIds();
 
     let leadStandClause = '';
     let spinStandClause = '';
     let standParams = [];
 
-    if (filterByStand === 'ford') {
-      leadStandClause = ' AND screen_id IN (?)';
-      spinStandClause = ' AND s.screen_id IN (?)';
-      standParams = [fordScreens];
-    } else if (filterByStand === 'autos') {
+    if (filterByStand === 'autos') {
       leadStandClause = ' AND (screen_id IS NULL OR screen_id NOT IN (?))';
       spinStandClause = ' AND (s.screen_id IS NULL OR s.screen_id NOT IN (?))';
-      standParams = [fordScreens];
+      standParams = [nonAutosScreens];
+    } else if (filterByStand) {
+      leadStandClause = ' AND screen_id IN (?)';
+      spinStandClause = ' AND s.screen_id IN (?)';
+      standParams = [screenIdsOf(filterByStand)];
     }
 
     const [[leadCount]] = await pool.query(
@@ -173,7 +176,7 @@ async function getMetrics(req, res) {
     // Desglose por stand (siempre disponible para mostrar comparativa en Admin)
     const [[autosLeadsRow]] = await pool.query(
       'SELECT COUNT(*) AS count FROM leads WHERE (is_test = 0 OR is_test IS NULL) AND (screen_id IS NULL OR screen_id NOT IN (?))',
-      [fordScreens]
+      [nonAutosScreens]
     );
     const [[fordLeadsRow]] = await pool.query(
       'SELECT COUNT(*) AS count FROM leads WHERE (is_test = 0 OR is_test IS NULL) AND screen_id IN (?)',
@@ -181,11 +184,20 @@ async function getMetrics(req, res) {
     );
     const [[autosSpinsRow]] = await pool.query(
       'SELECT COUNT(*) AS count FROM spins WHERE (is_test = 0 OR is_test IS NULL) AND (screen_id IS NULL OR screen_id NOT IN (?))',
-      [fordScreens]
+      [nonAutosScreens]
     );
     const [[fordSpinsRow]] = await pool.query(
       'SELECT COUNT(*) AS count FROM spins WHERE (is_test = 0 OR is_test IS NULL) AND screen_id IN (?)',
       [fordScreens]
+    );
+
+    const [[mailLeadsRow]] = await pool.query(
+      'SELECT COUNT(*) AS count FROM leads WHERE (is_test = 0 OR is_test IS NULL) AND screen_id IN (?)',
+      [mailScreens]
+    );
+    const [[mailSpinsRow]] = await pool.query(
+      'SELECT COUNT(*) AS count FROM spins WHERE (is_test = 0 OR is_test IS NULL) AND screen_id IN (?)',
+      [mailScreens]
     );
 
     res.json({
@@ -208,6 +220,10 @@ async function getMetrics(req, res) {
           ford: {
             leads: fordLeadsRow.count,
             spins: fordSpinsRow.count
+          },
+          mail: {
+            leads: mailLeadsRow.count,
+            spins: mailSpinsRow.count
           }
         }
       }

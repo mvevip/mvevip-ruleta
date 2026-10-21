@@ -27,16 +27,29 @@ export function detectMobileBrand() {
   return 'autos';
 }
 
+/**
+ * Canal Correo (campaña Brevo): `/?view=mail`. Misma marca Autos, pero el cliente juega desde su
+ * propio dispositivo (ruleta incluida en el celular, sin pantalla de stand, sin cola, sin sockets).
+ */
+export function detectMailView() {
+  if (typeof window === 'undefined') return false;
+  const params = new URLSearchParams(window.location.search);
+  return (params.get('view') || '').toLowerCase() === 'mail';
+}
+
 export function getMobileBrandConfig() {
   const brand = detectMobileBrand();
   const isFord = brand === 'ford';
+  const isMail = !isFord && detectMailView();
 
   // Si es /formulario2, SIEMPRE apunta a la pantalla 2 (STAND_02 / STAND_LOCAL_2)
   const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const rawScreen = params.get('screen');
 
   let screenId;
-  if (isFord) {
+  if (isMail) {
+    screenId = 'MAIL_01';
+  } else if (isFord) {
     screenId = (rawScreen === 'STAND_02' || rawScreen === 'STAND_LOCAL_2')
       ? rawScreen
       : (isProduction ? 'STAND_02' : 'STAND_LOCAL_2');
@@ -45,8 +58,9 @@ export function getMobileBrandConfig() {
   }
 
   return {
-    key: brand,
+    key: isMail ? 'mail' : brand,
     isFord,
+    isMail,
     screenId,
     logoSrc: isFord ? '/logo_ford.jpeg' : '/logotipo.png',
     logoAlt: isFord ? 'Ford | Quito Motors' : 'Marketing VIP',
@@ -55,7 +69,9 @@ export function getMobileBrandConfig() {
     onAccent: isFord ? '#ffffff' : '#000000',
     footerText: isFord
       ? 'Ford • Quito Motors • Stand Feria Automotriz 2026'
-      : 'Marketing VIP • Especialistas en sueños • Stand Feria Automotriz 2026'
+      : isMail
+        ? 'Marketing VIP • Especialistas en sueños'
+        : 'Marketing VIP • Especialistas en sueños • Stand Feria Automotriz 2026'
   };
 }
 

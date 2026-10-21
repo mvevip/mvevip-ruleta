@@ -6,6 +6,7 @@ import EngineStartButton from './components/EngineStartButton';
 import SpinningProgress from './components/SpinningProgress';
 import PrizeVoucher from './components/PrizeVoucher';
 import QueueWaitingProgress from './components/QueueWaitingProgress';
+import MailWheel, { MAIL_SPIN_MS } from './components/MailWheel';
 import { mobileAudio } from './utils/mobileSound';
 import { ShieldCheck, AlertTriangle, Info, ArrowRight, Tv, Eye, ArrowUp, Sparkles } from 'lucide-react';
 
@@ -63,6 +64,10 @@ export default function App() {
   const [turnstileToken, setTurnstileToken] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [queueInfo, setQueueInfo] = useState({ queueId: null, position: 1, ticketCode: null });
+  // Canal Correo: ruleta propia en el celular
+  const [mailPrizes, setMailPrizes] = useState([]);
+  const [wheelAngle, setWheelAngle] = useState(0);
+  const wheelAngleRef = useRef(0);
 
   const socketRef = useRef(null);
   const deviceIdRef = useRef(getOrCreateDeviceId());
@@ -70,8 +75,24 @@ export default function App() {
   const queueTicketCodeRef = useRef(null);
   const isTriggeringTurnRef = useRef(false);
 
-  // Cargar lista de destinos activos desde la API
+  // Canal Correo: cargar los premios del canal para dibujar la ruleta
   useEffect(() => {
+    if (!brand.isMail) return;
+    const fetchMailPrizes = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/prizes?stand=mail`);
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) setMailPrizes(json.data);
+      } catch (e) {
+        console.warn('Error cargando premios:', e);
+      }
+    };
+    fetchMailPrizes();
+  }, []);
+
+  // Cargar lista de destinos activos desde la API (no aplica al canal Correo)
+  useEffect(() => {
+    if (brand.isMail) return;
     const fetchDestinations = async () => {
       try {
         const res = await fetch(`${API_URL}/api/destinations`);
@@ -95,6 +116,8 @@ export default function App() {
 
   // Notificar al stand que un usuario escaneó el QR / abrió la app
   const pingScreenActivity = () => {
+    // El canal Correo nunca debe despertar ni notificar pantallas de stand
+    if (brand.isMail) return;
     try {
       if (socketRef.current && socketRef.current.connected) {
         socketRef.current.emit('USER_ENGAGED', { screenId });
@@ -111,7 +134,8 @@ export default function App() {
   }, [screenId]);
 
   useEffect(() => {
-    if (!WS_URL) {
+    // El canal Correo no usa sockets (sin sala, sin cola, sin pantalla)
+    if (brand.isMail || !WS_URL) {
       return;
     }
 
@@ -253,6 +277,27 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Canal Correo: gira la ruleta del celular hasta el sector del premio que ya decidió el servidor
+  const spinMailWheel = (winner) => {
+    const total = mailPrizes.length || winner.totalSlices || 6;
+    const sliceAngle = 360 / total;
+
+    let targetIndex = mailPrizes.findIndex(p => p.id === winner.id);
+    if (targetIndex < 0) targetIndex = typeof winner.sliceIndex === 'number' ? winner.sliceIndex : 0;
+
+    const targetSliceCenter = targetIndex * sliceAngle + sliceAngle / 2;
+    const targetModAngle = (360 - (targetSliceCenter % 360)) % 360;
+    const currentMod = wheelAngleRef.current % 360;
+
+    let delta = (targetModAngle - currentMod) % 360;
+    if (delta < 0) delta += 360;
+    if (delta === 0) delta = 360;
+
+    const newAngle = wheelAngleRef.current + 360 * 7 + delta;
+    wheelAngleRef.current = newAngle;
+    setWheelAngle(newAngle);
+  };
+
   // Paso 2: Dispara el giro de la ruleta hacia el stand
   const handleStartSpin = async () => {
     if (isSubmitting) return;
@@ -302,6 +347,19 @@ export default function App() {
         return;
       }
 
+      // CASO MAIL: giro propio en el celular, sin cola ni pantalla
+      if (brand.isMail) {
+        setAlreadyPlayedNotice(false);
+        setSpinResult(json.data);
+        setGameState('SPINNING');
+        spinMailWheel(json.data.winner);
+        setTimeout(() => {
+          setIsSubmitting(false);
+          setGameState('WON');
+        }, MAIL_SPIN_MS + 900);
+        return;
+      }
+
       // CASO 2: Entró a la COLA de espera porque la ruleta está ocupada
       if (json.in_queue) {
         setAlreadyPlayedNotice(false);
@@ -337,7 +395,7 @@ export default function App() {
   };
 
   return (
-    <div className="ford-mobile-shell min-h-screen bg-gradient-to-b from-zinc-100 via-zinc-200 to-zinc-300 text-zinc-900 flex flex-col justify-between">
+    <div className="ford-mobile-shell min-h-screen overflow-x-hidden bg-gradient-to-b from-zinc-100 via-zinc-200 to-zinc-300 text-zinc-900 flex flex-col justify-between">
       <Header />
 
       <main className="flex-1 max-w-md w-full mx-auto px-4 py-5 flex flex-col justify-center">
@@ -355,7 +413,7 @@ export default function App() {
               onChange={handleInputChange}
               errors={errors}
               destinations={destinations}
-              hideDestinations={brand.isFord}
+              hideDestinations={brand.isFord || brand.isMail}
             />
 
             <div className="my-2 w-full flex justify-center">
@@ -388,13 +446,71 @@ export default function App() {
 
             <div className="flex items-center gap-1.5 text-zinc-500 text-[11px] mt-2.5 text-center font-medium">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Stand #{screenId} • Solo 1 participación por persona</span>
+              <span>{brand.isMail ? 'Solo 1 participación por persona' : `Stand #${screenId} • Solo 1 participación por persona`}</span>
             </div>
           </div>
         )}
 
         {/* PASO 2: PANTALLA DE LANZAMIENTO (AVISO SUPERIOR + BOTÓN START CENTRADO) */}
-        {gameState === 'READY_TO_SPIN' && (
+        {/* PASO 2 (CANAL CORREO): RULETA EN EL CELULAR + BOTÓN PARA GIRAR */}
+        {brand.isMail && (gameState === 'READY_TO_SPIN' || gameState === 'SPINNING') && (
+          <div className="bg-white/95 border border-zinc-200/80 rounded-3xl p-4 shadow-xl shadow-zinc-400/20 backdrop-blur-md flex flex-col items-center text-center">
+            <div className="w-full p-3 rounded-2xl bg-zinc-900 border-2 border-[#9AC31C] text-white shadow-[0_0_25px_rgba(154,195,28,0.35)] mb-3">
+              <div className="flex items-center justify-center gap-2 font-racing font-black text-sm tracking-widest text-[#9AC31C] uppercase">
+                <Sparkles className="w-4 h-4 shrink-0" />
+                <span>{gameState === 'SPINNING' ? '¡Girando...!' : '¡Gira y gana!'}</span>
+                <Sparkles className="w-4 h-4 shrink-0" />
+              </div>
+              <p className="text-xs text-zinc-300 mt-1 font-medium">
+                {gameState === 'SPINNING'
+                  ? 'Mantén esta pantalla abierta, tu premio está por salir'
+                  : 'Presiona el botón y descubre tu premio'}
+              </p>
+            </div>
+
+            {apiError && (
+              <div className="w-full mb-2 p-3 rounded-xl bg-red-50 border border-red-300 text-red-700 text-xs flex items-center justify-center gap-2 shadow-sm">
+                <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
+                <span>{apiError}</span>
+              </div>
+            )}
+
+            <div className="w-full my-2">
+              {mailPrizes.length > 0 ? (
+                <MailWheel prizes={mailPrizes} rotationAngle={wheelAngle} isSpinning={gameState === 'SPINNING'} />
+              ) : (
+                <div className="py-16 text-sm text-zinc-500 animate-pulse">Cargando ruleta...</div>
+              )}
+            </div>
+
+            <EngineStartButton
+              onClick={handleStartSpin}
+              disabled={isSubmitting || mailPrizes.length === 0}
+              loading={isSubmitting || gameState === 'SPINNING'}
+              showCallouts={false}
+              variant="mail"
+            />
+
+            <div className="w-full mt-2 pt-3 border-t border-zinc-200/80 flex flex-col items-center gap-1.5">
+              <div className="flex items-center gap-1.5 text-xs text-zinc-600 font-medium">
+                <Sparkles className="w-3.5 h-3.5 text-[#9AC31C]" />
+                <span>Participante: <strong className="text-zinc-900 font-bold">{formData.name}</strong></span>
+              </div>
+              {gameState === 'READY_TO_SPIN' && (
+                <button
+                  type="button"
+                  onClick={() => { setApiError(null); setGameState('FORM'); }}
+                  disabled={isSubmitting}
+                  className="text-xs text-zinc-500 hover:text-zinc-800 underline font-sans transition-colors cursor-pointer py-1 disabled:opacity-50"
+                >
+                  ← Corregir mis datos
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {!brand.isMail && gameState === 'READY_TO_SPIN' && (
           <div className="bg-white/95 border border-zinc-200/80 rounded-3xl p-5 shadow-xl shadow-zinc-400/20 backdrop-blur-md min-h-[72vh] flex flex-col justify-between items-center text-center">
             {/* 1. MENSAJE EN LA PARTE SUPERIOR */}
             <div className="w-full max-w-sm pt-1">
@@ -460,7 +576,7 @@ export default function App() {
           </div>
         )}
 
-        {gameState === 'SPINNING' && (
+        {!brand.isMail && gameState === 'SPINNING' && (
           <div className="bg-white/95 border border-zinc-200/80 rounded-3xl p-4 shadow-xl shadow-zinc-400/20 backdrop-blur-md">
             <SpinningProgress />
           </div>
@@ -471,7 +587,11 @@ export default function App() {
             {alreadyPlayedNotice && (
               <div className="w-full mb-3 p-3 rounded-2xl bg-amber-50 border border-amber-300 text-amber-800 text-xs flex items-center gap-2 shadow-sm">
                 <Info className="w-4 h-4 text-amber-600 shrink-0" />
-                <span>¡Ya registraste tu tiro con este contacto! Aquí tienes tu pase para canjear en el stand.</span>
+                <span>
+                  {brand.isMail
+                    ? '¡Ya participaste con este contacto! Aquí tienes tu premio y tu cita.'
+                    : '¡Ya registraste tu tiro con este contacto! Aquí tienes tu pase para canjear en el stand.'}
+                </span>
               </div>
             )}
             <PrizeVoucher result={spinResult} />
@@ -483,7 +603,7 @@ export default function App() {
         <div>{brand.footerText}</div>
         {!isProduction && (
           <div className="font-mono font-bold text-amber-600 text-[9px] mt-0.5 tracking-wider">
-            [ENTORNO LOCAL 💻 - STAND #{screenId}]
+            [ENTORNO LOCAL 💻 - {brand.isMail ? 'CANAL CORREO' : `STAND #${screenId}`}]
           </div>
         )}
       </footer>

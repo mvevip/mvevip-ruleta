@@ -11,8 +11,10 @@ const {
   resolveStand,
   standFromScreenId,
   normalizeScreenId,
-  screenIdsOf
+  screenIdsOf,
+  nonAutosScreenIds
 } = require('../config/stands');
+const { getNextAppointment } = require('../services/appointment');
 
 // Stand 'autos' = comportamiento histórico; 'ford' = Formulario2/Pantalla2
 const DEFAULT_SCREEN_ID = process.env.NODE_ENV === 'production' ? 'STAND_01' : 'STAND_LOCAL';
@@ -122,10 +124,23 @@ async function updatePrize(req, res) {
 
 
 // Mensaje de WhatsApp según stand (Ford no usa destino de viaje)
-function buildWhatsappUrl({ stand, name, ticketCode, prizeName, destination, alreadyPlayed }) {
+function buildWhatsappUrl({ stand, name, ticketCode, prizeName, destination, alreadyPlayed, appointmentText }) {
   const rawWaNumber = config.COMPANY.whatsapp.replace(/[^0-9]/g, '');
   let text;
-  if (stand === 'ford') {
+  if (stand === 'mail') {
+    text = alreadyPlayed
+      ? `¡Hola ${config.COMPANY.name}! Ya participé en la ruleta 🎰\n\n` +
+        `👤 Nombre: ${name}\n` +
+        `🎟️ Código: ${ticketCode}\n` +
+        `🎁 Premio: ${prizeName}\n` +
+        `📅 Cita: ${appointmentText}\n\n` +
+        `¡Quiero confirmar mi cita para canjear mi premio!`
+      : `¡Hola ${config.COMPANY.name}! Acabo de ganar *${prizeName}* en la ruleta 🎰\n\n` +
+        `👤 Mi Nombre: ${name}\n` +
+        `🎟️ Código: ${ticketCode}\n` +
+        `📅 Mi cita: ${appointmentText}\n\n` +
+        `¡Quiero confirmar mi cita y reclamar mi premio!`;
+  } else if (stand === 'ford') {
     text = alreadyPlayed
       ? `¡Hola Ford Quito Motors! Ya participé en la ruleta 🏎️\n\n` +
         `👤 Nombre: ${name}\n` +
@@ -196,9 +211,23 @@ async function processSpin(req, res) {
   }
   const cleanEmail = emailValidation.email;
 
+  const isMail = stand === 'mail';
+  const appointment = isMail ? getNextAppointment() : null;
+
   const connection = await pool.getConnection();
+  const mailLockName = isMail ? `mail_spin_${cleanPhone}` : null;
+  let mailLockAcquired = false;
 
   try {
+    // Campaña por correo: serializa envíos simultáneos del mismo celular (doble clic / pestañas duplicadas)
+    if (isMail) {
+      const [[lockRow]] = await connection.query('SELECT GET_LOCK(?, 5) AS got', [mailLockName]);
+      mailLockAcquired = Boolean(lockRow && lockRow.got === 1);
+      if (!mailLockAcquired) {
+        return res.status(429).json({ success: false, message: 'Ya estamos procesando tu participación. Espera unos segundos.' });
+      }
+    }
+
     await connection.beginTransaction();
 
     // 4. VERIFICAR SI ES USUARIO DE PRUEBA (MODO DEMO STAND)
@@ -219,7 +248,7 @@ async function processSpin(req, res) {
          JOIN prizes p ON s.prize_id = p.id
          WHERE (l.phone = ? OR l.email = ?) AND l.screen_id ${stand === 'autos' ? 'NOT IN' : 'IN'} (?)
          ORDER BY s.id DESC LIMIT 1`,
-        [cleanPhone, cleanEmail, stand === 'autos' ? screenIdsOf('ford') : screenIdsOf(stand)]
+        [cleanPhone, cleanEmail, stand === 'autos' ? nonAutosScreenIds() : screenIdsOf(stand)]
       );
 
       if (existingSpins.length > 0) {
@@ -228,7 +257,8 @@ async function processSpin(req, res) {
 
         // Construir mensaje de WhatsApp para el premio existente
         const whatsappUrl = buildWhatsappUrl({
-          stand, name: prev.lead_name, ticketCode: prev.ticket_code, prizeName: prev.prize_name, destination: prev.dream_destination, alreadyPlayed: true
+          stand, name: prev.lead_name, ticketCode: prev.ticket_code, prizeName: prev.prize_name, destination: prev.dream_destination, alreadyPlayed: true,
+          appointmentText: appointment && appointment.text
         });
 
         return res.json({
@@ -249,6 +279,7 @@ async function processSpin(req, res) {
               dream_destination: prev.dream_destination
             },
             whatsappUrl,
+            appointment,
             redeemed: Boolean(prev.redeemed)
           }
         });
@@ -267,7 +298,7 @@ async function processSpin(req, res) {
 
     // 6. Obtener premios activos y verificar cuántos premios se han entregado hoy (para límite diario)
     const [prizes] = await connection.query(
-      'SELECT id, name, description, category, color_hex, text_color, weight, stock, max_daily_wins, active FROM prizes WHERE active = 1 AND stand = ? ORDER BY id ASC',
+      `SELECT id, name, description, category, color_hex, text_color, weight, stock, max_daily_wins, active FROM prizes WHERE active = 1 AND stand = ? ORDER BY id ASC${isMail ? ' FOR UPDATE' : ''}`,
       [stand]
     );
 
@@ -291,7 +322,10 @@ async function processSpin(req, res) {
 
     // 8. Determinar destino soñado (usar por defecto de base de datos si viene vacío u opcional)
     let finalDestination = (dream_destination && dream_destination.trim()) ? dream_destination.trim() : null;
-    if (!finalDestination) {
+    if (isMail) {
+      // La campaña por correo no usa destino soñado
+      finalDestination = 'Campaña Correo';
+    } else if (!finalDestination) {
       try {
         const [defRows] = await connection.query('SELECT name FROM destinations WHERE is_default = 1 AND active = 1 LIMIT 1');
         finalDestination = (defRows && defRows.length > 0) ? defRows[0].name : '🌴 Cancún';
@@ -323,6 +357,42 @@ async function processSpin(req, res) {
         'UPDATE prizes SET stock = GREATEST(stock - 1, 0) WHERE id = ?',
         [winningPrize.id]
       );
+    }
+
+    // 11b. CANAL CORREO: cada cliente gira en su propio dispositivo -> sin cola, sin sockets, sin pantalla del stand
+    if (isMail) {
+      await connection.commit();
+
+      const whatsappUrl = buildWhatsappUrl({
+        stand, name: name.trim(), ticketCode, prizeName: winningPrize.name, destination: finalDestination, alreadyPlayed: false,
+        appointmentText: appointment.text
+      });
+
+      return res.json({
+        success: true,
+        already_played: false,
+        in_queue: false,
+        queue_id: null,
+        queue_position: 0,
+        data: {
+          ticketCode,
+          winner: {
+            id: winningPrize.id,
+            name: winningPrize.name,
+            description: winningPrize.description,
+            category: winningPrize.category,
+            sliceIndex: winningIndex,
+            totalSlices: prizes.length
+          },
+          lead: {
+            name: name.trim(),
+            phone: cleanPhone,
+            dream_destination: finalDestination
+          },
+          whatsappUrl,
+          appointment
+        }
+      });
     }
 
     // 12. GESTIÓN DE COLA (QUEUE SYSTEM)
@@ -459,6 +529,9 @@ async function processSpin(req, res) {
     console.error('Error procesando el giro de ruleta:', error);
     res.status(500).json({ success: false, message: 'Ocurrió un error al procesar el tiro.' });
   } finally {
+    if (mailLockAcquired) {
+      await connection.query('SELECT RELEASE_LOCK(?)', [mailLockName]).catch(() => {});
+    }
     connection.release();
   }
 }

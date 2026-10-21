@@ -35,6 +35,7 @@
 | `/pantalla?view=qr` / `/pantalla2?view=qr` | Autos / Ford | `frontend-screen` | Cartelería: Solo QR Gigante "Escanea y Gana" adaptado a cada stand. |
 | `/pantalla?view=slider` / `/pantalla2?view=slider` | Autos / Ford | `frontend-screen` | Cartelería: Slider continuo de banners publicitarios independientes por stand. |
 | `/pantalla?view=combo` / `/pantalla2?view=combo` | Autos / Ford | `frontend-screen` | Cartelería: Pantalla híbrida (Slider + Pasos + QR) adaptada a la marca del stand. |
+| `/?view=mail` | Correo (campaña Brevo) | `frontend-mobile` | Formulario + ruleta en el propio celular del cliente. Marca Autos, sin selector de destino. `screen_id` `MAIL_01`. |
 | `/admin` (`.../admin`) | Global (Ambos) | `frontend-admin` | Panel de control unificado: selector superior `🏎️ Stand 1: AUTOS` \| `🚘 Stand 2: FORD`. Gestión independiente de premios, pantallas, videos, métricas y leads filtrables. |
 | `/api/*` (`.../api/*`) | Ambos | `api` (Node.js 20) | API REST multi-stand con resolución automática de stand vía query param `?stand=autos|ford` o screen id. |
 
@@ -59,6 +60,16 @@
 5. **Panel Admin Unificado:**
    - Switcher en barra superior para administrar premios, pantallas y métricas de cada stand por separado.
    - Vista de leads con indicador de procedencia y filtros específicos.
+
+### A2. Canal Correo (campaña Brevo, `/?view=mail`) — implementado en local, NO desplegado
+Para clientes con cuotas pendientes (~500 emails). Juegan desde su celular o PC, sin pantalla de stand.
+1. **Flujo:** formulario → `¡Juega y Gana!` → ruleta en el celular + botón ENGINE START → giro de 8 s hasta el sector que el servidor ya decidió → modal "¡Ganaste!" con código y cita → botón WhatsApp.
+2. **Cita:** siempre el próximo sábado 10:00 am hora Ecuador (`api/src/services/appointment.js`; sábado desde las 10:00 pasa al siguiente). Va en la respuesta de `/api/spin` y en el mensaje de WhatsApp (mismo número de siempre; el bot atiende después).
+3. **Canal aislado (`stand = mail`, `screen_id = MAIL_01`):** catálogo de premios y stock propios; sin cola, sin sockets, sin `TRIGGER_SPIN`, sin ping a pantallas (verificado: un giro de correo no emite nada a las salas de Autos/Ford). El móvil en modo mail no abre socket ni llama `screen/activity`.
+4. **1 participación en este canal;** no cuenta lo jugado en los stands (y viceversa). Doble clic/pestañas simultáneas se serializan con `GET_LOCK` por celular; el stock de premios se bloquea con `FOR UPDATE`.
+5. **Admin:** nueva pestaña `📧 CORREO` (premios, leads, métricas). Sin pestaña Pantallas para este canal. Se corrigió además un bug en Métricas (`byStand.autos/ford` eran objetos renderizados como texto).
+6. **Quién puede jugar:** por ahora cualquiera con el enlace (decisión del usuario); límites: Turnstile (verificar si está activo en prod), rate limit 12 giros/min por IP.
+7. **Enlace para Brevo:** `https://autos.mvevip.com/?view=mail&utm_source=brevo&utm_campaign=cuotas`.
 
 ### B. Corrección de Algoritmo de Premios y Ángulo
 - Columna `active` asegurada en consultas SQL.
@@ -89,6 +100,11 @@
 - **Seguridad:** se eliminó el PIN comodín `ADMIN` (API y frontends). El PIN válido es solo el configurado en `ADMIN_PIN` (por defecto `VIP2026`). Requiere despliegue para surtir efecto en producción.
 
 ### ⏳ Pendientes / Próximos Pasos
+0. **Desplegar Canal Correo (requiere orden explícita):**
+   - Ejecutar manualmente en RDS `deploy/migrations/003_mail_stand.sql` (siembra premios `mail` copiando los de Autos con su stock actual).
+   - **Revisar en Admin > CORREO** nombres, pesos y stock de los premios ANTES de enviar la campaña.
+   - Correr `deploy_aws.ps1`, probar `?view=mail` con un usuario de prueba y recién entonces enviar el email.
+   - Antes de ~500 envíos: confirmar tamaño de RDS / `max_connections` (cada giro usa una conexión desde Lambda) y enviar en tandas desde Brevo.
 1. **Confirmar versión desplegada** del Lambda/frontends vs `178940d` y, si difiere, desplegar (solo con orden explícita).
 2. **Desplegar el retiro del PIN `ADMIN`** (cambio en `authMiddleware.js`, `frontend-admin/src/App.jsx`, `frontend-screen/src/components/AdminModal.jsx`).
 3. **Sincronización Dual de Repositorios Git:** `origin` hoy apunta solo a `mvevip/mvevip-ruleta`; falta push simultáneo a `caloloc2/mvevip_ruleta`.
