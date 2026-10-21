@@ -61,7 +61,7 @@
    - Switcher en barra superior para administrar premios, pantallas y métricas de cada stand por separado.
    - Vista de leads con indicador de procedencia y filtros específicos.
 
-### A2. Canal Correo (campaña Brevo, `/?view=mail`) — implementado en local, NO desplegado
+### A2. Canal Correo (campaña Brevo, `/?view=mail`) — DESPLEGADO en producción el 21-oct-2026
 Para clientes con cuotas pendientes (~500 emails). Juegan desde su celular o PC, sin pantalla de stand.
 1. **Flujo:** formulario → `¡Juega y Gana!` → ruleta en el celular + botón ENGINE START → giro de 8 s hasta el sector que el servidor ya decidió → modal "¡Ganaste!" con código y cita → botón WhatsApp.
 2. **Cita:** siempre el próximo sábado 10:00 am hora Ecuador (`api/src/services/appointment.js`; sábado desde las 10:00 pasa al siguiente). Va en la respuesta de `/api/spin` y en el mensaje de WhatsApp (mismo número de siempre; el bot atiende después).
@@ -100,11 +100,13 @@ Para clientes con cuotas pendientes (~500 emails). Juegan desde su celular o PC,
 - **Seguridad:** se eliminó el PIN comodín `ADMIN` (API y frontends). El PIN válido es solo el configurado en `ADMIN_PIN` (por defecto `VIP2026`). Requiere despliegue para surtir efecto en producción.
 
 ### ⏳ Pendientes / Próximos Pasos
-0. **Desplegar Canal Correo (requiere orden explícita):**
-   - Ejecutar manualmente en RDS `deploy/migrations/003_mail_stand.sql` (siembra premios `mail` copiando los de Autos con su stock actual).
-   - **Revisar en Admin > CORREO** nombres, pesos y stock de los premios ANTES de enviar la campaña.
-   - Correr `deploy_aws.ps1`, probar `?view=mail` con un usuario de prueba y recién entonces enviar el email.
-   - Antes de ~500 envíos: confirmar tamaño de RDS / `max_connections` (cada giro usa una conexión desde Lambda) y enviar en tandas desde Brevo.
+0. **Canal Correo desplegado (21-oct-2026, 23:12 UTC):**
+   - Migración `003_mail_stand.sql` ejecutada por el usuario en RDS (6 premios `mail`, ids 107–112, copiados de Autos).
+   - Lambda `MarketingVIP-Roulette-Api-prod` actualizado (sha `qe+1hwnb…`), frontends sincronizados a S3 y CloudFront invalidado. NO se ejecutó `cloudformation deploy` (sin cambios de infraestructura).
+   - **Incluye el retiro del PIN comodín `ADMIN`** (verificado: 401 en producción).
+   - Backup previo: `s3://mvevip-recursos/marketingvip-roulette/backups/pre-mail/` (api.zip + frontend + INFO.txt). Rollback: `deploy/rollback_pre_mail.sh` (no toca la BD).
+   - **Antes de enviar la campaña:** revisar premios en Admin > CORREO ("Proceso de Visado EEUU GRATIS" tiene stock 0 y se dibuja igual en la ruleta; ajustar o desactivar), hacer una prueba real con un usuario de prueba, y enviar en tandas.
+   - **Hallazgo:** Cloudflare Turnstile NO está activo en producción (el bundle se compiló sin `VITE_TURNSTILE_SITE_KEY`; el formulario envía `BYPASS_DEV`). La protección anti-bot real es solo el rate limit.
 1. **Confirmar versión desplegada** del Lambda/frontends vs `178940d` y, si difiere, desplegar (solo con orden explícita).
 2. **Desplegar el retiro del PIN `ADMIN`** (cambio en `authMiddleware.js`, `frontend-admin/src/App.jsx`, `frontend-screen/src/components/AdminModal.jsx`).
 3. **Sincronización Dual de Repositorios Git:** `origin` hoy apunta solo a `mvevip/mvevip-ruleta`; falta push simultáneo a `caloloc2/mvevip_ruleta`.
