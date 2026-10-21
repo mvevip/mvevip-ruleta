@@ -28,7 +28,7 @@ export default function AdminModal({ isOpen, onClose, onPrizesUpdated }) {
   const handleLogin = (e) => {
     e.preventDefault();
     const cleanPin = pin.trim().toUpperCase();
-    if (cleanPin === 'VIP2026' || cleanPin === 'ADMIN') {
+    if (cleanPin === 'VIP2026') {
       setIsAuthenticated(true);
       setPin('');
     } else {

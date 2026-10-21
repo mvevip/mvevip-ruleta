@@ -99,7 +99,7 @@ export default function App() {
   const handleLogin = (e) => {
     e.preventDefault();
     const cleanPin = pin.trim().toUpperCase();
-    if (cleanPin === 'VIP2026' || cleanPin === 'ADMIN') {
+    if (cleanPin === 'VIP2026') {
       setIsAuthenticated(true);
       localStorage.setItem('vip_admin_auth', 'true');
       localStorage.setItem('vip_admin_pin', cleanPin);

@@ -80,20 +80,22 @@
 ## 3. Estado Actual y Tareas Pendientes
 
 ### ✅ Estado Actual (21 de Octubre de 2026)
-- **Local (Docker):** Implementación Multi-Stand (Ford + Autos) 100% operativa y verificada en `localhost:5500–5504`.
-- **Producción:** Activa y estable en `https://autos.mvevip.com` con la versión single-stand (Autos).
-- **Rollback preparado:** Script `deploy/rollback_pre_ford.ps1` listo para restaurar instantáneamente en AWS si fuese necesario.
+- **Local (Docker):** Multi-Stand (Autos + Ford) operativo en `localhost:5500–5504`.
+- **Producción (verificado 21-oct con GET públicos a `autos.mvevip.com`):** el multi-stand Ford **ya está desplegado y en uso**.
+  - `/formulario2`, `/pantalla2` y `/admin/` responden 200; los bundles contienen `formulario2`, `STAND_02` y "Stand 2: FORD".
+  - `/api/prizes?stand=ford` devuelve premios Ford propios (ya editados desde el admin, distintos de la semilla 101–106 de la migración) y `/api/displays/config?stand=ford` tiene filas `ford_*` actualizadas el 17-oct. Es decir, la migración `002_stand_support.sql` ya se aplicó en RDS.
+  - El frontend publicado tiene fecha 17-oct, anterior al commit `178940d` (21-oct). No se pudo confirmar si el Lambda corresponde exactamente a ese commit; confirmar con quien desplegó.
+- **Rollback disponible:** `deploy/rollback_pre_ford.ps1` (restaura desde `s3://mvevip-recursos/marketingvip-roulette/backups/pre-ford`). Nota: el backup es de la versión single-stand; usarlo ahora retiraría Ford de producción.
+- **Seguridad:** se eliminó el PIN comodín `ADMIN` (API y frontends). El PIN válido es solo el configurado en `ADMIN_PIN` (por defecto `VIP2026`). Requiere despliegue para surtir efecto en producción.
 
 ### ⏳ Pendientes / Próximos Pasos
-1. **Sincronización Dual de Repositorios Git:**
-   - Configuración de `origin` para lectura desde repo empresa (`https://github.com/mvevip/mvevip-ruleta.git`) y push simultáneo a empresa + personal (`https://github.com/caloloc2/mvevip_ruleta.git`).
-2. **Integración Transaccional Brevo (API v3):**
-   - Plan técnico completado (`implementation_plan.md`).
-   - Pendiente entrega por parte del usuario de:
-     - `BREVO_API_KEY` (v3).
-     - ID de plantillas (`templateId` para Autos y Ford).
-     - Mapeo exacto de variables (`params`).
-     - Correo de prueba.
-3. **Despliegue a Producción de Multi-Stand (Stand Ford):**
-   - Requiere ejecución manual previa de migración SQL en RDS: `deploy/migrations/002_stand_support.sql`.
-   - Autorización explícita del usuario para ejecutar `deploy_aws.ps1`.
+1. **Confirmar versión desplegada** del Lambda/frontends vs `178940d` y, si difiere, desplegar (solo con orden explícita).
+2. **Desplegar el retiro del PIN `ADMIN`** (cambio en `authMiddleware.js`, `frontend-admin/src/App.jsx`, `frontend-screen/src/components/AdminModal.jsx`).
+3. **Sincronización Dual de Repositorios Git:** `origin` hoy apunta solo a `mvevip/mvevip-ruleta`; falta push simultáneo a `caloloc2/mvevip_ruleta`.
+4. **Integración Brevo (API v3):** sin código aún. Faltan `BREVO_API_KEY`, `templateId` (Autos y Ford), mapeo de `params` y correo de prueba.
+5. **Hardening restante:**
+   - CORS abierto (`AllowOrigins: ['*']` en `deploy/aws-infrastructure.yaml`).
+   - Sin AWS WAF en CloudFront.
+   - Verificar si RDS sigue con acceso público / Security Groups.
+   - PIN compartido: migrar a JWT + hash o Secrets Manager.
+6. **Higiene:** `deploy_aws.sh` desactualizado (us-east-1, sin admin ni Ford); `/api/health` devuelve 404; README describe solo el stand Autos; solo existe la migración 002 en `deploy/migrations/`.

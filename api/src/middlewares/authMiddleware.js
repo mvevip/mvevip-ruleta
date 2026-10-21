@@ -18,7 +18,7 @@ function requireAdminAuth(req, res, next) {
 
   const expectedPin = config.SECURITY.adminPin;
 
-  if (!providedPin || (providedPin !== expectedPin && providedPin !== 'ADMIN')) {
+  if (!providedPin || (providedPin !== expectedPin)) {
     return res.status(401).json({
       success: false,
       message: 'Acceso no autorizado. Se requiere PIN administrativo válido.'
