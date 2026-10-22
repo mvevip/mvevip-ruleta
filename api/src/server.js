@@ -17,6 +17,7 @@ const { globalLimiter } = require('./middlewares/rateLimiter');
 
 // Configuración de CORS restringida por entorno y dominio
 const allowedOrigins = config.SECURITY.allowedOrigins;
+const isProduction = config.NODE_ENV === 'production';
 
 const corsOptions = {
   origin: function (origin, callback) {
@@ -26,6 +27,8 @@ const corsOptions = {
       console.warn(`[CORS Security] Rechazada petición HTTP desde producción: ${origin}`);
       return callback(new Error('Petición desde producción bloqueada en servidor local'));
     }
+    // En producción solo los orígenes de ALLOWED_ORIGINS reciben cabeceras CORS (el navegador bloquea al resto)
+    if (isProduction && !allowedOrigins.includes(origin)) return callback(null, false);
     return callback(null, true);
   },
   credentials: true,
@@ -33,6 +36,19 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+
+// Producción: rechazar escrituras (POST/PUT/PATCH/DELETE) que declaren un Origin no permitido.
+// Sin cabecera Origin (curl, herramientas del servidor) se deja pasar: las rutas sensibles ya exigen PIN / rate limit.
+app.use((req, res, next) => {
+  if (isProduction && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+    const origin = req.headers.origin;
+    if (origin && !allowedOrigins.includes(origin)) {
+      console.warn(`[CORS Security] ${req.method} ${req.path} rechazado por origen no permitido: ${origin}`);
+      return res.status(403).json({ success: false, message: 'Origen no permitido.' });
+    }
+  }
+  next();
+});
 app.use(globalLimiter);
 
 app.use(express.json({ limit: '15mb' }));

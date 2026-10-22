@@ -179,7 +179,7 @@ Resources:
       Name: !Sub 'MarketingVIP-Roulette-HttpApi-${EnvironmentName}'
       ProtocolType: HTTP
       CorsConfiguration:
-        AllowOrigins: ['*']
+        AllowOrigins: ['https://autos.mvevip.com']
         AllowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
         AllowHeaders: ['*']
 
