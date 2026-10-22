@@ -1,24 +1,14 @@
 import React, { useMemo } from 'react';
 
-// Divide el nombre del premio en 1 o 2 líneas balanceadas
-function splitTextForSlice(name = '') {
-  const clean = name.trim().toUpperCase();
-  const words = clean.split(/\s+/).filter(Boolean);
-  if (words.length <= 1 || clean.length <= 9) return [clean];
-  if (words.length === 2) return [words[0], words[1]];
-
-  let bestSplit = [words.slice(0, Math.ceil(words.length / 2)).join(' '), words.slice(Math.ceil(words.length / 2)).join(' ')];
-  let minMaxLen = Infinity;
-  for (let i = 1; i < words.length; i++) {
-    const l1 = words.slice(0, i).join(' ');
-    const l2 = words.slice(i).join(' ');
-    const maxLen = Math.max(l1.length, l2.length);
-    if (maxLen < minMaxLen) {
-      minMaxLen = maxLen;
-      bestSplit = [l1, l2];
-    }
+// Todas las particiones de las palabras en `n` líneas (cortes entre palabras)
+function splitsInto(words, n) {
+  if (n === 1) return [[words.join(' ')]];
+  const out = [];
+  for (let i = 1; i <= words.length - (n - 1); i++) {
+    const head = words.slice(0, i).join(' ');
+    splitsInto(words.slice(i), n - 1).forEach((rest) => out.push([head, ...rest]));
   }
-  return bestSplit;
+  return out;
 }
 
 const SIZE = 680;
@@ -34,6 +24,7 @@ const SPIN_MS = 8000;
 export default function MailWheel({ prizes = [], rotationAngle = 0, isSpinning = false }) {
   const totalSlices = prizes.length || 6;
   const sliceAngle = 360 / totalSlices;
+  const textRadius = RADIUS * 0.66;
 
   const slices = useMemo(() => prizes.map((prize, index) => {
     const startAngle = index * sliceAngle - 90;
@@ -49,27 +40,45 @@ export default function MailWheel({ prizes = [], rotationAngle = 0, isSpinning =
 
     const midAngle = startAngle + sliceAngle / 2;
     const midRad = (midAngle * Math.PI) / 180;
-    const textRadius = RADIUS * 0.68;
-    const textX = CENTER + textRadius * Math.cos(midRad);
-    const textY = CENTER + textRadius * Math.sin(midRad);
 
-    const textLines = splitTextForSlice(prize.name);
-    const maxLineLength = Math.max(...textLines.map((l) => l.length), 1);
-    const availableChord = 2 * textRadius * Math.sin(((sliceAngle / 2) * Math.PI) / 180) - 16;
+    // Orbitron 900 ocupa ~0.78em por carácter. Las líneas van de forma tangencial, apiladas hacia el
+    // centro: se prueba con 1, 2 y 3 líneas y se queda la partición que permita la letra más grande.
+    const words = prize.name.trim().toUpperCase().split(/\s+/).filter(Boolean);
+    const CHAR_W = 0.78;
+    const LINE_H = 1.15;
+    const MAX_FONT = 34;
+    const EDGE_MARGIN = 26; // separación del aro exterior y los tornillos
+    let best = { fontSize: 0, textLines: [words.join(' ')], centerR: textRadius };
 
-    // En un celular el SVG se reduce a ~55%: se parte de una letra grande y se limita al ancho seguro del gajo.
-    // Orbitron 900 ocupa ~0.78em por carácter (medido en render real), más ancho que el 0.64 de la pantalla ovalada.
-    const requested = textLines.length === 1 ? 34 : 29;
-    const maxSafe = Math.floor(availableChord / (maxLineLength * 0.78));
-    const fontSize = Math.max(12, Math.min(requested, maxSafe));
+    for (let n = 1; n <= Math.min(3, words.length); n++) {
+      splitsInto(words, n).forEach((lines) => {
+        const maxLen = Math.max(...lines.map((l) => l.length), 1);
+        let f = MAX_FONT;
+        let centerR = textRadius;
+        // El bloque se pega al borde (donde el gajo es más ancho); la línea más interna es la más estrecha
+        for (let k = 0; k < 4; k++) {
+          centerR = Math.min(RADIUS * 0.8, RADIUS - EDGE_MARGIN - ((n - 1) / 2 + 0.5) * LINE_H * f);
+          const innerR = centerR - ((n - 1) / 2) * LINE_H * f;
+          const chord = 2 * innerR * Math.sin(((sliceAngle / 2) * Math.PI) / 180) - 18;
+          f = Math.min(MAX_FONT, Math.floor(chord / (maxLen * CHAR_W)));
+        }
+        if (f > best.fontSize) best = { fontSize: f, textLines: lines, centerR };
+      });
+    }
 
-    return { ...prize, index, pathData, textX, textY, midAngle, textLines, fontSize };
-  }), [prizes, sliceAngle]);
+    const textX = CENTER + best.centerR * Math.cos(midRad);
+    const textY = CENTER + best.centerR * Math.sin(midRad);
+    const textLines = best.textLines;
+    const fontSize = Math.max(12, best.fontSize);
+    const firstDy = -((textLines.length - 1) / 2) * LINE_H;
+
+    return { ...prize, index, pathData, textX, textY, midAngle, textLines, fontSize, firstDy, lineH: LINE_H };
+  }), [prizes, sliceAngle, textRadius]);
 
   return (
-    <div className="relative w-full max-w-[380px] mx-auto select-none overflow-hidden pt-2">
+    <div className="relative w-full max-w-[380px] mx-auto select-none overflow-hidden pt-5">
       {/* Indicador selector */}
-      <div className="absolute left-1/2 -top-1 -translate-x-1/2 z-30 flex flex-col items-center drop-shadow-[0_3px_8px_rgba(220,38,38,0.7)]">
+      <div className="absolute left-1/2 top-0 -translate-x-1/2 z-30 flex flex-col items-center drop-shadow-[0_3px_8px_rgba(220,38,38,0.7)]">
         <div className="bg-gradient-to-b from-red-500 via-red-600 to-red-800 px-3 py-1 rounded-full border-2 border-red-400 flex items-center justify-center">
           <span className={`w-2.5 h-2.5 rounded-full bg-white ${isSpinning ? 'animate-ping' : ''}`} />
         </div>
@@ -77,7 +86,7 @@ export default function MailWheel({ prizes = [], rotationAngle = 0, isSpinning =
       </div>
 
       {/* Disco trasero */}
-      <div className="absolute inset-[2%] rounded-full border-4 border-zinc-700 bg-gradient-to-br from-zinc-800 via-zinc-900 to-black shadow-2xl" />
+      <div className="absolute left-[2%] right-[2%] top-[calc(1.25rem+2%)] aspect-square rounded-full border-4 border-zinc-700 bg-gradient-to-br from-zinc-800 via-zinc-900 to-black" />
 
       <div
         className="relative z-10 mt-2"
@@ -86,7 +95,7 @@ export default function MailWheel({ prizes = [], rotationAngle = 0, isSpinning =
           transition: `transform ${SPIN_MS}ms cubic-bezier(0.15, 0.99, 0.25, 1.0)`
         }}
       >
-        <svg viewBox={`0 0 ${SIZE} ${SIZE}`} className="w-full h-auto drop-shadow-2xl">
+        <svg viewBox={`0 0 ${SIZE} ${SIZE}`} className="w-full h-auto">
           <defs>
             <linearGradient id="mailRimChrome" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="#9CA3AF" />
@@ -128,14 +137,11 @@ export default function MailWheel({ prizes = [], rotationAngle = 0, isSpinning =
                     textAnchor="middle"
                     dominantBaseline="central"
                   >
-                    {slice.textLines.length === 1 ? (
-                      <tspan x={slice.textX} dy="0">{slice.textLines[0]}</tspan>
-                    ) : (
-                      <>
-                        <tspan x={slice.textX} dy="-0.65em">{slice.textLines[0]}</tspan>
-                        <tspan x={slice.textX} dy="1.3em">{slice.textLines[1]}</tspan>
-                      </>
-                    )}
+                    {slice.textLines.map((line, li) => (
+                      <tspan key={li} x={slice.textX} dy={li === 0 ? `${slice.firstDy}em` : `${slice.lineH}em`}>
+                        {line}
+                      </tspan>
+                    ))}
                   </text>
                 </g>
               </g>
