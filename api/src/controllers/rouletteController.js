@@ -16,7 +16,7 @@ const {
 } = require('../config/stands');
 const { getNextAppointment } = require('../services/appointment');
 const { normalizePrizeIcon } = require('../config/prizeIcons');
-const { normalizeEmailParam, verifyToken } = require('../services/mailLookup');
+const { normalizeEmailParam, isMailLinkAuthorized, findCrmClient, evaluateClient } = require('../services/mailLookup');
 
 // Stand 'autos' = comportamiento histórico; 'ford' = Formulario2/Pantalla2
 const DEFAULT_SCREEN_ID = process.env.NODE_ENV === 'production' ? 'STAND_01' : 'STAND_LOCAL';
@@ -184,7 +184,7 @@ function buildWhatsappUrl({ stand, name, ticketCode, prizeName, destination, alr
 
 // Procesar tiro de ruleta con validaciones estrictas y control de duplicados
 async function processSpin(req, res) {
-  const {
+  let {
     name,
     email: rawEmail,
     phone: rawPhone,
@@ -196,6 +196,39 @@ async function processSpin(req, res) {
   // screen_id validado contra lista blanca; el stand (autos/ford) se deriva siempre en servidor
   const screen_id = normalizeScreenId(rawScreenId, DEFAULT_SCREEN_ID);
   const stand = standFromScreenId(screen_id) || 'autos';
+
+  // Canal Correo con enlace de Brevo: vínculo con el cliente del CRM (clave de campaña vigente o token válido)
+  let crmEmail = null;
+  let crmMatch = null;
+  if (stand === 'mail' && req.body.crm_email) {
+    const candidate = normalizeEmailParam(String(req.body.crm_email));
+    if (candidate && isMailLinkAuthorized(candidate, { c: req.body.c, t: req.body.t })) {
+      crmEmail = candidate;
+      if (req.body.crm_flow === 'direct') {
+        // Flujo directo: los datos NO los envía el navegador; se leen del CRM en el servidor
+        let evaluation = null;
+        try {
+          const row = await findCrmClient(candidate);
+          evaluation = row ? evaluateClient(row, candidate) : null;
+        } catch (crmError) {
+          console.error('[Spin] Error consultando CRM:', crmError.code || crmError.message);
+        }
+        if (!evaluation || !evaluation.complete) {
+          return res.status(409).json({
+            success: false,
+            code: 'CRM_INCOMPLETE',
+            message: 'Por favor confirma tus datos para poder jugar.'
+          });
+        }
+        name = evaluation.data.name;
+        rawPhone = evaluation.data.phone;
+        rawEmail = evaluation.data.email;
+        crmMatch = 'direct';
+      } else {
+        crmMatch = req.body.crm_flow === 'corrected' ? 'corrected' : 'linked';
+      }
+    }
+  }
 
   // 1. Validar nombre
   if (!name || name.trim().length < 3) {
@@ -227,17 +260,6 @@ async function processSpin(req, res) {
 
   const isMail = stand === 'mail';
   const appointment = isMail ? getNextAppointment() : null;
-
-  // Canal Correo: vínculo con el cliente del CRM (solo si el token firmado del enlace es válido)
-  let crmEmail = null;
-  let crmMatch = null;
-  if (isMail && req.body.crm_email && req.body.t) {
-    const candidate = normalizeEmailParam(String(req.body.crm_email));
-    if (candidate && verifyToken(candidate, String(req.body.t).trim())) {
-      crmEmail = candidate;
-      crmMatch = ['direct', 'corrected'].includes(req.body.crm_flow) ? req.body.crm_flow : 'linked';
-    }
-  }
 
   const connection = await pool.getConnection();
   const mailLockName = isMail ? `mail_spin_${cleanPhone}` : null;

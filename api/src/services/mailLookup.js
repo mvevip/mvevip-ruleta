@@ -12,6 +12,47 @@ const { validateAndFormatEcuadorPhone, validateEmail } = require('./rouletteLogi
 const TOKEN_LENGTH = 16; // 16 hex = 64 bits de la firma HMAC-SHA256
 
 /**
+ * Claves de campaña: texto fijo que va en el enlace del correo (`&c=<clave>`) y que cualquier persona de
+ * Brevo puede reutilizar copiando la campaña, sin generar nada por contacto. Cada clave vence en una fecha.
+ * Se pueden redefinir sin tocar el código con la variable MAIL_CAMPAIGN_KEYS ("clave:AAAA-MM-DD,clave2:AAAA-MM-DD").
+ */
+const DEFAULT_CAMPAIGN_KEYS = [{ key: 'campana_cuotas', until: '2026-12-31T23:59:59-05:00' }];
+
+function loadCampaignKeys() {
+  const raw = process.env.MAIL_CAMPAIGN_KEYS;
+  if (!raw) return DEFAULT_CAMPAIGN_KEYS;
+  const parsed = raw.split(',').map((item) => {
+    const [key, day] = item.split(':').map((v) => (v || '').trim());
+    return key && /^\d{4}-\d{2}-\d{2}$/.test(day || '') ? { key, until: `${day}T23:59:59-05:00` } : null;
+  }).filter(Boolean);
+  return parsed.length > 0 ? parsed : DEFAULT_CAMPAIGN_KEYS;
+}
+
+function safeEqual(a, b) {
+  const ha = crypto.createHash('sha256').update(String(a)).digest();
+  const hb = crypto.createHash('sha256').update(String(b)).digest();
+  return crypto.timingSafeEqual(ha, hb);
+}
+
+function isCampaignKeyValid(candidate, now = new Date()) {
+  if (typeof candidate !== 'string' || candidate.length === 0 || candidate.length > 64) return false;
+  return loadCampaignKeys().some(({ key, until }) => safeEqual(candidate, key) && now <= new Date(until));
+}
+
+/** El enlace es válido si trae una clave de campaña vigente O el token firmado del correo. */
+function isMailLinkAuthorized(email, { c, t } = {}) {
+  return isCampaignKeyValid(typeof c === 'string' ? c.trim() : '') ||
+    verifyToken(email, typeof t === 'string' ? t.trim() : '');
+}
+
+/** "0991234567" -> "09******67" (nunca se devuelve el celular completo al navegador). */
+function maskPhone(raw) {
+  const digits = String(raw == null ? '' : raw).replace(/\D/g, '');
+  if (digits.length < 7) return '';
+  return digits.slice(0, 2) + '*'.repeat(digits.length - 4) + digits.slice(-2);
+}
+
+/**
  * Normaliza el correo recibido en la URL. Brevo inserta el valor sin codificar, así que un "+" llega como
  * espacio al decodificar la query: como un correo no puede llevar espacios, se restituye el "+".
  */
@@ -86,6 +127,7 @@ function evaluateClient(row, fallbackEmail) {
   return {
     complete: issues.length === 0,
     issues,
+    phoneHint: maskPhone(rawPhone),
     data: {
       name,
       // Si el celular es inválido se devuelve tal cual (solo dígitos) para que el cliente lo corrija
@@ -116,6 +158,9 @@ module.exports = {
   normalizeEmailParam,
   makeToken,
   verifyToken,
+  isMailLinkAuthorized,
+  isCampaignKeyValid,
+  maskPhone,
   composeName,
   findCrmClient,
   evaluateClient,

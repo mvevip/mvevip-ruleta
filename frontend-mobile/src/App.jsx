@@ -41,7 +41,7 @@ function getOrCreateDeviceId() {
   }
 }
 
-// Canal Correo desde el correo de Brevo: ?view=mail&correo=<email>&t=<token firmado>
+// Canal Correo desde el correo de Brevo: ?view=mail&correo=<email>&c=<clave de campaña> (o &t=<token firmado>)
 function readCrmParams() {
   try {
     const params = new URLSearchParams(window.location.search);
@@ -49,9 +49,10 @@ function readCrmParams() {
     // Brevo inserta el correo sin codificar: un "+" llega como espacio al decodificar la URL
     const email = raw.trim().replace(/ /g, '+').toLowerCase();
     const token = (params.get('t') || '').trim();
-    return { email, token };
+    const campaignKey = (params.get('c') || '').trim();
+    return { email, token, campaignKey };
   } catch (e) {
-    return { email: '', token: '' };
+    return { email: '', token: '', campaignKey: '' };
   }
 }
 
@@ -59,7 +60,7 @@ function readCrmParams() {
 function stripCrmParamsFromUrl() {
   try {
     const url = new URL(window.location.href);
-    ['correo', 'email', 't'].forEach((k) => url.searchParams.delete(k));
+    ['correo', 'email', 't', 'c'].forEach((k) => url.searchParams.delete(k));
     window.history.replaceState({}, '', url.pathname + url.search + url.hash);
   } catch (e) {
     // sin efecto
@@ -93,11 +94,12 @@ export default function App() {
   // Canal Correo con enlace de Brevo: búsqueda del cliente en el CRM antes de mostrar nada
   const crmParamsRef = useRef(null);
   if (crmParamsRef.current === null) {
-    crmParamsRef.current = brand.isMail ? readCrmParams() : { email: '', token: '' };
+    crmParamsRef.current = brand.isMail ? readCrmParams() : { email: '', token: '', campaignKey: '' };
   }
   const [bootstrapping, setBootstrapping] = useState(Boolean(crmParamsRef.current.email));
   const [crmFlow, setCrmFlow] = useState(null); // 'direct' (pasó directo) | 'corrected' (corrigió datos) | null (enlace abierto)
-  const crmCtxRef = useRef(null); // { email, token, flow }
+  const crmCtxRef = useRef(null); // { email, token, campaignKey, flow }
+  const [crmPhoneHint, setCrmPhoneHint] = useState(''); // celular enmascarado del CRM (nunca el completo)
   const lookupStartedRef = useRef(false);
 
   // Canal Correo: ruleta propia en el celular
@@ -340,13 +342,14 @@ export default function App() {
   };
 
   // Paso 2: Dispara el giro de la ruleta hacia el stand
-  const handleStartSpin = async (dataOverride) => {
+  const handleStartSpin = async () => {
     if (isSubmitting) return;
 
-    // Los datos pueden venir de la búsqueda en el CRM (el estado de React aún no los refleja)
-    const data = dataOverride && typeof dataOverride.phone === 'string' ? dataOverride : formData;
+    // Flujo directo desde el correo: los datos los lee el servidor del CRM; el navegador no los envía ni los tiene
+    const isDirect = Boolean(crmCtxRef.current && crmCtxRef.current.flow === 'direct');
+    const data = formData;
 
-    if (!validate(data)) {
+    if (!isDirect && !validate(data)) {
       setGameState('FORM');
       setApiError('Por favor revisa los campos obligatorios en rojo.');
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -354,7 +357,7 @@ export default function App() {
     }
     
     // Si hay llave de Turnstile configurada pero aún no se ha obtenido el token
-    if (import.meta.env.VITE_TURNSTILE_SITE_KEY && !turnstileToken) {
+    if (!isDirect && import.meta.env.VITE_TURNSTILE_SITE_KEY && !turnstileToken) {
       setGameState('FORM');
       setApiError('Por favor verifica el comprobante anti-bot antes de continuar.');
       return;
@@ -368,12 +371,17 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...data,
+          ...(isDirect ? {} : data),
           screen_id: screenId,
           device_id: deviceIdRef.current,
           turnstile_token: turnstileToken || 'BYPASS_DEV',
           ...(crmCtxRef.current
-            ? { crm_email: crmCtxRef.current.email, t: crmCtxRef.current.token, crm_flow: crmCtxRef.current.flow }
+            ? {
+                crm_email: crmCtxRef.current.email,
+                c: crmCtxRef.current.campaignKey,
+                t: crmCtxRef.current.token,
+                crm_flow: crmCtxRef.current.flow
+              }
             : {})
         })
       });
@@ -381,6 +389,11 @@ export default function App() {
       const json = await response.json();
 
       if (!response.ok || !json.success) {
+        // Los datos del CRM cambiaron o ya no están completos: se pide al cliente que los confirme en el formulario
+        if (json.code === 'CRM_INCOMPLETE' && crmCtxRef.current) {
+          crmCtxRef.current.flow = 'corrected';
+          setCrmFlow('corrected');
+        }
         throw new Error(json.message || 'Error al procesar el tiro');
       }
 
@@ -445,39 +458,50 @@ export default function App() {
   useEffect(() => {
     if (!brand.isMail || !crmParamsRef.current.email || lookupStartedRef.current) return;
     lookupStartedRef.current = true;
-    const { email, token } = crmParamsRef.current;
+    const { email, token, campaignKey } = crmParamsRef.current;
     stripCrmParamsFromUrl();
+
+    // El correo del enlace se prellena siempre (ya lo tiene el navegador, no revela nada)
+    const urlEmailOk = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email);
+    const prefillEmail = () => {
+      if (urlEmailOk) setFormData((prev) => ({ ...prev, email }));
+    };
 
     (async () => {
       try {
-        const res = await fetch(`${API_URL}/api/mail/lookup?correo=${encodeURIComponent(email)}&t=${encodeURIComponent(token)}`);
+        const qs = `correo=${encodeURIComponent(email)}&c=${encodeURIComponent(campaignKey)}&t=${encodeURIComponent(token)}`;
+        const res = await fetch(`${API_URL}/api/mail/lookup?${qs}`);
         const json = await res.json();
 
-        // No encontrado (o token no válido): formulario normal; el correo se prellena solo si el enlace es auténtico
+        // No encontrado o enlace sin credencial válida: formulario normal con el correo prellenado
         if (!json.success || !json.found) {
-          if (json.email) setFormData((prev) => ({ ...prev, email: json.email }));
+          prefillEmail();
           return;
         }
 
         const d = json.data;
-        const next = { name: d.name, phone: d.phone, email: d.email, accept_privacy: true, dream_destination: '' };
-        setFormData(next);
-        crmCtxRef.current = { email: json.email, token, flow: json.complete ? 'direct' : 'corrected' };
+        crmCtxRef.current = { email: json.email, token, campaignKey, flow: json.complete ? 'direct' : 'corrected' };
         setCrmFlow(json.complete ? 'direct' : 'corrected');
+        setCrmPhoneHint(d.phoneHint || '');
+        // El celular nunca llega al navegador: queda vacío (se muestra enmascarado como ayuda)
+        setFormData({ name: d.name, phone: '', email: d.email, accept_privacy: true, dream_destination: '' });
 
         if (json.complete) {
           // Datos completos y válidos: directo a la ruleta (o a su premio si ya participó)
           setGameState('READY_TO_SPIN');
-          if (json.alreadyPlayed) await handleStartSpin(next);
+          if (json.alreadyPlayed) await handleStartSpin();
         } else {
           // Datos incompletos o inválidos: formulario prellenado con los campos a corregir marcados
-          validate(next);
-          if ((json.issues || []).includes('name')) {
-            setErrors((prev) => ({ ...prev, name: prev.name || 'Por favor ingresa tu nombre y apellido completos.' }));
-          }
+          const issues = json.issues || [];
+          const newErrors = {};
+          if (issues.includes('name')) newErrors.name = 'Por favor ingresa tu nombre y apellido completos.';
+          if (issues.includes('phone')) newErrors.phone = 'Ingresa un número de celular de Ecuador válido (10 dígitos iniciando con 09, ej: 0991234567).';
+          if (issues.includes('email')) newErrors.email = 'Ingresa un correo electrónico válido (ej: usuario@gmail.com).';
+          setErrors(newErrors);
         }
       } catch (e) {
         // Sin conexión con la búsqueda: formulario normal
+        prefillEmail();
       } finally {
         setBootstrapping(false);
       }
@@ -525,7 +549,7 @@ export default function App() {
             {brand.isMail && crmFlow === 'corrected' && (
               <div className="w-full mb-3 p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-800 text-xs flex items-center gap-2">
                 <Info className="w-4 h-4 text-amber-600 shrink-0" />
-                <span>Encontramos tus datos. Revisa y confirma los campos marcados para poder jugar.</span>
+                <span>Encontramos tus datos. Por seguridad, vuelve a escribir tu celular y revisa los campos marcados.</span>
               </div>
             )}
             {apiError && (
@@ -541,6 +565,7 @@ export default function App() {
               errors={errors}
               destinations={destinations}
               hideDestinations={brand.isFord || brand.isMail}
+              phoneHint={crmPhoneHint}
               {...(brand.isMail ? { title: 'Completa tus datos', subtitle: 'Regístrate para girar la ruleta y descubrir tu premio' } : {})}
             />
 

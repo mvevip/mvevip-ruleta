@@ -10,7 +10,7 @@ const DESTINATIONS = [
   '☀️ Miami Beach'
 ];
 
-export default function LeadForm({ formData, onChange, errors = {}, destinations = [], hideDestinations = false, title = 'Registro de Piloto', subtitle = 'Ingresa tus datos para activar la ruleta y ganar premios exclusivos' }) {
+export default function LeadForm({ formData, onChange, errors = {}, destinations = [], hideDestinations = false, phoneHint = '', title = 'Registro de Piloto', subtitle = 'Ingresa tus datos para activar la ruleta y ganar premios exclusivos' }) {
   const handlePhoneChange = (e) => {
     let raw = e.target.value;
     let clean = raw.replace(/\D/g, '');
@@ -88,7 +88,11 @@ export default function LeadForm({ formData, onChange, errors = {}, destinations
         {errors.phone ? (
           <p className="text-red-500 text-xs mt-1">{errors.phone}</p>
         ) : (
-          <p className="text-[11px] text-zinc-500 mt-1 font-medium">10 dígitos iniciando con 09 (sin código de país)</p>
+          <p className="text-[11px] text-zinc-500 mt-1 font-medium">
+            {phoneHint
+              ? `Celular registrado: ${phoneHint}. Escríbelo completo (10 dígitos iniciando con 09).`
+              : '10 dígitos iniciando con 09 (sin código de país)'}
+          </p>
         )}
       </div>
 
