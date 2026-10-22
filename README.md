@@ -5,6 +5,8 @@
 > **Campaña:** Gran Premio Feria del Automóvil 2026  
 > **Subdominio de Producción:** [https://autos.mvevip.com](https://autos.mvevip.com)
 
+> **Estado vigente, decisiones, procedimientos de despliegue y pendientes:** ver [MEMORIA.md](MEMORIA.md). Esta guía describe la arquitectura base y puede estar desactualizada en detalles (canal Correo `/?view=mail`, stand Ford `/formulario2` y `/pantalla2`, CORS, número de WhatsApp, PIN del admin).
+
 Plataforma interactiva de captación de leads de alto impacto diseñada para stands de ferias automotrices y eventos comerciales. Sincroniza en tiempo real la pantalla gigante del stand con los teléfonos inteligentes de los visitantes y asesores de venta.
 
 ---
@@ -68,6 +70,8 @@ El proyecto opera bajo dos modalidades totalmente desacopladas:
 | :--- | :--- | :--- |
 | **`https://autos.mvevip.com/`** | `frontend-mobile` | **PWA de Clientes:** Se abre al escanear el QR en el stand. Formulario y botón rojo *ENGINE START*. |
 | **`https://autos.mvevip.com/pantalla`** | `frontend-screen` | **Pantalla Stand:** Ruleta de aleación, odómetro dinámico y QR para escanear. |
+| **`https://autos.mvevip.com/formulario2`** y **`/pantalla2`** | `frontend-mobile` / `frontend-screen` | **Stand Ford (Quito Motors):** formulario y pantalla propios. |
+| **`https://autos.mvevip.com/?view=mail`** | `frontend-mobile` | **Campaña por correo (Brevo):** formulario + ruleta con íconos en el celular del cliente; enlace personalizado `&correo=…&c=<clave>`. |
 | **`https://autos.mvevip.com/admin`** | `frontend-admin` | **PWA Asesores:** Control de premios, leads y canjes (PIN `VIP2026`). |
 | **`https://autos.mvevip.com/api/*`** | Backend Lambda | API REST (`/api/leads`, `/api/prizes`, `/api/spin`, `/api/stats`, `/health`). |
 

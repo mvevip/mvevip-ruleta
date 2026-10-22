@@ -1,5 +1,5 @@
-# MEMORIA DEL PROYECTO: MARKETING VIP - RULETA DE FERIA
-**Última actualización:** 21 de Octubre de 2026  
+# MEMORIA DEL PROYECTO: MARKETING VIP - RULETA DE FERIA Y CAMPAÑA POR CORREO
+**Última actualización:** 22 de Octubre de 2026 (cierre de sesión)  
 **Dominio de Producción:** [https://autos.mvevip.com](https://autos.mvevip.com)  
 **Infraestructura:** AWS 100% Serverless (CloudFront `d16kuftm1n5423.cloudfront.net` + S3 + API Gateway + Lambda + RDS MySQL)
 **Repositorios:**
@@ -68,7 +68,7 @@ Para clientes con cuotas pendientes (~500 emails). Juegan desde su celular o PC,
 3. **Canal aislado (`stand = mail`, `screen_id = MAIL_01`):** catálogo de premios y stock propios; sin cola, sin sockets, sin `TRIGGER_SPIN`, sin ping a pantallas (verificado: un giro de correo no emite nada a las salas de Autos/Ford). El móvil en modo mail no abre socket ni llama `screen/activity`.
 4. **1 participación en este canal;** no cuenta lo jugado en los stands (y viceversa). Doble clic/pestañas simultáneas se serializan con `GET_LOCK` por celular; el stock de premios se bloquea con `FOR UPDATE`.
 5. **Admin:** nueva pestaña `📧 CORREO` (premios, leads, métricas). Sin pestaña Pantallas para este canal. Se corrigió además un bug en Métricas (`byStand.autos/ford` eran objetos renderizados como texto).
-6. **Quién puede jugar:** por ahora cualquiera con el enlace (decisión del usuario); límites: Turnstile (verificar si está activo en prod), rate limit 12 giros/min por IP.
+6. **Quién puede jugar:** cualquiera con el enlace abierto (`/?view=mail`), o el enlace personalizado del correo de Brevo (ver puntos 11–13). Protecciones: rate limit 12 giros/min por IP; Turnstile NO está activo (ver sección 5).
 7. **Diseño de marketing + íconos (22-oct-2026, DESPLEGADO en producción; migración 004 ejecutada por el usuario):** el canal usa la cabecera de campaña (`frontend-mobile/public/mail-hero.jpg`, recorte del arte de marketing), fondo tropical en CSS (`.mail-shell`), ruleta navy/lima con **íconos de viaje en lugar de texto**, panel de 3 pasos y botón "JUGAR Y GANAR". Los íconos se eligen por premio en Admin > CORREO (selector de 40 íconos; llaves en `api/src/config/prizeIcons.js`, mismas en `frontend-*/src/utils/prizeIcons.js`). Premio sin ícono = se dibuja su nombre en texto. Requiere `deploy/migrations/004_prize_icons.sql` (columna `prizes.icon`) ejecutada en RDS ANTES de desplegar el código. Pendiente que marketing entregue el fondo limpio (sin ruleta/UI) para reemplazar el degradado CSS.
 8. **Ajuste "sin scroll" (22-oct-2026, DESPLEGADO en producción; backup previo `backups/pre-center-button/`, rollback `deploy/rollback_pre_mail.sh pre-center-button`):** en el paso de la ruleta el botón JUGAR Y GANAR va en el centro de la ruleta (rojo metálico, anillos pulsantes, ámbar "GIRANDO"); se quitó el botón inferior y el mensaje "Cuando estés listo…". La pantalla ocupa `100dvh` sin scroll: la ruleta mide el espacio libre (`ResizeObserver`) y la cabecera se recorta por arriba en pantallas bajas. Verificado sin scroll ni recortes en 390×844, 360×740, 375×667, 360×640, 412×915 y 320×568. Solo frontend móvil, sin migración.
 9. **Pase del premio compacto (22-oct-2026, DESPLEGADO; backup previo `backups/pre-voucher/`, rollback `deploy/rollback_pre_mail.sh pre-voucher`):** en el canal Correo se quitó el trofeo y "¡Felicitaciones! ¡Ganaste!"; la cita dice "Tu cita para canjear el premio". La pantalla del premio no genera scroll (verificado en 390×844, 390×700, 360×740, 375×667, 360×640, 412×915 y 320×568; descripción del premio, nota inferior y aviso de "ya participaste" solo se muestran en pantallas altas).
@@ -96,32 +96,69 @@ Para clientes con cuotas pendientes (~500 emails). Juegan desde su celular o PC,
 
 ---
 
-## 3. Estado Actual y Tareas Pendientes
+## 3. Estado Actual (22 de Octubre de 2026)
 
-### ✅ Estado Actual (21 de Octubre de 2026)
-- **Local (Docker):** Multi-Stand (Autos + Ford) operativo en `localhost:5500–5504`.
-- **Producción (verificado 21-oct con GET públicos a `autos.mvevip.com`):** el multi-stand Ford **ya está desplegado y en uso**.
-  - `/formulario2`, `/pantalla2` y `/admin/` responden 200; los bundles contienen `formulario2`, `STAND_02` y "Stand 2: FORD".
-  - `/api/prizes?stand=ford` devuelve premios Ford propios (ya editados desde el admin, distintos de la semilla 101–106 de la migración) y `/api/displays/config?stand=ford` tiene filas `ford_*` actualizadas el 17-oct. Es decir, la migración `002_stand_support.sql` ya se aplicó en RDS.
-  - El frontend publicado tiene fecha 17-oct, anterior al commit `178940d` (21-oct). No se pudo confirmar si el Lambda corresponde exactamente a ese commit; confirmar con quien desplegó.
-- **Rollback disponible:** `deploy/rollback_pre_ford.ps1` (restaura desde `s3://mvevip-recursos/marketingvip-roulette/backups/pre-ford`). Nota: el backup es de la versión single-stand; usarlo ahora retiraría Ford de producción.
-- **Seguridad:** se eliminó el PIN comodín `ADMIN` (API y frontends). El PIN válido es solo el configurado en `ADMIN_PIN` (por defecto `VIP2026`). Requiere despliegue para surtir efecto en producción.
+**Todo lo descrito en la sección 2 está DESPLEGADO en producción** (`https://autos.mvevip.com`) y probado por el usuario con envíos reales de prueba: multi-stand Ford, canal Correo con ruleta de íconos, enlace personalizado de Brevo con consulta al CRM, CORS restringido, número de WhatsApp nuevo (`593987933325`) y retiro del PIN comodín `ADMIN`. La rama `claude/upbeat-faraday-gtjq65` coincide con producción (último código desplegado: commit `55c9f56`; después solo documentación).
 
-### ⏳ Pendientes / Próximos Pasos
-0. **Canal Correo desplegado (21-oct-2026, 23:12 UTC):**
-   - Migración `003_mail_stand.sql` ejecutada por el usuario en RDS (6 premios `mail`, ids 107–112, copiados de Autos).
-   - Lambda `MarketingVIP-Roulette-Api-prod` actualizado (sha `qe+1hwnb…`), frontends sincronizados a S3 y CloudFront invalidado. NO se ejecutó `cloudformation deploy` (sin cambios de infraestructura).
-   - **Incluye el retiro del PIN comodín `ADMIN`** (verificado: 401 en producción).
-   - Backup previo: `s3://mvevip-recursos/marketingvip-roulette/backups/pre-mail/` (api.zip + frontend + INFO.txt). Rollback: `deploy/rollback_pre_mail.sh` (no toca la BD).
-   - **Antes de enviar la campaña:** revisar premios en Admin > CORREO ("Proceso de Visado EEUU GRATIS" tiene stock 0 y se dibuja igual en la ruleta; ajustar o desactivar), hacer una prueba real con un usuario de prueba, y enviar en tandas.
-   - **22-oct:** desplegada la ruleta con íconos + diseño de marketing (Lambda sha `2EfKitp6…`, frontends móvil y admin). Backup previo: `backups/pre-icons/`; rollback: `deploy/rollback_pre_mail.sh pre-icons` (el default `pre-mail` quita también el canal Correo).
-   - **Hallazgo:** Cloudflare Turnstile NO está activo en producción (el bundle se compiló sin `VITE_TURNSTILE_SITE_KEY`; el formulario envía `BYPASS_DEV`). La protección anti-bot real es solo el rate limit.
-1. ~~Confirmar versión desplegada / desplegar PIN ADMIN~~ — resuelto con el despliegue del 21-oct (Lambda y frontends ahora salen de la rama actual).
-3. **Sincronización Dual de Repositorios Git:** `origin` hoy apunta solo a `mvevip/mvevip-ruleta`; falta push simultáneo a `caloloc2/mvevip_ruleta`.
-4. **Integración Brevo (API v3):** sin código aún. Faltan `BREVO_API_KEY`, `templateId` (Autos y Ford), mapeo de `params` y correo de prueba.
-5. **Hardening restante:**
-   - ~~CORS abierto~~ — resuelto el 22-oct (ver A2.10).
-   - Sin AWS WAF en CloudFront.
-   - Verificar si RDS sigue con acceso público / Security Groups.
-   - PIN compartido: migrar a JWT + hash o Secrets Manager.
-6. **Higiene:** `deploy_aws.sh` desactualizado (us-east-1, sin admin ni Ford); `/api/health` devuelve 404; README describe solo el stand Autos; solo existe la migración 002 en `deploy/migrations/`.
+### Migraciones de base de datos (las ejecuta SIEMPRE el usuario en RDS; la IA nunca toca la BD)
+| Migración | Contenido | Estado |
+|---|---|---|
+| `002_stand_support.sql` | Multi-stand (columna `stand`, premios Ford, configs) | Aplicada |
+| `003_mail_stand.sql` | Premios del canal `mail` (copia del catálogo de Autos) | Aplicada (21-oct) |
+| `004_prize_icons.sql` | Columna `prizes.icon` + íconos sugeridos | Aplicada (22-oct) |
+| `005_leads_crm_link.sql` | `leads.crm_email`, `leads.crm_match` + índice | Aplicada (22-oct) |
+
+### Infraestructura (datos de referencia)
+- Cuenta AWS `021891594659`, región `us-west-2`; el entorno de la IA usa credenciales inyectadas (usuario IAM `admin-cli`); AWS CLI instalada con `pip install awscli`.
+- Stack CloudFormation `MarketingVIP-Roulette-Stack` (NO se ejecuta `cloudformation deploy` en los despliegues normales: exige secretos que no están en el repo y reescribiría la config del Lambda).
+- CloudFront `E1ZMRVAW1NYIDC` (`/api/*` con política `CachingDisabled`; sin páginas de error personalizadas; **sin WAF**). API Gateway HTTP API `s2pr0nlyce`. Lambda `MarketingVIP-Roulette-Api-prod` (nodejs20.x, 512 MB, 30 s, fuera de VPC, usa el usuario maestro `admin` de RDS).
+- Buckets: frontends `marketingvip-autos-frontend-021891594659-us-west-2`; artefactos y backups `mvevip-recursos/marketingvip-roulette/`.
+- Variables del Lambda (solo nombres): `ADMIN_PIN, ALLOWED_ORIGINS, COMPANY_NAME, COMPANY_SLOGAN, DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER, NODE_ENV, TURNSTILE_SECRET_KEY (vacía), WHATSAPP_NUMBER`. Para cambiar una variable: leer la config actual, modificar solo esa clave y reenviar el conjunto completo (archivo temporal con permisos 600 que se borra; nunca imprimir secretos) y verificar que las demás no cambiaron.
+- La cuenta tiene otras 11 distribuciones CloudFront; 4 (`cotiza`, `trip`, `quala`, `tarjetas`) ya usan un Web ACL propio "CreatedByCloudFront-…" con 3 reglas gestionadas de AWS (IP Reputation, Common, KnownBadInputs).
+
+### Backups y rollback (`s3://mvevip-recursos/marketingvip-roulette/backups/<nombre>/`)
+`pre-ford`, `pre-mail`, `pre-icons`, `pre-center-button`, `pre-voucher`, `pre-cors` (incluye `apigw-cors-before.json`), `pre-crm-lookup`, `pre-wa-number`.
+Rollback de código y frontend: `deploy/rollback_pre_mail.sh <nombre>` (por defecto `pre-mail`, que quita también el canal Correo; usar el backup más reciente que corresponda). **No revierte** la BD, la config CORS del API Gateway ni las variables del Lambda (cada una tiene su propio rollback anotado en la sección 2: CORS en A2.10, WhatsApp en A2.14).
+
+### Procedimiento de despliegue estándar (solo con orden explícita del usuario)
+1. Backup: copiar `api.zip` actual y sincronizar el bucket de frontends a `backups/<nombre>/` + `INFO.txt`; comparar nº de objetos y tamaño.
+2. Backend: copiar `src`, `package*.json` a una carpeta limpia, `npm ci --omit=dev`, `zip -r api.zip src node_modules package.json`; probar la carga con `timeout` (`lambda.js` levanta el servidor si el puerto está libre y cuelga la prueba sin timeout); subir a `mvevip-recursos/marketingvip-roulette/api.zip`, `aws lambda update-function-code` y `aws lambda wait function-updated`.
+3. Frontends: compilar con `VITE_WS_URL= VITE_API_URL= VITE_MOBILE_URL= VITE_SCREEN_URL= VITE_ADMIN_URL=` vacías y `VITE_BASE_PATH=/pantalla/` o `/admin/` (móvil en `/`). Sin `VITE_TURNSTILE_SITE_KEY` (hoy así está producción).
+4. Subida: `aws s3 sync dist s3://<bucket>/ --delete` primero con `--dryrun`; el móvil (raíz) con `--exclude "pantalla/*" --exclude "admin/*"` para no borrar las otras apps.
+5. `aws cloudfront create-invalidation --paths "/*"` y esperar con `aws cloudfront wait invalidation-completed`.
+6. Verificar: rutas `/`, `/?view=mail`, `/formulario2`, `/pantalla`, `/pantalla2`, `/admin/`, `/api/prizes?stand=…`; PIN `ADMIN` = 401; pruebas con navegador (Playwright + Chromium preinstalado) SIN hacer giros reales (crean leads y descuentan stock). Los giros de verificación los hace el usuario con un usuario de prueba del admin.
+7. Registrar en esta memoria y hacer commit/push.
+
+### Pruebas locales (referencia)
+MariaDB local con `deploy/init_db.sql`; esquema simulado del CRM en `deploy/tools/local_mve_schema.sql`; API con `NODE_ENV=development DB_HOST=127.0.0.1 MAIL_TOKEN_SECRET=<prueba>`; frontends con `vite preview` (puertos 5503 móvil, 5504 admin). Casos probados: flujo directo, datos inválidos, apellido NULL, correo con `+`, no encontrado, clave incorrecta/vencida, ya participó, doble participación cambiando datos, scroll en 7 tamaños de celular. Notas operativas: `sleep` largo en primer plano está bloqueado; no usar `pkill -f` con un patrón que aparezca en la propia línea de comandos (mata el shell).
+
+## 4. Decisiones del usuario (vigentes)
+- Todo desarrollo local; despliegue solo con orden explícita ("despliega"); la IA no modifica la BD (entrega scripts SQL) ni escribe en el CRM.
+- Enlace de la campaña de Brevo: `https://autos.mvevip.com/?view=mail&correo={{ contact.EMAIL }}&c=campana_cuotas` (clave fija hasta fin de 2026; mejora de seguridad pospuesta). Mismo enlace en el botón "DESCUBRIR MI PREMIO" y en la imagen "QUIERO GANAR AHORA".
+- Datos corregidos por el cliente: solo se guardan en la BD de la ruleta (no en `mve.mve_clientes`).
+- Quien ya participó ve directo su premio y su cita. Cita siempre el próximo sábado 10:00 am (hora Ecuador). Un solo número de WhatsApp para todos los canales.
+- Premios del canal Correo con catálogo y stock propios (administrables en Admin > CORREO).
+
+## 5. Hallazgos de seguridad y estado
+| Tema | Estado |
+|---|---|
+| PIN del admin | **Débil**: 7 caracteres, `VIP2026` escrito en texto plano en el JS público del admin (verificado), valor por defecto `|| 'VIP2026'` en el frontend, y comprobación similar en el modal de admin de `frontend-screen`. El límite de intentos es en memoria por contenedor (no compartido). |
+| Turnstile | **Inactivo**: `TURNSTILE_SECRET_KEY` vacía y bundle sin site key. Además `turnstileMiddleware.js` deja pasar en 4 casos (sin clave, token vacío o `BYPASS_*`, `invalid-input-response`, error de red): hay que reescribirlo para que sea efectivo. El script de Turnstile ya se carga desde `index.html`. |
+| WAF | Sin Web ACL en `autos`. Plan analizado (ver pendientes). |
+| CORS | Restringido a `https://autos.mvevip.com` (API Gateway + guard de `Origin` en el Lambda). |
+| Clave de campaña | `campana_cuotas` es previsible y viaja en cada correo. El celular nunca llega al navegador (solo enmascarado). |
+| RDS / usuario de BD | RDS accesible públicamente y Lambda con usuario maestro `admin`: pendiente de arquitectura (usuario de mínimo privilegio; VPC). |
+
+## 6. Pendientes / Próximos pasos (priorizados)
+1. **PIN del admin + Turnstile (aprobados para empezar, plan detallado, sin implementar):**
+   - *PIN:* clave aleatoria de 12 caracteres (se entrega una vez en el chat) en `ADMIN_PIN`; `POST /api/admin/login` valida en servidor y devuelve token de sesión firmado de 12 h (nueva variable `ADMIN_SESSION_SECRET`); el servidor acepta solo el token (se elimina el PIN en cabeceras); quitar `VIP2026` y el valor por defecto de `frontend-admin` y `frontend-screen/AdminModal`; login limitado a 5 intentos/10 min por IP + pausa de 1 s en fallos. Los asesores deberán iniciar sesión con la clave nueva. Backup previo y rollback.
+   - *Turnstile:* el usuario crea el widget gratis en Cloudflare (dominio `autos.mvevip.com`, modo Managed) y entrega site key y secret key. Servidor estricto (exigir token válido y hostname correcto, rechazar `BYPASS_*`; si Cloudflare no responde, permitir y registrar), variable `TURNSTILE_MODE` (`monitor` = solo registra, `enforce` = bloquea; vaciar la clave lo apaga). Frontend: widget también en la pantalla de la ruleta del flujo directo, con refresco automático (el token dura 5 min y es de un solo uso); site key incrustada al compilar. Desplegar primero en `monitor` y pasar a `enforce` tras revisar registros. Pruebas con las claves de prueba de Cloudflare. Riesgo a vigilar: navegadores internos de WhatsApp/Instagram.
+2. **WAF en CloudFront (decisión pendiente del usuario):** Web ACL propio para `autos` en us-east-1 con reglas gestionadas (IP Reputation, Known Bad Inputs, Common Rule Set con `SizeRestrictions_BODY` en Count o excepción para la subida de imágenes del slider en `/api/admin/displays/slider-images`) y límites por IP solo en `POST /api/spin`, `/api/admin/*` (+canje/leads) y `/api/mail/lookup`; todo en modo Count primero, pasar a bloqueo tras 2–3 días de datos incluida la campaña. Costo estimado ~US$11/mes + peticiones (~400 mil en 14 días). No aplicar límites generales por IP (pantallas de stand consultan cada segundo desde una IP compartida). Añadir `WebACLId` a la plantilla de CloudFormation (si no, el próximo `deploy_aws.ps1` lo desasocia). Evitar logs completos (contienen PIN y correos) o redactarlos. No cambiar infraestructura durante el envío de correos.
+3. **ChatRace:** bloque "FLUJO 0 — Premio de la ruleta" listo en `docs/chatrace_flujo0_ruleta.md` para pegar antes de FLUJO 1. Pendiente del usuario: pegarlo, actualizar la FECHA ACTUAL del prompt (dice 01-sep-2026), verificar campos/formatos de `agenda_citas_paquetes_vuelos` y que el asesor reciba premio y código; probar con premio de visado y de "Segundo destino". Opcional (a pedido): marca fija en el mensaje de WhatsApp y elegir ciudad en la página del premio.
+4. **Premios del canal Correo:** "Proceso de Visado EEUU GRATIS" tiene stock 0 y peso 1 pero se dibuja en la ruleta; ajustar o desactivar en Admin > CORREO. Revisar nombres largos (se leen pequeños) — ahora la ruleta usa íconos.
+5. **Fondo limpio de marketing** (sin ruleta ni botones) para reemplazar el degradado CSS; hoy solo se usa un recorte de la cabecera del arte (`mail-hero.jpg`).
+6. **Limitación conocida:** si un cliente corrige sus datos pero no llega a girar, la corrección no se guarda (el lead se crea al girar). Mejora posible: guardar al pulsar "Continuar" (tabla nueva, la crearía el usuario).
+7. **Informe de correcciones para el CRM:** `deploy/reports/mail_crm_corrections.sql` (requiere 005).
+8. **Integración Brevo API v3:** sin código aún (correo transaccional de confirmación con premio/código/cita, atributos de contacto para segmentar recordatorios). Faltan `BREVO_API_KEY`, templates y mapeo de `params`.
+9. **Sincronización dual de repos Git:** `origin` apunta solo a `mvevip/mvevip-ruleta`; falta push al repo personal `caloloc2/mvevip_ruleta`.
+10. **Higiene:** `deploy_aws.sh` desactualizado (us-east-1, sin admin ni Ford); `/api/health` devuelve 404 aunque el README lo menciona; README documenta el PIN y solo el stand Autos; variable `ALLOWED_ORIGINS` del Lambda aún incluye `https://mvevip.com`; variable `MAIL_TOKEN_SECRET` no configurada (el token por correo está deshabilitado, solo funciona la clave de campaña); `deploy/rollback_pre_ford.ps1` restauraría una versión sin Ford.
