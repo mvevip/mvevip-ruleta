@@ -395,10 +395,13 @@ export default function App() {
     }
   };
 
+  // Canal Correo, paso de la ruleta: toda la pantalla cabe en el alto del dispositivo (sin scroll)
+  const isMailPlay = brand.isMail && (gameState === 'READY_TO_SPIN' || gameState === 'SPINNING');
+
   return (
-    <div className={`ford-mobile-shell min-h-screen overflow-x-hidden text-zinc-900 flex flex-col justify-between ${
-      brand.isMail ? 'mail-shell' : 'bg-gradient-to-b from-zinc-100 via-zinc-200 to-zinc-300'
-    }`}>
+    <div className={`ford-mobile-shell overflow-x-hidden text-zinc-900 flex flex-col justify-between ${
+      isMailPlay ? 'h-[100dvh] overflow-hidden' : 'min-h-screen'
+    } ${brand.isMail ? 'mail-shell' : 'bg-gradient-to-b from-zinc-100 via-zinc-200 to-zinc-300'}`}>
       {!brand.isMail && <Header />}
 
       {/* Canal Correo: cabecera de campaña (logo + título) mientras se juega; solo logo al mostrar el premio */}
@@ -406,7 +409,8 @@ export default function App() {
         <img
           src="/mail-hero.jpg"
           alt="Marketing VIP · Viajes Internacionales Premium. Gira la ruleta, completa tu saldo y gana"
-          className="mail-hero w-full max-w-md mx-auto block select-none"
+          className={`mail-hero mx-auto block select-none w-full max-w-md ${isMailPlay ? 'shrink-0 object-cover object-bottom' : ''}`}
+          style={isMailPlay ? { aspectRatio: '900 / 452', maxHeight: '26dvh' } : undefined}
           draggable={false}
         />
       )}
@@ -416,7 +420,9 @@ export default function App() {
         </div>
       )}
 
-      <main className={`flex-1 max-w-md w-full mx-auto px-4 flex flex-col ${brand.isMail ? 'py-2 justify-start' : 'py-5 justify-center'}`}>
+      <main className={`flex-1 max-w-md w-full mx-auto px-4 flex flex-col ${
+        isMailPlay ? 'py-1 min-h-0' : brand.isMail ? 'py-2 justify-start' : 'py-5 justify-center'
+      }`}>
         {gameState === 'FORM' && (
           <div className="bg-white/95 border border-zinc-200/80 rounded-3xl p-5 shadow-xl shadow-zinc-400/20 backdrop-blur-md flex flex-col items-center">
             {apiError && (
@@ -471,52 +477,45 @@ export default function App() {
         )}
 
         {/* PASO 2: PANTALLA DE LANZAMIENTO (AVISO SUPERIOR + BOTÓN START CENTRADO) */}
-        {/* PASO 2 (CANAL CORREO): RULETA CON ÍCONOS + 3 PASOS + BOTÓN JUGAR Y GANAR */}
-        {brand.isMail && (gameState === 'READY_TO_SPIN' || gameState === 'SPINNING') && (
-          <div className="flex flex-col items-center text-center">
+        {/* PASO 2 (CANAL CORREO): RULETA CON EL BOTÓN JUGAR Y GANAR EN EL CENTRO + 3 PASOS (todo sin scroll) */}
+        {isMailPlay && (
+          <div className="flex-1 min-h-0 flex flex-col items-center text-center">
             {apiError && (
-              <div className="w-full mb-2 p-3 rounded-xl bg-red-50 border border-red-300 text-red-700 text-xs flex items-center justify-center gap-2 shadow-sm">
+              <div className="w-full mb-1 p-2 rounded-xl bg-red-50 border border-red-300 text-red-700 text-xs flex items-center justify-center gap-2 shadow-sm shrink-0">
                 <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
                 <span>{apiError}</span>
               </div>
             )}
 
-            <div className="w-full -mt-3">
+            <div className="flex-1 min-h-0 w-full">
               {mailPrizes.length > 0 ? (
-                <MailWheel prizes={mailPrizes} rotationAngle={wheelAngle} isSpinning={gameState === 'SPINNING'} />
+                <MailWheel
+                  prizes={mailPrizes}
+                  rotationAngle={wheelAngle}
+                  isSpinning={gameState === 'SPINNING' || isSubmitting}
+                  disabled={isSubmitting || gameState === 'SPINNING'}
+                  onStart={handleStartSpin}
+                />
               ) : (
-                <div className="py-16 text-sm text-white font-semibold animate-pulse">Cargando ruleta...</div>
+                <div className="h-full flex items-center justify-center text-sm text-white font-semibold animate-pulse">Cargando ruleta...</div>
               )}
             </div>
 
-            <MailSteps
-              hint={gameState === 'SPINNING'
-                ? '¡Girando! Mantén esta pantalla abierta, tu premio está por salir.'
-                : 'Cuando estés listo, presiona el botón para girar.'}
-            />
-
-            <EngineStartButton
-              onClick={handleStartSpin}
-              disabled={isSubmitting || mailPrizes.length === 0}
-              loading={isSubmitting || gameState === 'SPINNING'}
-              showCallouts={false}
-              variant="mail"
-            />
-
-            <div className="w-full flex flex-col items-center gap-1 pb-3">
-              <div className="text-xs text-white font-medium drop-shadow">
-                Participante: <strong className="font-bold">{formData.name}</strong>
+            <div className="w-full shrink-0 pt-1.5">
+              <MailSteps />
+              <div className="flex items-center justify-center gap-2 text-[11px] text-white font-medium drop-shadow pt-1.5 pb-1">
+                <span className="truncate">Participante: <strong className="font-bold">{formData.name}</strong></span>
+                {gameState === 'READY_TO_SPIN' && (
+                  <button
+                    type="button"
+                    onClick={() => { setApiError(null); setGameState('FORM'); }}
+                    disabled={isSubmitting}
+                    className="underline text-white/90 hover:text-white cursor-pointer disabled:opacity-50 shrink-0"
+                  >
+                    ← Corregir mis datos
+                  </button>
+                )}
               </div>
-              {gameState === 'READY_TO_SPIN' && (
-                <button
-                  type="button"
-                  onClick={() => { setApiError(null); setGameState('FORM'); }}
-                  disabled={isSubmitting}
-                  className="text-xs text-white/90 hover:text-white underline font-sans transition-colors cursor-pointer py-1 disabled:opacity-50 drop-shadow"
-                >
-                  ← Corregir mis datos
-                </button>
-              )}
             </div>
           </div>
         )}
@@ -610,7 +609,7 @@ export default function App() {
         )}
       </main>
 
-      <footer className={`w-full py-2.5 px-4 text-center text-[10px] font-sans ${brand.isMail ? 'bg-[#0B2A4A]/80 text-white/80' : 'bg-white/80 border-t border-zinc-300 text-zinc-500'}`}>
+      <footer className={`w-full ${isMailPlay ? 'py-1.5' : 'py-2.5'} px-4 text-center text-[10px] font-sans shrink-0 ${brand.isMail ? 'bg-[#0B2A4A]/80 text-white/80' : 'bg-white/80 border-t border-zinc-300 text-zinc-500'}`}>
         <div>{brand.footerText}</div>
         {!isProduction && (
           <div className="font-mono font-bold text-amber-600 text-[9px] mt-0.5 tracking-wider">
