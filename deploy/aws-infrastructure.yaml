@@ -167,7 +167,7 @@ Resources:
           DB_PASSWORD: !Ref DatabasePassword
           COMPANY_NAME: 'Marketing VIP'
           COMPANY_SLOGAN: 'Especialistas en sueños'
-          WHATSAPP_NUMBER: '593993111114'
+          WHATSAPP_NUMBER: '593987933325'
           ADMIN_PIN: !Ref AdminPin
           TURNSTILE_SECRET_KEY: !Ref TurnstileSecretKey
           ALLOWED_ORIGINS: !Ref AllowedOrigins

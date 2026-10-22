@@ -19,7 +19,7 @@ module.exports = {
   COMPANY: {
     name: process.env.COMPANY_NAME || 'Marketing VIP',
     slogan: process.env.COMPANY_SLOGAN || 'Especialistas en sueños',
-    whatsapp: process.env.WHATSAPP_NUMBER || '593993111114'
+    whatsapp: process.env.WHATSAPP_NUMBER || '593987933325'
   },
   SECURITY: {
     adminPin: (process.env.ADMIN_PIN || 'VIP2026').trim().toUpperCase(),
