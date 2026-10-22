@@ -10,7 +10,7 @@ const DESTINATIONS = [
   '☀️ Miami Beach'
 ];
 
-export default function LeadForm({ formData, onChange, errors = {}, destinations = [], hideDestinations = false }) {
+export default function LeadForm({ formData, onChange, errors = {}, destinations = [], hideDestinations = false, title = 'Registro de Piloto', subtitle = 'Ingresa tus datos para activar la ruleta y ganar premios exclusivos' }) {
   const handlePhoneChange = (e) => {
     let raw = e.target.value;
     let clean = raw.replace(/\D/g, '');
@@ -30,10 +30,10 @@ export default function LeadForm({ formData, onChange, errors = {}, destinations
     <div className="w-full space-y-4">
       <div className="text-center mb-2">
         <h2 className="text-xl font-racing font-black text-zinc-900 tracking-wide uppercase">
-          Registro de Piloto
+          {title}
         </h2>
         <p className="text-xs text-zinc-600 mt-0.5">
-          Ingresa tus datos para activar la ruleta y ganar premios exclusivos
+          {subtitle}
         </p>
       </div>
 

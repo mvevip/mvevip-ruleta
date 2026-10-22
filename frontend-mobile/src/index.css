@@ -23,3 +23,16 @@
   background: linear-gradient(135deg, #27272a 0%, #111827 50%, #3f3f46 100%);
   border: 1px solid rgba(255, 255, 255, 0.12);
 }
+
+/* ===== Canal Correo: fondo tropical de la campaña (diseño de marketing) ===== */
+.mail-shell {
+  background:
+    radial-gradient(120% 40% at 0% 100%, rgba(22, 74, 12, 0.85) 0%, rgba(22, 74, 12, 0) 60%),
+    radial-gradient(120% 40% at 100% 100%, rgba(22, 74, 12, 0.85) 0%, rgba(22, 74, 12, 0) 60%),
+    repeating-linear-gradient(90deg, rgba(60, 30, 5, 0.10) 0 2px, rgba(0, 0, 0, 0) 2px 78px),
+    linear-gradient(180deg, #0c86ea 0%, #1aa7ee 22%, #36c4de 40%, #6fc7c0 52%, #c89763 62%, #b5834f 100%);
+}
+.mail-hero {
+  -webkit-mask-image: linear-gradient(to bottom, #000 94%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 94%, transparent 100%);
+}

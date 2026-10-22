@@ -7,6 +7,7 @@ import SpinningProgress from './components/SpinningProgress';
 import PrizeVoucher from './components/PrizeVoucher';
 import QueueWaitingProgress from './components/QueueWaitingProgress';
 import MailWheel, { MAIL_SPIN_MS } from './components/MailWheel';
+import MailSteps from './components/MailSteps';
 import { mobileAudio } from './utils/mobileSound';
 import { ShieldCheck, AlertTriangle, Info, ArrowRight, Tv, Eye, ArrowUp, Sparkles } from 'lucide-react';
 
@@ -395,10 +396,27 @@ export default function App() {
   };
 
   return (
-    <div className="ford-mobile-shell min-h-screen overflow-x-hidden bg-gradient-to-b from-zinc-100 via-zinc-200 to-zinc-300 text-zinc-900 flex flex-col justify-between">
-      <Header />
+    <div className={`ford-mobile-shell min-h-screen overflow-x-hidden text-zinc-900 flex flex-col justify-between ${
+      brand.isMail ? 'mail-shell' : 'bg-gradient-to-b from-zinc-100 via-zinc-200 to-zinc-300'
+    }`}>
+      {!brand.isMail && <Header />}
 
-      <main className="flex-1 max-w-md w-full mx-auto px-4 py-5 flex flex-col justify-center">
+      {/* Canal Correo: cabecera de campaña (logo + título) mientras se juega; solo logo al mostrar el premio */}
+      {brand.isMail && (gameState === 'FORM' || gameState === 'READY_TO_SPIN' || gameState === 'SPINNING') && (
+        <img
+          src="/mail-hero.jpg"
+          alt="Marketing VIP · Viajes Internacionales Premium. Gira la ruleta, completa tu saldo y gana"
+          className="mail-hero w-full max-w-md mx-auto block select-none"
+          draggable={false}
+        />
+      )}
+      {brand.isMail && !(gameState === 'FORM' || gameState === 'READY_TO_SPIN' || gameState === 'SPINNING') && (
+        <div className="w-full flex justify-center pt-4">
+          <img src="/logotipo.png" alt="Marketing VIP" className="h-16 w-auto drop-shadow-lg" />
+        </div>
+      )}
+
+      <main className={`flex-1 max-w-md w-full mx-auto px-4 flex flex-col ${brand.isMail ? 'py-2 justify-start' : 'py-5 justify-center'}`}>
         {gameState === 'FORM' && (
           <div className="bg-white/95 border border-zinc-200/80 rounded-3xl p-5 shadow-xl shadow-zinc-400/20 backdrop-blur-md flex flex-col items-center">
             {apiError && (
@@ -414,6 +432,7 @@ export default function App() {
               errors={errors}
               destinations={destinations}
               hideDestinations={brand.isFord || brand.isMail}
+              {...(brand.isMail ? { title: 'Completa tus datos', subtitle: 'Regístrate para girar la ruleta y descubrir tu premio' } : {})}
             />
 
             <div className="my-2 w-full flex justify-center">
@@ -440,7 +459,7 @@ export default function App() {
               onClick={handleProceedToSpin}
               className="ford-primary-btn w-full mt-3 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-[#9AC31C] via-[#b2dc27] to-[#84A816] hover:brightness-110 active:scale-98 text-black font-racing font-black text-base uppercase tracking-wider shadow-lg shadow-[#9AC31C]/30 flex items-center justify-center gap-2 cursor-pointer transition-all"
             >
-              <span>¡Juega y Gana!</span>
+              <span>{brand.isMail ? 'Continuar' : '¡Juega y Gana!'}</span>
               <ArrowRight className="w-5 h-5 stroke-[2.5]" />
             </button>
 
@@ -452,22 +471,9 @@ export default function App() {
         )}
 
         {/* PASO 2: PANTALLA DE LANZAMIENTO (AVISO SUPERIOR + BOTÓN START CENTRADO) */}
-        {/* PASO 2 (CANAL CORREO): RULETA EN EL CELULAR + BOTÓN PARA GIRAR */}
+        {/* PASO 2 (CANAL CORREO): RULETA CON ÍCONOS + 3 PASOS + BOTÓN JUGAR Y GANAR */}
         {brand.isMail && (gameState === 'READY_TO_SPIN' || gameState === 'SPINNING') && (
-          <div className="bg-white/95 border border-zinc-200/80 rounded-3xl p-4 shadow-xl shadow-zinc-400/20 backdrop-blur-md flex flex-col items-center text-center">
-            <div className="w-full p-3 rounded-2xl bg-zinc-900 border-2 border-[#9AC31C] text-white shadow-[0_0_25px_rgba(154,195,28,0.35)] mb-3">
-              <div className="flex items-center justify-center gap-2 font-racing font-black text-sm tracking-widest text-[#9AC31C] uppercase">
-                <Sparkles className="w-4 h-4 shrink-0" />
-                <span>{gameState === 'SPINNING' ? '¡Girando...!' : '¡Gira y gana!'}</span>
-                <Sparkles className="w-4 h-4 shrink-0" />
-              </div>
-              <p className="text-xs text-zinc-300 mt-1 font-medium">
-                {gameState === 'SPINNING'
-                  ? 'Mantén esta pantalla abierta, tu premio está por salir'
-                  : 'Presiona el botón y descubre tu premio'}
-              </p>
-            </div>
-
+          <div className="flex flex-col items-center text-center">
             {apiError && (
               <div className="w-full mb-2 p-3 rounded-xl bg-red-50 border border-red-300 text-red-700 text-xs flex items-center justify-center gap-2 shadow-sm">
                 <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
@@ -475,13 +481,19 @@ export default function App() {
               </div>
             )}
 
-            <div className="w-full my-2">
+            <div className="w-full -mt-3">
               {mailPrizes.length > 0 ? (
                 <MailWheel prizes={mailPrizes} rotationAngle={wheelAngle} isSpinning={gameState === 'SPINNING'} />
               ) : (
-                <div className="py-16 text-sm text-zinc-500 animate-pulse">Cargando ruleta...</div>
+                <div className="py-16 text-sm text-white font-semibold animate-pulse">Cargando ruleta...</div>
               )}
             </div>
+
+            <MailSteps
+              hint={gameState === 'SPINNING'
+                ? '¡Girando! Mantén esta pantalla abierta, tu premio está por salir.'
+                : 'Cuando estés listo, presiona el botón para girar.'}
+            />
 
             <EngineStartButton
               onClick={handleStartSpin}
@@ -491,17 +503,16 @@ export default function App() {
               variant="mail"
             />
 
-            <div className="w-full mt-2 pt-3 border-t border-zinc-200/80 flex flex-col items-center gap-1.5">
-              <div className="flex items-center gap-1.5 text-xs text-zinc-600 font-medium">
-                <Sparkles className="w-3.5 h-3.5 text-[#9AC31C]" />
-                <span>Participante: <strong className="text-zinc-900 font-bold">{formData.name}</strong></span>
+            <div className="w-full flex flex-col items-center gap-1 pb-3">
+              <div className="text-xs text-white font-medium drop-shadow">
+                Participante: <strong className="font-bold">{formData.name}</strong>
               </div>
               {gameState === 'READY_TO_SPIN' && (
                 <button
                   type="button"
                   onClick={() => { setApiError(null); setGameState('FORM'); }}
                   disabled={isSubmitting}
-                  className="text-xs text-zinc-500 hover:text-zinc-800 underline font-sans transition-colors cursor-pointer py-1 disabled:opacity-50"
+                  className="text-xs text-white/90 hover:text-white underline font-sans transition-colors cursor-pointer py-1 disabled:opacity-50 drop-shadow"
                 >
                   ← Corregir mis datos
                 </button>
@@ -599,7 +610,7 @@ export default function App() {
         )}
       </main>
 
-      <footer className="w-full py-2.5 px-4 bg-white/80 border-t border-zinc-300 text-center text-[10px] text-zinc-500 font-sans">
+      <footer className={`w-full py-2.5 px-4 text-center text-[10px] font-sans ${brand.isMail ? 'bg-[#0B2A4A]/80 text-white/80' : 'bg-white/80 border-t border-zinc-300 text-zinc-500'}`}>
         <div>{brand.footerText}</div>
         {!isProduction && (
           <div className="font-mono font-bold text-amber-600 text-[9px] mt-0.5 tracking-wider">

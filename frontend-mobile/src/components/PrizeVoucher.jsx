@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { Trophy, Gift, Ticket, MessageCircle, Clock, CheckCircle2, Sparkles, Plane, CalendarCheck } from 'lucide-react';
 import { getMobileBrandConfig } from '../brand';
+import { getPrizeIcon } from '../utils/prizeIcons';
 
 export default function PrizeVoucher({ result }) {
   const brand = getMobileBrandConfig();
@@ -23,6 +24,7 @@ export default function PrizeVoucher({ result }) {
 
   const { winner, lead, ticketCode, whatsappUrl, appointment } = result;
   const isMail = brand.isMail;
+  const PrizeIcon = isMail ? getPrizeIcon(winner.icon) : null;
 
   return (
     <div className="w-full flex flex-col items-center my-4 animate-fadeIn select-none">
@@ -35,10 +37,10 @@ export default function PrizeVoucher({ result }) {
         <Trophy className={`w-9 h-9 ${brand.isFord ? 'text-white' : 'text-black'}`} />
       </div>
 
-      <span className={`font-racing text-xs font-black tracking-widest uppercase ${brand.isFord ? 'text-[#212650]' : 'text-red-600'}`}>
+      <span className={`font-racing text-xs font-black tracking-widest uppercase ${isMail ? 'text-[#C6F03A] drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]' : brand.isFord ? 'text-[#212650]' : 'text-red-600'}`}>
         {isMail ? '¡FELICITACIONES!' : '¡TIEMPO RÉCORD EN PISTA!'}
       </span>
-      <h2 className="text-2xl font-racing font-black text-zinc-900 uppercase text-center mt-0.5 mb-4">
+      <h2 className={`text-2xl font-racing font-black uppercase text-center mt-0.5 mb-4 ${isMail ? 'text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]' : 'text-zinc-900'}`}>
         {isMail ? '¡GANASTE!' : '¡PREMIO OBTENIDO!'}
       </h2>
 
@@ -79,6 +81,9 @@ export default function PrizeVoucher({ result }) {
           <span className="text-[10px] font-racing font-bold text-[#9AC31C] uppercase tracking-widest block mb-1">
             {isMail ? 'TU PREMIO' : 'RESULTADO DE LA RULETA'}
           </span>
+          {PrizeIcon && (
+            <PrizeIcon className="w-14 h-14 mx-auto mb-2 text-[#A8D120]" strokeWidth={1.6} />
+          )}
           <h3 className="text-xl font-racing font-black text-[#9AC31C] uppercase leading-snug">
             {winner.name}
           </h3>
@@ -124,7 +129,7 @@ export default function PrizeVoucher({ result }) {
         <span>{isMail ? 'Confirmar mi cita por WhatsApp' : '¡Reclama tu premio!'}</span>
       </a>
 
-      <p className="text-xs text-zinc-600 text-center mt-3 max-w-xs font-medium">
+      <p className={`text-xs text-center mt-3 max-w-xs font-medium ${isMail ? 'text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.7)]' : 'text-zinc-600'}`}>
         {isMail
           ? 'Presiona el botón para abrir WhatsApp y confirmar tu cita y tu premio con nuestro asistente.'
           : 'Presiona el botón para abrir WhatsApp y validar tu premio con nuestros asesores.'}

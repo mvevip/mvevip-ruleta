@@ -15,6 +15,7 @@ const {
   nonAutosScreenIds
 } = require('../config/stands');
 const { getNextAppointment } = require('../services/appointment');
+const { normalizePrizeIcon } = require('../config/prizeIcons');
 
 // Stand 'autos' = comportamiento histórico; 'ford' = Formulario2/Pantalla2
 const DEFAULT_SCREEN_ID = process.env.NODE_ENV === 'production' ? 'STAND_01' : 'STAND_LOCAL';
@@ -24,7 +25,7 @@ async function getPrizes(req, res) {
   try {
     const stand = resolveStand(req);
     const [rows] = await pool.query(
-      'SELECT id, name, description, category, color_hex, text_color, weight, stock, max_daily_wins, active FROM prizes WHERE active = 1 AND stand = ? ORDER BY id ASC',
+      'SELECT id, name, description, category, color_hex, text_color, icon, weight, stock, max_daily_wins, active FROM prizes WHERE active = 1 AND stand = ? ORDER BY id ASC',
       [stand]
     );
     res.json({ success: true, stand, data: rows });
@@ -39,7 +40,7 @@ async function getAdminPrizes(req, res) {
   try {
     const stand = resolveStand(req);
     const [rows] = await pool.query(
-      'SELECT id, name, description, category, color_hex, text_color, weight, stock, max_daily_wins, active, created_at FROM prizes WHERE stand = ? ORDER BY id ASC',
+      'SELECT id, name, description, category, color_hex, text_color, icon, weight, stock, max_daily_wins, active, created_at FROM prizes WHERE stand = ? ORDER BY id ASC',
       [stand]
     );
 
@@ -72,13 +73,17 @@ async function createPrize(req, res) {
   if (!name) {
     return res.status(400).json({ success: false, message: 'El nombre del premio es obligatorio.' });
   }
+  const icon = normalizePrizeIcon(req.body.icon);
+  if (icon === undefined) {
+    return res.status(400).json({ success: false, message: 'Ícono no válido.' });
+  }
 
   try {
     const stand = resolveStand(req);
     const [result] = await pool.query(
-      `INSERT INTO prizes (name, description, category, color_hex, text_color, weight, stock, max_daily_wins, active, stand)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
-      [name, description || '', category, color_hex, text_color, Number(weight), Number(stock), Number(max_daily_wins), stand]
+      `INSERT INTO prizes (name, description, category, color_hex, text_color, icon, weight, stock, max_daily_wins, active, stand)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+      [name, description || '', category, color_hex, text_color, icon, Number(weight), Number(stock), Number(max_daily_wins), stand]
     );
     await touchSystemSync('PRIZES_UPDATED', req.io, stand);
     res.json({ success: true, message: 'Premio creado exitosamente', id: result.insertId });
@@ -93,6 +98,13 @@ async function updatePrize(req, res) {
   const { id } = req.params;
   const { name, description, category, color_hex, text_color, weight, stock, max_daily_wins, active } = req.body;
 
+  // Ícono: solo se modifica si viene en el cuerpo (un admin con caché vieja no lo borra); '' o null lo quita
+  const iconProvided = Object.prototype.hasOwnProperty.call(req.body, 'icon');
+  const icon = normalizePrizeIcon(req.body.icon);
+  if (iconProvided && icon === undefined) {
+    return res.status(400).json({ success: false, message: 'Ícono no válido.' });
+  }
+
   try {
     const [result] = await pool.query(
       `UPDATE prizes SET 
@@ -101,12 +113,13 @@ async function updatePrize(req, res) {
         category = COALESCE(?, category),
         color_hex = COALESCE(?, color_hex),
         text_color = COALESCE(?, text_color),
+        icon = IF(?, ?, icon),
         weight = COALESCE(?, weight),
         stock = COALESCE(?, stock),
         max_daily_wins = COALESCE(?, max_daily_wins),
         active = COALESCE(?, active)
        WHERE id = ?`,
-      [name, description, category, color_hex, text_color, weight, stock, max_daily_wins, active, id]
+      [name, description, category, color_hex, text_color, iconProvided ? 1 : 0, icon === undefined ? null : icon, weight, stock, max_daily_wins, active, id]
     );
 
     if (result.affectedRows === 0) {
@@ -242,7 +255,7 @@ async function processSpin(req, res) {
       const [existingSpins] = await connection.query(
         `SELECT s.id AS spin_id, s.ticket_code, s.redeemed, s.created_at,
                 l.id AS lead_id, l.name AS lead_name, l.phone AS lead_phone, l.dream_destination,
-                p.id AS prize_id, p.name AS prize_name, p.description AS prize_description, p.category AS prize_category
+                p.id AS prize_id, p.name AS prize_name, p.description AS prize_description, p.category AS prize_category, p.icon AS prize_icon
          FROM leads l
          JOIN spins s ON s.lead_id = l.id
          JOIN prizes p ON s.prize_id = p.id
@@ -271,7 +284,8 @@ async function processSpin(req, res) {
               id: prev.prize_id,
               name: prev.prize_name,
               description: prev.prize_description,
-              category: prev.prize_category
+              category: prev.prize_category,
+              icon: prev.prize_icon || null
             },
             lead: {
               name: prev.lead_name,
@@ -298,7 +312,7 @@ async function processSpin(req, res) {
 
     // 6. Obtener premios activos y verificar cuántos premios se han entregado hoy (para límite diario)
     const [prizes] = await connection.query(
-      `SELECT id, name, description, category, color_hex, text_color, weight, stock, max_daily_wins, active FROM prizes WHERE active = 1 AND stand = ? ORDER BY id ASC${isMail ? ' FOR UPDATE' : ''}`,
+      `SELECT id, name, description, category, color_hex, text_color, icon, weight, stock, max_daily_wins, active FROM prizes WHERE active = 1 AND stand = ? ORDER BY id ASC${isMail ? ' FOR UPDATE' : ''}`,
       [stand]
     );
 
@@ -381,6 +395,7 @@ async function processSpin(req, res) {
             name: winningPrize.name,
             description: winningPrize.description,
             category: winningPrize.category,
+            icon: winningPrize.icon || null,
             sliceIndex: winningIndex,
             totalSlices: prizes.length
           },

@@ -26,6 +26,7 @@ import {
 import DisplaysManager from './components/DisplaysManager';
 import TestUsersManager from './components/TestUsersManager';
 import StrictAdvisorSelect, { DEFAULT_ADVISORS } from './components/StrictAdvisorSelect';
+import PrizeIconPicker from './components/PrizeIconPicker';
 
 const isProduction = typeof window !== 'undefined' && (
   window.location.hostname === 'autos.mvevip.com' ||
@@ -618,6 +619,14 @@ export default function App() {
                       />
                     </div>
                   </div>
+
+                  {/* Ícono de viaje en la ruleta del canal Correo */}
+                  {isMailStand && (
+                    <PrizeIconPicker
+                      value={p.icon || ''}
+                      onChange={(key) => handlePrizeChange(p.id, 'icon', key)}
+                    />
+                  )}
 
                   {/* Fila de acción y Switch activo */}
                   <div className="flex items-center justify-between pt-1">

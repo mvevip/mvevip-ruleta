@@ -69,7 +69,8 @@ Para clientes con cuotas pendientes (~500 emails). Juegan desde su celular o PC,
 4. **1 participación en este canal;** no cuenta lo jugado en los stands (y viceversa). Doble clic/pestañas simultáneas se serializan con `GET_LOCK` por celular; el stock de premios se bloquea con `FOR UPDATE`.
 5. **Admin:** nueva pestaña `📧 CORREO` (premios, leads, métricas). Sin pestaña Pantallas para este canal. Se corrigió además un bug en Métricas (`byStand.autos/ford` eran objetos renderizados como texto).
 6. **Quién puede jugar:** por ahora cualquiera con el enlace (decisión del usuario); límites: Turnstile (verificar si está activo en prod), rate limit 12 giros/min por IP.
-7. **Enlace para Brevo:** `https://autos.mvevip.com/?view=mail&utm_source=brevo&utm_campaign=cuotas`.
+7. **Diseño de marketing + íconos (22-oct-2026, en repo, PENDIENTE de despliegue):** el canal usa la cabecera de campaña (`frontend-mobile/public/mail-hero.jpg`, recorte del arte de marketing), fondo tropical en CSS (`.mail-shell`), ruleta navy/lima con **íconos de viaje en lugar de texto**, panel de 3 pasos y botón "JUGAR Y GANAR". Los íconos se eligen por premio en Admin > CORREO (selector de 40 íconos; llaves en `api/src/config/prizeIcons.js`, mismas en `frontend-*/src/utils/prizeIcons.js`). Premio sin ícono = se dibuja su nombre en texto. Requiere `deploy/migrations/004_prize_icons.sql` (columna `prizes.icon`) ejecutada en RDS ANTES de desplegar el código. Pendiente que marketing entregue el fondo limpio (sin ruleta/UI) para reemplazar el degradado CSS.
+8. **Enlace para Brevo:** `https://autos.mvevip.com/?view=mail&utm_source=brevo&utm_campaign=cuotas`.
 
 ### B. Corrección de Algoritmo de Premios y Ángulo
 - Columna `active` asegurada en consultas SQL.

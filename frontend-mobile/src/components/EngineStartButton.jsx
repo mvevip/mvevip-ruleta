@@ -71,15 +71,17 @@ export default function EngineStartButton({ onClick, disabled = false, loading =
               <div className="w-2.5 h-2.5 rounded-full bg-amber-300 shadow-[0_0_8px_#fde047] mb-1 animate-pulse" />
 
               {/* Texto Engine Start */}
-              <span className="font-racing font-black text-xs tracking-widest text-white uppercase drop-shadow leading-tight">
-                {loading ? (isMail ? 'SUERTE' : 'EN PISTA') : 'ENGINE'}
+              <span className={`font-black tracking-widest text-white uppercase drop-shadow leading-tight ${isMail ? 'font-sans text-lg' : 'font-racing text-xs'}`}>
+                {loading ? (isMail ? 'GIRANDO' : 'EN PISTA') : (isMail ? 'JUGAR' : 'ENGINE')}
               </span>
-              <span className="font-racing font-black text-sm tracking-wider text-amber-300 uppercase drop-shadow -mt-0.5">
-                {loading ? 'GIRANDO' : 'START'}
+              <span className={`font-black tracking-wider text-amber-300 uppercase drop-shadow -mt-0.5 ${isMail ? 'font-sans text-xl' : 'font-racing text-sm'}`}>
+                {loading ? (isMail ? '...' : 'GIRANDO') : (isMail ? 'Y GANAR' : 'START')}
               </span>
-              <span className="text-[9px] font-sans font-bold text-zinc-300 tracking-tighter uppercase mt-0.5">
-                {loading ? (isMail ? 'GIRANDO...' : 'MIRA ARRIBA') : (isMail ? 'TOCA Y GIRA' : 'STOP')}
-              </span>
+              {!isMail && (
+                <span className="text-[9px] font-sans font-bold text-zinc-300 tracking-tighter uppercase mt-0.5">
+                  {loading ? 'MIRA ARRIBA' : 'STOP'}
+                </span>
+              )}
             </div>
           </div>
         </div>
