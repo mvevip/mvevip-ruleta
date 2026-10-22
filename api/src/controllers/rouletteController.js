@@ -16,6 +16,7 @@ const {
 } = require('../config/stands');
 const { getNextAppointment } = require('../services/appointment');
 const { normalizePrizeIcon } = require('../config/prizeIcons');
+const { normalizeEmailParam, verifyToken } = require('../services/mailLookup');
 
 // Stand 'autos' = comportamiento histórico; 'ford' = Formulario2/Pantalla2
 const DEFAULT_SCREEN_ID = process.env.NODE_ENV === 'production' ? 'STAND_01' : 'STAND_LOCAL';
@@ -227,6 +228,17 @@ async function processSpin(req, res) {
   const isMail = stand === 'mail';
   const appointment = isMail ? getNextAppointment() : null;
 
+  // Canal Correo: vínculo con el cliente del CRM (solo si el token firmado del enlace es válido)
+  let crmEmail = null;
+  let crmMatch = null;
+  if (isMail && req.body.crm_email && req.body.t) {
+    const candidate = normalizeEmailParam(String(req.body.crm_email));
+    if (candidate && verifyToken(candidate, String(req.body.t).trim())) {
+      crmEmail = candidate;
+      crmMatch = ['direct', 'corrected'].includes(req.body.crm_flow) ? req.body.crm_flow : 'linked';
+    }
+  }
+
   const connection = await pool.getConnection();
   const mailLockName = isMail ? `mail_spin_${cleanPhone}` : null;
   let mailLockAcquired = false;
@@ -355,6 +367,15 @@ async function processSpin(req, res) {
       [name.trim(), cleanEmail, cleanPhone, finalDestination, screen_id, device_id, req.ip, req.headers['user-agent'], isTestUser ? 1 : 0]
     );
     const leadId = leadResult.insertId;
+
+    // Registrar el vínculo con el CRM; si la migración 005 aún no existe en la BD, no se interrumpe el giro
+    if (crmEmail) {
+      try {
+        await connection.query('UPDATE leads SET crm_email = ?, crm_match = ? WHERE id = ?', [crmEmail, crmMatch, leadId]);
+      } catch (linkError) {
+        console.warn('[Spin] No se pudo registrar crm_email (¿falta la migración 005?):', linkError.code || linkError.message);
+      }
+    }
 
     // 9. Generar Ticket de canje
     const ticketCode = generateTicketCode();

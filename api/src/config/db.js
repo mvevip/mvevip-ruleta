@@ -205,7 +205,7 @@ async function checkConnection() {
       `).catch(() => {});
 
       // 10. Soporte multi-stand (Autos / Ford). SOLO se auto-migra fuera de producción.
-      // En producción: ejecutar manualmente deploy/migrations/002_stand_support.sql , 003_mail_stand.sql y 004_prize_icons.sql
+      // En producción: ejecutar manualmente deploy/migrations/002_stand_support.sql, 003_mail_stand.sql, 004_prize_icons.sql y 005_leads_crm_link.sql
       if (config.NODE_ENV !== 'production') {
         await connection.query(`ALTER TABLE prizes ADD COLUMN stand VARCHAR(20) NOT NULL DEFAULT 'autos'`).catch(() => {});
         await connection.query(`ALTER TABLE prizes ADD INDEX idx_prizes_stand (stand)`).catch(() => {});
@@ -239,6 +239,11 @@ async function checkConnection() {
         await connection.query(`
           INSERT IGNORE INTO system_sync (sync_key, version_timestamp, action) VALUES ('displays_ford', ${Date.now()}, 'INITIAL')
         `).catch(() => {});
+
+        // Vínculo con el CRM en el canal Correo. En producción: deploy/migrations/005_leads_crm_link.sql
+        await connection.query(`ALTER TABLE leads ADD COLUMN crm_email VARCHAR(150) NULL DEFAULT NULL`).catch(() => {});
+        await connection.query(`ALTER TABLE leads ADD COLUMN crm_match VARCHAR(20) NULL DEFAULT NULL`).catch(() => {});
+        await connection.query(`ALTER TABLE leads ADD INDEX idx_leads_crm_email (crm_email)`).catch(() => {});
 
         // Íconos de viaje en premios (ruleta del canal Correo). En producción: deploy/migrations/004_prize_icons.sql
         await connection.query(`ALTER TABLE prizes ADD COLUMN icon VARCHAR(40) NULL DEFAULT NULL`).catch(() => {});

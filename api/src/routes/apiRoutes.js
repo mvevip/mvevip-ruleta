@@ -5,7 +5,8 @@ const leadsController = require('../controllers/leadsController');
 const destinationsController = require('../controllers/destinationsController');
 const displaysController = require('../controllers/displaysController');
 const testUsersController = require('../controllers/testUsersController');
-const { spinLimiter, adminLimiter } = require('../middlewares/rateLimiter');
+const mailController = require('../controllers/mailController');
+const { spinLimiter, adminLimiter, lookupLimiter } = require('../middlewares/rateLimiter');
 const { requireAdminAuth } = require('../middlewares/authMiddleware');
 const { verifyTurnstile } = require('../middlewares/turnstileMiddleware');
 
@@ -18,6 +19,9 @@ router.post('/spin/queue/next', rouletteController.nextInQueue);
 router.post('/screen/activity', rouletteController.recordScreenActivity);
 router.get('/ticket/:code', rouletteController.verifyTicket);
 router.get('/destinations', destinationsController.getDestinations);
+
+// Canal Correo (Brevo): búsqueda del cliente en el CRM por correo + token firmado
+router.get('/mail/lookup', lookupLimiter, mailController.lookupMailClient);
 
 // Rutas Públicas de Cartelería Digital y Sincronización
 router.get('/displays/config', displaysController.getDisplaysConfig);

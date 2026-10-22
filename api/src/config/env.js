@@ -24,6 +24,8 @@ module.exports = {
   SECURITY: {
     adminPin: (process.env.ADMIN_PIN || 'VIP2026').trim().toUpperCase(),
     turnstileSecretKey: process.env.TURNSTILE_SECRET_KEY || '',
+    // Clave para firmar los enlaces del correo (?correo=...&t=...). Sin clave, la búsqueda por correo queda deshabilitada.
+    mailTokenSecret: process.env.MAIL_TOKEN_SECRET || '',
     allowedOrigins: (process.env.ALLOWED_ORIGINS || 'https://autos.mvevip.com,https://mvevip.com,http://localhost:5500,http://localhost:5502,http://localhost:5503,http://localhost:5504')
       .split(',')
       .map(origin => origin.trim())

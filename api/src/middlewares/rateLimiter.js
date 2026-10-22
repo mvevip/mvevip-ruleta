@@ -12,6 +12,18 @@ const spinLimiter = rateLimit({
   }
 });
 
+// Limitador para la búsqueda de clientes del correo (evita barridos de correos)
+const lookupLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Demasiadas consultas desde esta conexión. Espera 1 minuto.'
+  }
+});
+
 // Limitador para endpoints administrativos (Protege contra ataques de fuerza bruta al PIN)
 const adminLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minuto
@@ -42,6 +54,7 @@ const globalLimiter = rateLimit({
 
 module.exports = {
   spinLimiter,
+  lookupLimiter,
   adminLimiter,
   globalLimiter
 };

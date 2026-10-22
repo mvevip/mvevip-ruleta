@@ -41,6 +41,31 @@ function getOrCreateDeviceId() {
   }
 }
 
+// Canal Correo desde el correo de Brevo: ?view=mail&correo=<email>&t=<token firmado>
+function readCrmParams() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const raw = params.get('correo') || params.get('email') || '';
+    // Brevo inserta el correo sin codificar: un "+" llega como espacio al decodificar la URL
+    const email = raw.trim().replace(/ /g, '+').toLowerCase();
+    const token = (params.get('t') || '').trim();
+    return { email, token };
+  } catch (e) {
+    return { email: '', token: '' };
+  }
+}
+
+// Se quita el correo/token de la barra de direcciones para que no se compartan ni viajen en capturas o referers
+function stripCrmParamsFromUrl() {
+  try {
+    const url = new URL(window.location.href);
+    ['correo', 'email', 't'].forEach((k) => url.searchParams.delete(k));
+    window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+  } catch (e) {
+    // sin efecto
+  }
+}
+
 export default function App() {
   const brand = getMobileBrandConfig();
   const screenId = brand.screenId;
@@ -65,6 +90,16 @@ export default function App() {
   const [turnstileToken, setTurnstileToken] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [queueInfo, setQueueInfo] = useState({ queueId: null, position: 1, ticketCode: null });
+  // Canal Correo con enlace de Brevo: búsqueda del cliente en el CRM antes de mostrar nada
+  const crmParamsRef = useRef(null);
+  if (crmParamsRef.current === null) {
+    crmParamsRef.current = brand.isMail ? readCrmParams() : { email: '', token: '' };
+  }
+  const [bootstrapping, setBootstrapping] = useState(Boolean(crmParamsRef.current.email));
+  const [crmFlow, setCrmFlow] = useState(null); // 'direct' (pasó directo) | 'corrected' (corrigió datos) | null (enlace abierto)
+  const crmCtxRef = useRef(null); // { email, token, flow }
+  const lookupStartedRef = useRef(false);
+
   // Canal Correo: ruleta propia en el celular
   const [mailPrizes, setMailPrizes] = useState([]);
   const [wheelAngle, setWheelAngle] = useState(0);
@@ -233,26 +268,26 @@ export default function App() {
     pingScreenActivity();
   };
 
-  const validate = () => {
+  const validate = (data = formData) => {
     const newErrors = {};
-    if (!formData.name.trim() || formData.name.trim().length < 3) {
+    if (!data.name.trim() || data.name.trim().length < 3) {
       newErrors.name = 'Por favor ingresa tu nombre y apellido completos.';
     }
 
     // Validación estricta celular Ecuador: 10 dígitos iniciando con 09
     const ecuadorRegex = /^09\d{8}$/;
-    if (!formData.phone || !ecuadorRegex.test(formData.phone)) {
+    if (!data.phone || !ecuadorRegex.test(data.phone)) {
       newErrors.phone = 'Ingresa un número de celular de Ecuador válido (10 dígitos iniciando con 09, ej: 0991234567).';
     }
 
     // Validación email RFC
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    if (!formData.email || !emailRegex.test(formData.email.trim())) {
+    if (!data.email || !emailRegex.test(data.email.trim())) {
       newErrors.email = 'Ingresa un correo electrónico válido (ej: usuario@gmail.com).';
     }
 
     // Validación obligatoria: aceptación de políticas de privacidad
-    if (!formData.accept_privacy) {
+    if (!data.accept_privacy) {
       newErrors.accept_privacy = 'Debes aceptar las políticas de privacidad para participar.';
     }
 
@@ -274,6 +309,11 @@ export default function App() {
     }
 
     setApiError(null);
+    // Si venía del correo y revisó/corrigió sus datos, ya no es "directo" (aceptó las políticas en el formulario)
+    if (crmCtxRef.current) {
+      crmCtxRef.current.flow = 'corrected';
+      setCrmFlow('corrected');
+    }
     setGameState('READY_TO_SPIN');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -300,10 +340,13 @@ export default function App() {
   };
 
   // Paso 2: Dispara el giro de la ruleta hacia el stand
-  const handleStartSpin = async () => {
+  const handleStartSpin = async (dataOverride) => {
     if (isSubmitting) return;
 
-    if (!validate()) {
+    // Los datos pueden venir de la búsqueda en el CRM (el estado de React aún no los refleja)
+    const data = dataOverride && typeof dataOverride.phone === 'string' ? dataOverride : formData;
+
+    if (!validate(data)) {
       setGameState('FORM');
       setApiError('Por favor revisa los campos obligatorios en rojo.');
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -325,10 +368,13 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...formData,
+          ...data,
           screen_id: screenId,
           device_id: deviceIdRef.current,
-          turnstile_token: turnstileToken || 'BYPASS_DEV'
+          turnstile_token: turnstileToken || 'BYPASS_DEV',
+          ...(crmCtxRef.current
+            ? { crm_email: crmCtxRef.current.email, t: crmCtxRef.current.token, crm_flow: crmCtxRef.current.flow }
+            : {})
         })
       });
 
@@ -395,6 +441,49 @@ export default function App() {
     }
   };
 
+  // Canal Correo con enlace de Brevo: buscar al cliente y decidir qué pantalla mostrar
+  useEffect(() => {
+    if (!brand.isMail || !crmParamsRef.current.email || lookupStartedRef.current) return;
+    lookupStartedRef.current = true;
+    const { email, token } = crmParamsRef.current;
+    stripCrmParamsFromUrl();
+
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/mail/lookup?correo=${encodeURIComponent(email)}&t=${encodeURIComponent(token)}`);
+        const json = await res.json();
+
+        // No encontrado (o token no válido): formulario normal; el correo se prellena solo si el enlace es auténtico
+        if (!json.success || !json.found) {
+          if (json.email) setFormData((prev) => ({ ...prev, email: json.email }));
+          return;
+        }
+
+        const d = json.data;
+        const next = { name: d.name, phone: d.phone, email: d.email, accept_privacy: true, dream_destination: '' };
+        setFormData(next);
+        crmCtxRef.current = { email: json.email, token, flow: json.complete ? 'direct' : 'corrected' };
+        setCrmFlow(json.complete ? 'direct' : 'corrected');
+
+        if (json.complete) {
+          // Datos completos y válidos: directo a la ruleta (o a su premio si ya participó)
+          setGameState('READY_TO_SPIN');
+          if (json.alreadyPlayed) await handleStartSpin(next);
+        } else {
+          // Datos incompletos o inválidos: formulario prellenado con los campos a corregir marcados
+          validate(next);
+          if ((json.issues || []).includes('name')) {
+            setErrors((prev) => ({ ...prev, name: prev.name || 'Por favor ingresa tu nombre y apellido completos.' }));
+          }
+        }
+      } catch (e) {
+        // Sin conexión con la búsqueda: formulario normal
+      } finally {
+        setBootstrapping(false);
+      }
+    })();
+  }, []);
+
   // Canal Correo, paso de la ruleta: toda la pantalla cabe en el alto del dispositivo (sin scroll)
   const isMailPlay = brand.isMail && (gameState === 'READY_TO_SPIN' || gameState === 'SPINNING');
 
@@ -423,8 +512,22 @@ export default function App() {
       <main className={`flex-1 max-w-md w-full mx-auto px-4 flex flex-col ${
         isMailPlay ? 'py-1 min-h-0' : brand.isMail ? (gameState === 'WON' ? 'py-2 justify-center' : 'py-2 justify-start') : 'py-5 justify-center'
       }`}>
+        {brand.isMail && bootstrapping ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-14 text-white drop-shadow">
+            <div className="w-10 h-10 rounded-full border-4 border-white/30 border-t-white animate-spin" />
+            <p className="text-sm font-semibold">Preparando tu ruleta…</p>
+          </div>
+        ) : (
+        <>
         {gameState === 'FORM' && (
           <div className="bg-white/95 border border-zinc-200/80 rounded-3xl p-5 shadow-xl shadow-zinc-400/20 backdrop-blur-md flex flex-col items-center">
+            {/* Canal Correo: encontramos al cliente pero sus datos requieren revisión */}
+            {brand.isMail && crmFlow === 'corrected' && (
+              <div className="w-full mb-3 p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-800 text-xs flex items-center gap-2">
+                <Info className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>Encontramos tus datos. Revisa y confirma los campos marcados para poder jugar.</span>
+              </div>
+            )}
             {apiError && (
               <div className="w-full mb-3 p-3 rounded-xl bg-red-50 border border-red-300 text-red-700 text-xs flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
@@ -516,6 +619,14 @@ export default function App() {
                   </button>
                 )}
               </div>
+              {crmFlow === 'direct' && (
+                <p className="text-[10px] leading-tight text-white/85 drop-shadow pb-1">
+                  Al jugar aceptas las{' '}
+                  <a href="https://www.mvevip.com/privacidad" target="_blank" rel="noopener noreferrer" className="underline">
+                    políticas de privacidad
+                  </a>.
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -606,6 +717,8 @@ export default function App() {
             )}
             <PrizeVoucher result={spinResult} />
           </div>
+        )}
+        </>
         )}
       </main>
 
