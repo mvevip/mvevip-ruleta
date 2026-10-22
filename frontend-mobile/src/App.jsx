@@ -415,13 +415,13 @@ export default function App() {
         />
       )}
       {brand.isMail && !(gameState === 'FORM' || gameState === 'READY_TO_SPIN' || gameState === 'SPINNING') && (
-        <div className="w-full flex justify-center pt-4">
-          <img src="/logotipo.png" alt="Marketing VIP" className="h-16 w-auto drop-shadow-lg" />
+        <div className="w-full flex justify-center pt-3 [@media(max-height:620px)]:hidden">
+          <img src="/logotipo.png" alt="Marketing VIP" className="h-12 w-auto drop-shadow-lg" />
         </div>
       )}
 
       <main className={`flex-1 max-w-md w-full mx-auto px-4 flex flex-col ${
-        isMailPlay ? 'py-1 min-h-0' : brand.isMail ? 'py-2 justify-start' : 'py-5 justify-center'
+        isMailPlay ? 'py-1 min-h-0' : brand.isMail ? (gameState === 'WON' ? 'py-2 justify-center' : 'py-2 justify-start') : 'py-5 justify-center'
       }`}>
         {gameState === 'FORM' && (
           <div className="bg-white/95 border border-zinc-200/80 rounded-3xl p-5 shadow-xl shadow-zinc-400/20 backdrop-blur-md flex flex-col items-center">
@@ -595,7 +595,7 @@ export default function App() {
         {gameState === 'WON' && spinResult && (
           <div className="flex flex-col items-center">
             {alreadyPlayedNotice && (
-              <div className="w-full mb-3 p-3 rounded-2xl bg-amber-50 border border-amber-300 text-amber-800 text-xs flex items-center gap-2 shadow-sm">
+              <div className={`w-full rounded-2xl bg-amber-50 border border-amber-300 text-amber-800 flex items-center gap-2 shadow-sm ${brand.isMail ? 'mb-2 p-2 text-[11px] leading-tight [@media(max-height:699px)]:hidden' : 'mb-3 p-3 text-xs'}`}>
                 <Info className="w-4 h-4 text-amber-600 shrink-0" />
                 <span>
                   {brand.isMail
