@@ -28,6 +28,10 @@ async function getLeads(req, res) {
       params = [screenIdsOf(filterByStand)];
     }
 
+    // Tope de filas por consulta (el admin pide un solo canal a la vez); el total real viaja aparte
+    const requestedLimit = parseInt(req.query && req.query.limit, 10);
+    const rowLimit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 2000) : 500;
+
     const [rows] = await pool.query(
       `SELECT l.id, l.name, l.email, l.phone, l.dream_destination, l.screen_id, l.device_id, l.created_at,
               l.assigned_to,
@@ -38,9 +42,18 @@ async function getLeads(req, res) {
        LEFT JOIN spins s ON s.lead_id = l.id
        LEFT JOIN prizes p ON s.prize_id = p.id
        ${whereSql}
-       ORDER BY l.created_at DESC LIMIT 500`,
+       ORDER BY l.created_at DESC LIMIT ${rowLimit}`,
       params
     );
+
+    // Totales reales por canal (no dependen del filtro ni del tope de filas)
+    const [countRows] = await pool.query('SELECT screen_id, COUNT(*) AS n FROM leads GROUP BY screen_id');
+    const totals = { autos: 0, ford: 0, mail: 0, all: 0 };
+    countRows.forEach((r) => {
+      const st = deriveLeadStand(r.screen_id);
+      totals[st] = (totals[st] || 0) + Number(r.n);
+      totals.all += Number(r.n);
+    });
 
     const enriched = rows.map(r => {
       const st = deriveLeadStand(r.screen_id);
@@ -55,6 +68,7 @@ async function getLeads(req, res) {
       success: true,
       stand: filterByStand || 'all',
       count: enriched.length,
+      totals,
       advisors: OFFICIAL_ADVISORS,
       data: enriched
     });

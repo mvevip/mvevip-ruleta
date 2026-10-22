@@ -48,7 +48,16 @@ export default function App() {
       return 'autos';
     }
   });
-  const [leadStandFilter, setLeadStandFilter] = useState('all'); // 'all' | 'autos' | 'ford'
+  // Filtro de la pestaña Leads: arranca en el canal activo del selector superior y lo sigue ('all' | 'autos' | 'ford' | 'mail')
+  const [leadStandFilter, setLeadStandFilter] = useState(() => {
+    try {
+      const saved = localStorage.getItem('vip_admin_stand');
+      return saved === 'ford' || saved === 'mail' ? saved : 'autos';
+    } catch (_) {
+      return 'autos';
+    }
+  });
+  const [leadTotals, setLeadTotals] = useState({ autos: 0, ford: 0, mail: 0, all: 0 });
   const [activeTab, setActiveTab] = useState('prizes'); // 'prizes' | 'leads' | 'destinations' | 'displays' | 'redeem' | 'metrics'
   const [leadsSubTab, setLeadsSubTab] = useState('captured'); // 'captured' | 'test_users'
   
@@ -83,8 +92,16 @@ export default function App() {
     }
   }, [isAuthenticated, activeStand]);
 
+  // Los leads se piden al servidor ya filtrados por canal (evita mezclas y el tope de filas global)
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadLeads(leadStandFilter);
+    }
+  }, [isAuthenticated, leadStandFilter]);
+
   const handleSelectStand = (stand) => {
     setActiveStand(stand);
+    setLeadStandFilter(stand); // la pestaña Leads sigue al canal elegido arriba
     // El canal Correo no tiene pantallas físicas
     if (stand === 'mail' && activeTab === 'displays') setActiveTab('prizes');
     try {
@@ -124,21 +141,19 @@ export default function App() {
     try {
       const headers = getAdminHeaders();
       const standParam = encodeURIComponent(standOverride || activeStand || 'autos');
-      const [resP, resL, resM, resD] = await Promise.all([
+      const [resP, resM, resD] = await Promise.all([
         fetch(`${API_URL}/api/admin/prizes?stand=${standParam}`, { headers }),
-        fetch(`${API_URL}/api/leads?stand=all`, { headers }),
         fetch(`${API_URL}/api/metrics?stand=${standParam}`, { headers }),
         fetch(`${API_URL}/api/admin/destinations`, { headers })
       ]);
 
-      if (resP.status === 401 || resL.status === 401) {
+      if (resP.status === 401) {
         handleLogout();
         alert('Sesión expirada o PIN inválido. Por favor ingresa nuevamente.');
         return;
       }
 
       const jsonP = await resP.json();
-      const jsonL = await resL.json();
       const jsonM = await resM.json();
       if (resD.ok) {
         const jsonD = await resD.json();
@@ -146,17 +161,33 @@ export default function App() {
       }
 
       if (jsonP.success) setPrizes(jsonP.data);
-      if (jsonL.success) {
-        setLeads(jsonL.data);
-        if (Array.isArray(jsonL.advisors) && jsonL.advisors.length > 0) {
-          setAdvisorsList(jsonL.advisors);
-        }
-      }
       if (jsonM.success) setMetrics(jsonM.data);
     } catch (err) {
       console.error('Error cargando datos:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Leads del canal elegido (el servidor filtra; 'all' trae todos los canales)
+  const loadLeads = async (standFilter = leadStandFilter) => {
+    try {
+      const res = await fetch(`${API_URL}/api/leads?stand=${encodeURIComponent(standFilter || 'all')}`, { headers: getAdminHeaders() });
+      if (res.status === 401) {
+        handleLogout();
+        alert('Sesión expirada o PIN inválido. Por favor ingresa nuevamente.');
+        return;
+      }
+      const json = await res.json();
+      if (json.success) {
+        setLeads(json.data);
+        if (json.totals) setLeadTotals(json.totals);
+        if (Array.isArray(json.advisors) && json.advisors.length > 0) {
+          setAdvisorsList(json.advisors);
+        }
+      }
+    } catch (err) {
+      console.error('Error cargando leads:', err);
     }
   };
 
@@ -425,7 +456,7 @@ export default function App() {
           {isAuthenticated && (
             <div className="flex items-center gap-2">
               <button
-                onClick={() => loadData(activeStand)}
+                onClick={() => { loadData(activeStand); loadLeads(leadStandFilter); }}
                 disabled={loading}
                 className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-[#9AC31C] active:scale-95"
                 title="Actualizar datos"
@@ -703,7 +734,7 @@ export default function App() {
                         leadStandFilter === 'all' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white'
                       }`}
                     >
-                      Todos ({leads.length})
+                      Todos ({leadTotals.all})
                     </button>
                     <button
                       type="button"
@@ -712,7 +743,7 @@ export default function App() {
                         leadStandFilter === 'autos' ? 'bg-[#9AC31C] text-black' : 'text-zinc-400 hover:text-white'
                       }`}
                     >
-                      Autos ({leads.filter(l => l.stand === 'autos').length})
+                      Autos ({leadTotals.autos})
                     </button>
                     <button
                       type="button"
@@ -721,7 +752,7 @@ export default function App() {
                         leadStandFilter === 'ford' ? 'bg-[#212650] text-white border border-blue-400/40' : 'text-zinc-400 hover:text-white'
                       }`}
                     >
-                      Ford ({leads.filter(l => l.stand === 'ford').length})
+                      Ford ({leadTotals.ford})
                     </button>
                     <button
                       type="button"
@@ -730,7 +761,7 @@ export default function App() {
                         leadStandFilter === 'mail' ? 'bg-amber-500 text-black' : 'text-zinc-400 hover:text-white'
                       }`}
                     >
-                      Correo ({leads.filter(l => l.stand === 'mail').length})
+                      Correo ({leadTotals.mail})
                     </button>
                   </div>
 
@@ -747,7 +778,9 @@ export default function App() {
                   </div>
 
                   <div className="text-[11px] text-zinc-400 font-mono px-1">
-                    Mostrando {filteredLeads.length} leads captados
+                    Mostrando {filteredLeads.length}
+                    {leadStandFilter !== 'all' && leadTotals[leadStandFilter] > leads.length ? ` de ${leadTotals[leadStandFilter]}` : ''} leads captados
+                    {leadStandFilter === 'all' ? ' (todos los canales)' : ''}
                   </div>
 
                   {/* Tarjetas de leads */}
