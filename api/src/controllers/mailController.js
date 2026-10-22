@@ -3,7 +3,9 @@ const {
   isMailLinkAuthorized,
   findCrmClient,
   evaluateClient,
-  hasPlayedMail
+  hasPlayedMail,
+  findPreviousMailPlay,
+  maskPhone
 } = require('../services/mailLookup');
 
 /**
@@ -23,6 +25,20 @@ async function lookupMailClient(req, res) {
   }
 
   try {
+    // ¿Ya jugó (y quizá corrigió sus datos)? Se resuelve con lo guardado en leads, no con el CRM
+    const previous = await findPreviousMailPlay(email);
+    if (previous) {
+      return res.json({
+        success: true,
+        found: true,
+        complete: true,
+        issues: [],
+        alreadyPlayed: true,
+        email,
+        data: { name: previous.name, email: previous.email, phoneHint: maskPhone(previous.phone) }
+      });
+    }
+
     const row = await findCrmClient(email);
     if (!row) {
       return res.json({ success: true, found: false, email });

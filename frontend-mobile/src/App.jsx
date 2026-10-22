@@ -528,7 +528,7 @@ export default function App() {
         />
       )}
       {brand.isMail && !(gameState === 'FORM' || gameState === 'READY_TO_SPIN' || gameState === 'SPINNING') && (
-        <div className="w-full flex justify-center pt-3 [@media(max-height:620px)]:hidden">
+        <div className="w-full flex justify-center pt-3 [@media(max-height:719px)]:hidden">
           <img src="/logotipo.png" alt="Marketing VIP" className="h-12 w-auto drop-shadow-lg" />
         </div>
       )}
@@ -731,7 +731,7 @@ export default function App() {
         {gameState === 'WON' && spinResult && (
           <div className="flex flex-col items-center">
             {alreadyPlayedNotice && (
-              <div className={`w-full rounded-2xl bg-amber-50 border border-amber-300 text-amber-800 flex items-center gap-2 shadow-sm ${brand.isMail ? 'mb-2 p-2 text-[11px] leading-tight [@media(max-height:699px)]:hidden' : 'mb-3 p-3 text-xs'}`}>
+              <div className={`w-full rounded-2xl bg-amber-50 border border-amber-300 text-amber-800 flex items-center gap-2 shadow-sm ${brand.isMail ? 'mb-2 p-2 text-[11px] leading-tight [@media(max-height:799px)]:hidden' : 'mb-3 p-3 text-xs'}`}>
                 <Info className="w-4 h-4 text-amber-600 shrink-0" />
                 <span>
                   {brand.isMail

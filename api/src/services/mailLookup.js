@@ -154,8 +154,33 @@ async function hasPlayedMail({ phone, email }) {
   return rows.length > 0;
 }
 
+/**
+ * Participación previa de este cliente del CRM, buscada por el correo con el que se identificó en el enlace
+ * (leads.crm_email). Sirve para que quien ya jugó y corrigió sus datos no vuelva a ver el formulario, aunque el
+ * CRM siga con el dato antiguo. Devuelve los datos GUARDADOS en el lead (los corregidos) o null.
+ */
+async function findPreviousMailPlay(email) {
+  const [testRows] = await pool.query('SELECT 1 FROM test_users WHERE active = TRUE AND email = ? LIMIT 1', [email]);
+  if (testRows.length > 0) return null; // los usuarios de prueba pueden jugar varias veces
+
+  try {
+    const [rows] = await pool.query(
+      `SELECT l.name, l.phone, l.email
+       FROM leads l JOIN spins s ON s.lead_id = l.id
+       WHERE l.crm_email = ? AND l.screen_id = 'MAIL_01' AND (l.is_test = 0 OR l.is_test IS NULL)
+       ORDER BY l.id DESC LIMIT 1`,
+      [email]
+    );
+    return rows.length > 0 ? rows[0] : null;
+  } catch (error) {
+    if (error.code === 'ER_BAD_FIELD_ERROR') return null; // falta la migración 005: sin vínculo no hay detección
+    throw error;
+  }
+}
+
 module.exports = {
   normalizeEmailParam,
+  findPreviousMailPlay,
   makeToken,
   verifyToken,
   isMailLinkAuthorized,

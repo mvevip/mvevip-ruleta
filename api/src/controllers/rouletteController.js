@@ -16,7 +16,7 @@ const {
 } = require('../config/stands');
 const { getNextAppointment } = require('../services/appointment');
 const { normalizePrizeIcon } = require('../config/prizeIcons');
-const { normalizeEmailParam, isMailLinkAuthorized, findCrmClient, evaluateClient } = require('../services/mailLookup');
+const { normalizeEmailParam, isMailLinkAuthorized, findCrmClient, evaluateClient, findPreviousMailPlay } = require('../services/mailLookup');
 
 // Stand 'autos' = comportamiento histórico; 'ford' = Formulario2/Pantalla2
 const DEFAULT_SCREEN_ID = process.env.NODE_ENV === 'production' ? 'STAND_01' : 'STAND_LOCAL';
@@ -204,7 +204,22 @@ async function processSpin(req, res) {
     const candidate = normalizeEmailParam(String(req.body.crm_email));
     if (candidate && isMailLinkAuthorized(candidate, { c: req.body.c, t: req.body.t })) {
       crmEmail = candidate;
-      if (req.body.crm_flow === 'direct') {
+
+      // Si este cliente ya jugó, se usan SUS datos guardados (aunque ahora envíe otros): así recibe su premio previo
+      // y no puede participar dos veces cambiando el celular o el correo en el formulario.
+      let previous = null;
+      try {
+        previous = await findPreviousMailPlay(candidate);
+      } catch (previousError) {
+        console.error('[Spin] Error buscando participación previa:', previousError.code || previousError.message);
+      }
+
+      if (previous) {
+        name = previous.name;
+        rawPhone = previous.phone;
+        rawEmail = previous.email;
+        crmMatch = 'linked';
+      } else if (req.body.crm_flow === 'direct') {
         // Flujo directo: los datos NO los envía el navegador; se leen del CRM en el servidor
         let evaluation = null;
         try {
