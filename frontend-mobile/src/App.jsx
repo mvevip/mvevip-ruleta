@@ -25,7 +25,7 @@ const WS_URL = isProduction
   : (typeof window !== 'undefined' ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}:5500` : 'ws://localhost:5500');
 
 import TurnstileWidget from './components/TurnstileWidget';
-import { getMobileBrandConfig, applyMobileBrandAttribute } from './brand';
+import { getMobileBrandConfig, applyMobileBrandAttribute, channelUrl } from './brand';
 
 // Obtener o generar identificador único de sesión/dispositivo aislado
 function getOrCreateDeviceId() {
@@ -389,6 +389,11 @@ export default function App() {
       const json = await response.json();
 
       if (!response.ok || !json.success) {
+        // El canal se deshabilitó mientras el cliente estaba en la página: se le lleva al canal por defecto
+        if (json.code === 'CHANNEL_DISABLED' && json.default) {
+          window.location.replace(channelUrl(json.default));
+          return;
+        }
         // Los datos del CRM cambiaron o ya no están completos: se pide al cliente que los confirme en el formulario
         if (json.code === 'CRM_INCOMPLETE' && crmCtxRef.current) {
           crmCtxRef.current.flow = 'corrected';

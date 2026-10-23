@@ -28,6 +28,34 @@ export function detectMobileBrand() {
 }
 
 /**
+ * Canal que pide la URL actual, para decidir si se puede entrar o hay que ir al canal por defecto:
+ *  - 'mail'  -> ?view=mail
+ *  - 'ford'  -> /formulario2, ?screen=STAND_02 / STAND_LOCAL_2, ?stand=ford
+ *  - 'autos' -> acceso EXPLÍCITO al stand Autos: ?screen=STAND_01 / STAND_LOCAL (el QR de la pantalla lo incluye siempre) o ?stand=autos
+ *  - null    -> enlace "pelado" (sin parámetros): se resuelve con el canal por defecto del admin
+ */
+export function detectRequestedChannel() {
+  if (typeof window === 'undefined') return null;
+  const path = (window.location.pathname || '').toLowerCase();
+  const params = new URLSearchParams(window.location.search);
+  const view = (params.get('view') || '').toLowerCase();
+  const screenParam = (params.get('screen') || '').toUpperCase();
+  const stand = (params.get('stand') || params.get('brand') || '').toLowerCase();
+
+  if (view === 'mail') return 'mail';
+  if (path.startsWith('/formulario2') || screenParam === 'STAND_02' || screenParam === 'STAND_LOCAL_2' || stand === 'ford') return 'ford';
+  if (screenParam === 'STAND_01' || screenParam === 'STAND_LOCAL' || stand === 'autos') return 'autos';
+  return null;
+}
+
+/** URL EXPLÍCITA de cada canal (nunca "pelada", para que el destino no vuelva a resolverse por defecto). */
+export function channelUrl(channel) {
+  if (channel === 'mail') return '/?view=mail';
+  if (channel === 'ford') return '/formulario2';
+  return `/?screen=${isProduction ? 'STAND_01' : 'STAND_LOCAL'}`;
+}
+
+/**
  * Canal Correo (campaña Brevo): `/?view=mail`. Misma marca Autos, pero el cliente juega desde su
  * propio dispositivo (ruleta incluida en el celular, sin pantalla de stand, sin cola, sin sockets).
  */

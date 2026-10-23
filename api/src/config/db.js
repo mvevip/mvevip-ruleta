@@ -205,7 +205,7 @@ async function checkConnection() {
       `).catch(() => {});
 
       // 10. Soporte multi-stand (Autos / Ford). SOLO se auto-migra fuera de producción.
-      // En producción: ejecutar manualmente deploy/migrations/002_stand_support.sql, 003_mail_stand.sql, 004_prize_icons.sql y 005_leads_crm_link.sql
+      // En producción: ejecutar manualmente deploy/migrations/002_stand_support.sql, 003_mail_stand.sql, 004_prize_icons.sql, 005_leads_crm_link.sql y 006_channel_settings.sql
       if (config.NODE_ENV !== 'production') {
         await connection.query(`ALTER TABLE prizes ADD COLUMN stand VARCHAR(20) NOT NULL DEFAULT 'autos'`).catch(() => {});
         await connection.query(`ALTER TABLE prizes ADD INDEX idx_prizes_stand (stand)`).catch(() => {});
@@ -238,6 +238,19 @@ async function checkConnection() {
 
         await connection.query(`
           INSERT IGNORE INTO system_sync (sync_key, version_timestamp, action) VALUES ('displays_ford', ${Date.now()}, 'INITIAL')
+        `).catch(() => {});
+
+        // Canales de acceso (habilitar/deshabilitar y por defecto). En producción: deploy/migrations/006_channel_settings.sql
+        await connection.query(`
+          CREATE TABLE IF NOT EXISTS channel_settings (
+            channel VARCHAR(20) PRIMARY KEY,
+            enabled TINYINT(1) NOT NULL DEFAULT 1,
+            is_default TINYINT(1) NOT NULL DEFAULT 0,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+          ) ENGINE=InnoDB
+        `).catch(() => {});
+        await connection.query(`
+          INSERT IGNORE INTO channel_settings (channel, enabled, is_default) VALUES ('autos', 1, 1), ('ford', 1, 0), ('mail', 1, 0)
         `).catch(() => {});
 
         // Vínculo con el CRM en el canal Correo. En producción: deploy/migrations/005_leads_crm_link.sql

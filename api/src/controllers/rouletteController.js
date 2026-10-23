@@ -16,6 +16,7 @@ const {
 } = require('../config/stands');
 const { getNextAppointment } = require('../services/appointment');
 const { normalizePrizeIcon } = require('../config/prizeIcons');
+const { getChannelSettings } = require('../services/channelSettings');
 const { normalizeEmailParam, isMailLinkAuthorized, findCrmClient, evaluateClient, findPreviousMailPlay } = require('../services/mailLookup');
 
 // Stand 'autos' = comportamiento histórico; 'ford' = Formulario2/Pantalla2
@@ -345,6 +346,21 @@ async function processSpin(req, res) {
             appointment,
             redeemed: Boolean(prev.redeemed)
           }
+        });
+      }
+    }
+
+    // 4b. CANAL DESHABILITADO desde el admin: no se aceptan participaciones NUEVAS (quien ya jugó sigue viendo su
+    // premio arriba; los usuarios de prueba pueden seguir probando). El frontend redirige al canal por defecto.
+    if (!isTestUser) {
+      const channelSettings = await getChannelSettings();
+      if (channelSettings.channels[stand] && !channelSettings.channels[stand].enabled) {
+        await connection.rollback();
+        return res.status(403).json({
+          success: false,
+          code: 'CHANNEL_DISABLED',
+          default: channelSettings.default,
+          message: 'Este acceso no está disponible en este momento.'
         });
       }
     }

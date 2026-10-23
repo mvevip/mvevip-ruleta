@@ -21,12 +21,14 @@ import {
   Plus,
   Star,
   Tv,
-  FlaskConical
+  FlaskConical,
+  SlidersHorizontal
 } from 'lucide-react';
 import DisplaysManager from './components/DisplaysManager';
 import TestUsersManager from './components/TestUsersManager';
 import StrictAdvisorSelect, { DEFAULT_ADVISORS } from './components/StrictAdvisorSelect';
 import PrizeIconPicker from './components/PrizeIconPicker';
+import ChannelsModal from './components/ChannelsModal';
 
 const isProduction = typeof window !== 'undefined' && (
   window.location.hostname === 'autos.mvevip.com' ||
@@ -58,6 +60,7 @@ export default function App() {
     }
   });
   const [leadTotals, setLeadTotals] = useState({ autos: 0, ford: 0, mail: 0, all: 0 });
+  const [showChannels, setShowChannels] = useState(false); // modal Canales de acceso (habilitar / por defecto)
   const [activeTab, setActiveTab] = useState('prizes'); // 'prizes' | 'leads' | 'destinations' | 'displays' | 'redeem' | 'metrics'
   const [leadsSubTab, setLeadsSubTab] = useState('captured'); // 'captured' | 'test_users'
   
@@ -464,6 +467,13 @@ export default function App() {
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               </button>
               <button
+                onClick={() => setShowChannels(true)}
+                className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-amber-400 active:scale-95"
+                title="Canales de acceso (habilitar y canal por defecto)"
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+              </button>
+              <button
                 onClick={handleLogout}
                 className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 active:scale-95"
                 title="Cerrar sesión"
@@ -513,6 +523,19 @@ export default function App() {
           </div>
         )}
       </header>
+
+      {showChannels && (
+        <ChannelsModal
+          apiUrl={API_URL}
+          origin={isProduction ? window.location.origin : `${window.location.protocol}//${window.location.hostname}:5503`}
+          getAdminHeaders={getAdminHeaders}
+          onClose={() => setShowChannels(false)}
+          onNotification={(msg) => {
+            setSavedMsg(msg);
+            setTimeout(() => setSavedMsg(''), 2500);
+          }}
+        />
+      )}
 
       {/* Alerta flotante de guardado */}
       {savedMsg && (

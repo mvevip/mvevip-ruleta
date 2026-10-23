@@ -6,6 +6,7 @@ const destinationsController = require('../controllers/destinationsController');
 const displaysController = require('../controllers/displaysController');
 const testUsersController = require('../controllers/testUsersController');
 const mailController = require('../controllers/mailController');
+const channelsController = require('../controllers/channelsController');
 const { spinLimiter, adminLimiter, lookupLimiter } = require('../middlewares/rateLimiter');
 const { requireAdminAuth } = require('../middlewares/authMiddleware');
 const { verifyTurnstile } = require('../middlewares/turnstileMiddleware');
@@ -20,6 +21,9 @@ router.post('/screen/activity', rouletteController.recordScreenActivity);
 router.get('/ticket/:code', rouletteController.verifyTicket);
 router.get('/destinations', destinationsController.getDestinations);
 
+// Canales de acceso habilitados y canal por defecto (el frontend móvil lo consulta al abrir)
+router.get('/channels', channelsController.getPublicChannels);
+
 // Canal Correo (Brevo): búsqueda del cliente en el CRM por correo + token firmado
 router.get('/mail/lookup', lookupLimiter, mailController.lookupMailClient);
 
@@ -33,6 +37,10 @@ router.post('/ticket/:code/redeem', adminLimiter, requireAdminAuth, rouletteCont
 router.get('/admin/prizes', adminLimiter, requireAdminAuth, rouletteController.getAdminPrizes);
 router.post('/admin/prizes', adminLimiter, requireAdminAuth, rouletteController.createPrize);
 router.put('/admin/prizes/:id', adminLimiter, requireAdminAuth, rouletteController.updatePrize);
+
+// Rutas Administrativas de Canales de acceso (habilitar/deshabilitar y canal por defecto)
+router.get('/admin/channels', adminLimiter, requireAdminAuth, channelsController.getAdminChannels);
+router.put('/admin/channels', adminLimiter, requireAdminAuth, channelsController.updateChannels);
 
 // Rutas Administrativas de Destinos Soñados
 router.get('/admin/destinations', adminLimiter, requireAdminAuth, destinationsController.getAdminDestinations);
