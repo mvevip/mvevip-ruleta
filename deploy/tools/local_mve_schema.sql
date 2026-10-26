@@ -1,10 +1,10 @@
 -- Esquema SIMULADO del CRM para pruebas LOCALES del flujo de correo (nunca ejecutar en producción).
--- La tabla real es mve.mve_clientes (mismo servidor RDS que la ruleta); aquí solo las 4 columnas que usa
+-- La tabla real es mve.mve_clientes (mismo servidor RDS que la ruleta); aquí solo las columnas que usa
 -- api/src/services/mailLookup.js. Usuario local de la API: vip_user.
 CREATE DATABASE IF NOT EXISTS mve CHARACTER SET utf8mb4;
 DROP TABLE IF EXISTS mve.mve_clientes;
 CREATE TABLE mve.mve_clientes (
-  cli_id INT AUTO_INCREMENT PRIMARY KEY,
+  cli_codigo INT AUTO_INCREMENT PRIMARY KEY,
   cli_nombre VARCHAR(100), cli_apellido VARCHAR(100), cli_celular VARCHAR(30), cli_email VARCHAR(150),
   INDEX idx_cli_email (cli_email)
 );

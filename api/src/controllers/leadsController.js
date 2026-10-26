@@ -13,8 +13,8 @@ function deriveLeadStand(screenId) {
   return mapped || 'autos';
 }
 
-// ID del cliente en el CRM (mve.mve_clientes). Nombre de la columna configurable (CRM_ID_COLUMN); por defecto 'cli_id'.
-const CRM_ID_COLUMN = /^[A-Za-z_][A-Za-z0-9_]*$/.test(process.env.CRM_ID_COLUMN || '') ? process.env.CRM_ID_COLUMN : 'cli_id';
+// ID del cliente en el CRM (mve.mve_clientes). Nombre de la columna configurable (CRM_ID_COLUMN); por defecto 'cli_codigo'.
+const CRM_ID_COLUMN = /^[A-Za-z_][A-Za-z0-9_]*$/.test(process.env.CRM_ID_COLUMN || '') ? process.env.CRM_ID_COLUMN : 'cli_codigo';
 
 /**
  * Para los leads del canal Correo busca el ID de cliente del CRM, por el correo con el que se vinculó (crm_email)
