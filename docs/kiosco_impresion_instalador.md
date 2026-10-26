@@ -53,6 +53,7 @@ PY
 ```
 Una imagen de ejemplo del ticket real: `docs/ticket_ejemplo_576px.png`.
 
-## Mientras tanto
-La página imprime en modo texto con `/print` (por defecto). Cuando `/print-image` esté listo, se activa agregando `&print=image`
-a la URL de la pantalla del botón.
+## Modo de impresión de la página
+- **Por defecto imprime el boarding pass con imagen** (`POST /print-image`), con el logo de Marketing VIP tramado en 1 bit y el QR de canje.
+- Si la impresora rechaza la imagen (error o endpoint inexistente), la página imprime automáticamente el **ticket de texto** (`POST /print`) como respaldo, para que el visitante siempre reciba su ticket.
+- `&print=text` en la URL de la pantalla del botón fuerza solo texto (útil para pruebas o si la imagen diera problemas).

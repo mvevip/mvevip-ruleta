@@ -6,7 +6,8 @@
  *   POST /print         -> {"lines":[...]}  texto (máx. 40 líneas, 96 caracteres por línea)
  *   POST /print-image   -> {"image":"<PNG base64, 576 px de ancho, 1 bit>","cut":true}  boarding pass gráfico (pendiente en el servicio local)
  *
- * Modo de impresión: ?print=text (por defecto) | ?print=image en la URL de la pantalla del botón.
+ * Modo de impresión: por defecto 'image' (boarding pass con logo y QR); si la impresora rechaza la imagen se imprime el
+ * ticket de texto como respaldo. ?print=text en la URL de la pantalla del botón fuerza solo texto.
  */
 
 import QRCode from 'qrcode';
@@ -19,9 +20,9 @@ export const PRINT_WIDTH = 576; // 72 mm a 203 dpi (2 mm de margen por lado sobr
 export function getPrintMode() {
   try {
     const mode = new URLSearchParams(window.location.search).get('print');
-    return mode === 'image' ? 'image' : 'text';
+    return mode === 'text' ? 'text' : 'image';
   } catch (e) {
-    return 'text';
+    return 'image';
   }
 }
 
@@ -159,8 +160,75 @@ function wrapCanvas(ctx, text, maxWidth, maxLines) {
   return lines.slice(0, maxLines);
 }
 
+// ---------- Logo en 1 bit (tramado Floyd–Steinberg) ----------
+
+const LOGO_SOURCES = ['/pantalla/logotipo.png', '/logotipo.png'];
+const LOGO_WIDTH = 340;
+const LOGO_GAMMA = 2.0; // oscurece los tonos medios (el verde corporativo es muy claro y saldría casi blanco)
+let logoCache = null;
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`No se pudo cargar ${src}`));
+    img.src = src;
+  });
+}
+
+/** Devuelve un canvas con el logo ya tramado en blanco/negro puro (o null si no se pudo cargar). */
+async function loadDitheredLogo() {
+  if (logoCache) return logoCache;
+  let img = null;
+  for (const src of LOGO_SOURCES) {
+    try { img = await loadImage(src); break; } catch (e) { /* prueba la siguiente ruta */ }
+  }
+  if (!img) return null;
+
+  const w = LOGO_WIDTH;
+  const h = Math.round(img.naturalHeight * (w / img.naturalWidth));
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, w, h);
+  ctx.drawImage(img, 0, 0, w, h);
+
+  const data = ctx.getImageData(0, 0, w, h);
+  const gray = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i += 1) {
+    const lum = 0.299 * data.data[i * 4] + 0.587 * data.data[i * 4 + 1] + 0.114 * data.data[i * 4 + 2];
+    gray[i] = 255 * Math.pow(lum / 255, LOGO_GAMMA);
+  }
+  for (let y = 0; y < h; y += 1) {
+    for (let x = 0; x < w; x += 1) {
+      const idx = y * w + x;
+      const old = gray[idx];
+      const val = old < 128 ? 0 : 255;
+      const err = old - val;
+      gray[idx] = val;
+      if (x + 1 < w) gray[idx + 1] += err * 7 / 16;
+      if (y + 1 < h) {
+        if (x > 0) gray[idx + w - 1] += err * 3 / 16;
+        gray[idx + w] += err * 5 / 16;
+        if (x + 1 < w) gray[idx + w + 1] += err * 1 / 16;
+      }
+    }
+  }
+  for (let i = 0; i < w * h; i += 1) {
+    const v = gray[i] < 128 ? 0 : 255;
+    data.data[i * 4] = data.data[i * 4 + 1] = data.data[i * 4 + 2] = v;
+    data.data[i * 4 + 3] = 255;
+  }
+  ctx.putImageData(data, 0, 0);
+  logoCache = canvas;
+  return canvas;
+}
+
 /** Dibuja el boarding pass a 576 px de ancho, solo blanco y negro. Devuelve un canvas ya binarizado. */
-export function renderBoardingPass(ticket) {
+export async function renderBoardingPass(ticket) {
+  const logo = await loadDitheredLogo();
   const W = PRINT_WIDTH;
   const canvas = document.createElement('canvas');
   canvas.width = W;
@@ -175,12 +243,17 @@ export function renderBoardingPass(ticket) {
   const inner = W - pad * 2;
   let y = 12;
 
-  // Encabezado
+  // Encabezado: logo de Marketing VIP (tramado en 1 bit); si no carga, el nombre en texto
   ctx.textAlign = 'center';
-  ctx.font = '900 46px "Orbitron", "Montserrat", Arial, sans-serif';
-  ctx.fillText('MARKETING VIP', W / 2, y); y += 54;
-  ctx.font = '600 24px "Montserrat", Arial, sans-serif';
-  ctx.fillText('Especialistas en sueños', W / 2, y); y += 38;
+  if (logo) {
+    ctx.drawImage(logo, Math.round((W - logo.width) / 2), y);
+    y += logo.height + 14;
+  } else {
+    ctx.font = '900 46px "Orbitron", "Montserrat", Arial, sans-serif';
+    ctx.fillText('MARKETING VIP', W / 2, y); y += 54;
+    ctx.font = '600 24px "Montserrat", Arial, sans-serif';
+    ctx.fillText('Especialistas en sueños', W / 2, y); y += 38;
+  }
 
   // Barra BOARDING PASS (invertida)
   ctx.fillRect(pad, y, inner, 52);
@@ -273,19 +346,25 @@ export function renderBoardingPass(ticket) {
 /** Imprime el ticket (sin diálogos: se envía directo al servicio local). Lanza un Error si falla. */
 export async function printTicket(ticket, mode = getPrintMode()) {
   if (mode === 'image') {
-    // Asegura las tipografías antes de dibujar (si no, el canvas usaría una de respaldo)
     try {
-      if (document.fonts && document.fonts.load) {
-        await Promise.all([
-          document.fonts.load('900 46px "Orbitron"'),
-          document.fonts.load('900 34px "Montserrat"'),
-          document.fonts.load('700 22px "Montserrat"')
-        ]);
-      }
-    } catch (e) { /* se usa la tipografía disponible */ }
-    const canvas = renderBoardingPass(ticket);
-    const base64 = canvas.toDataURL('image/png').split(',')[1];
-    return postJson('/print-image', { image: base64, cut: true });
+      // Asegura las tipografías antes de dibujar (si no, el canvas usaría una de respaldo)
+      try {
+        if (document.fonts && document.fonts.load) {
+          await Promise.all([
+            document.fonts.load('900 46px "Orbitron"'),
+            document.fonts.load('900 34px "Montserrat"'),
+            document.fonts.load('700 22px "Montserrat"')
+          ]);
+        }
+      } catch (e) { /* se usa la tipografía disponible */ }
+      const canvas = await renderBoardingPass(ticket);
+      const base64 = canvas.toDataURL('image/png').split(',')[1];
+      return await postJson('/print-image', { image: base64, cut: true });
+    } catch (imageError) {
+      // Respaldo: si la impresora no acepta la imagen, el visitante igual recibe su ticket (texto)
+      console.warn('[Kiosco] Falló la impresión con imagen, se imprime el ticket de texto:', imageError);
+      return postJson('/print', { lines: buildTextLines(ticket) });
+    }
   }
   return postJson('/print', { lines: buildTextLines(ticket) });
 }
