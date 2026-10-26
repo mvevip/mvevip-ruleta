@@ -85,7 +85,7 @@ const SESSION_SELECT = `
          l.name AS lead_name, l.phone AS lead_phone,
          p.id AS prize_id, p.name AS prize_name, p.description AS prize_description,
          p.category AS prize_category, p.icon AS prize_icon,
-         DATE_FORMAT(COALESCE(ks.revealed_at, ks.started_at, ks.created_at), '%d/%m/%Y %H:%i') AS played_at
+         COALESCE(ks.revealed_at, ks.started_at, ks.created_at) AS played_at
   FROM kiosk_sessions ks
   JOIN leads l ON l.id = ks.lead_id
   LEFT JOIN prizes p ON p.id = ks.prize_id`;
@@ -105,7 +105,7 @@ function ticketPayload(row) {
     ticketCode: row.ticket_code,
     qrText: row.ticket_code,
     leadName: row.lead_name,
-    playedAt: row.played_at,
+    playedAt: formatQuito(row.played_at),
     winner: {
       id: row.prize_id,
       name: row.prize_name,
@@ -114,6 +114,18 @@ function ticketPayload(row) {
       icon: row.prize_icon || null
     }
   };
+}
+
+/** Fecha y hora en Quito (UTC-5, sin horario de verano): dd/mm/aaaa HH:mm. La BD y el Lambda trabajan en UTC. */
+function formatQuito(value) {
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'America/Guayaquil',
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+  }).formatToParts(d).reduce((acc, p) => { acc[p.type] = p.value; return acc; }, {});
+  return `${parts.day}/${parts.month}/${parts.year} ${parts.hour}:${parts.minute}`;
 }
 
 function maskPhone(phone) {
@@ -158,7 +170,7 @@ async function registerParticipant(req, res) {
       const [previous] = await conn.query(
         `SELECT s.ticket_code, l.name AS lead_name,
                 p.id AS prize_id, p.name AS prize_name, p.description AS prize_description, p.category AS prize_category, p.icon AS prize_icon,
-                DATE_FORMAT(s.created_at, '%d/%m/%Y %H:%i') AS played_at
+                s.created_at AS played_at
          FROM leads l
          JOIN spins s ON s.lead_id = l.id
          JOIN prizes p ON p.id = s.prize_id

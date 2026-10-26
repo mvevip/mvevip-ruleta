@@ -39,6 +39,19 @@ const API_URL = isProduction
   ? (typeof window !== 'undefined' ? window.location.origin : '')
   : (typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:5500` : 'http://localhost:5500');
 
+// Fecha y hora de registro en hora de Quito, Ecuador (UTC-5). La API entrega las fechas en UTC (ISO).
+function formatQuitoDateTime(value) {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '—';
+  const parts = new Intl.DateTimeFormat('es-EC', {
+    timeZone: 'America/Guayaquil',
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+  }).formatToParts(d).reduce((acc, p) => { acc[p.type] = p.value; return acc; }, {});
+  return `${parts.day}/${parts.month}/${parts.year} ${parts.hour}:${parts.minute}`;
+}
+
 export default function App() {
   const [pin, setPin] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -870,6 +883,12 @@ export default function App() {
                         <span className="font-mono text-xs font-bold text-[#9AC31C] bg-zinc-900 px-2 py-0.5 rounded border border-[#9AC31C]/30 shrink-0">
                           {l.ticket_code || 'SIN TICKET'}
                         </span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 text-[11px] text-zinc-400 font-mono">
+                        <span>🕒 Registro:</span>
+                        <strong className="text-zinc-200">{formatQuitoDateTime(l.created_at)}</strong>
+                        <span className="text-zinc-500">(Quito, UTC-5)</span>
                       </div>
 
                       <div className="flex items-center justify-between text-xs">
