@@ -7,6 +7,7 @@ const displaysController = require('../controllers/displaysController');
 const testUsersController = require('../controllers/testUsersController');
 const mailController = require('../controllers/mailController');
 const channelsController = require('../controllers/channelsController');
+const kioskController = require('../controllers/kioskController');
 const { spinLimiter, adminLimiter, lookupLimiter } = require('../middlewares/rateLimiter');
 const { requireAdminAuth } = require('../middlewares/authMiddleware');
 const { verifyTurnstile } = require('../middlewares/turnstileMiddleware');
@@ -23,6 +24,14 @@ router.get('/destinations', destinationsController.getDestinations);
 
 // Canales de acceso habilitados y canal por defecto (el frontend móvil lo consulta al abrir)
 router.get('/channels', channelsController.getPublicChannels);
+
+// Kiosco de 2 pantallas (KIOSK_01): registro desde el celular, botón en la pantalla de abajo, giro en la de arriba
+router.post('/kiosk/register', spinLimiter, verifyTurnstile, kioskController.registerParticipant);
+router.get('/kiosk/state', kioskController.getState);
+router.post('/kiosk/start', adminLimiter, kioskController.requireKioskKey, kioskController.startSpin);
+router.post('/kiosk/revealed', adminLimiter, kioskController.markRevealed);
+router.post('/kiosk/printed', adminLimiter, kioskController.requireKioskKey, kioskController.reportPrinted);
+router.post('/admin/kiosk/reprint/:code', adminLimiter, requireAdminAuth, kioskController.requestReprint);
 
 // Canal Correo (Brevo): búsqueda del cliente en el CRM por correo + token firmado
 router.get('/mail/lookup', lookupLimiter, mailController.lookupMailClient);

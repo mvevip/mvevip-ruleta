@@ -44,7 +44,7 @@ export default function Header() {
 
       <div className="flex items-center gap-1.5 bg-zinc-100 border border-zinc-300 px-2.5 py-1 rounded-full text-[11px] font-racing text-zinc-800 font-bold uppercase tracking-wider shadow-sm">
         <Award className="w-3.5 h-3.5 text-[#9AC31C]" />
-        <span>{brand.isMail ? 'Ruleta de Premios' : 'Feria Autos'}</span>
+        <span>{brand.isMail || brand.isKiosk ? 'Ruleta de Premios' : 'Feria Autos'}</span>
       </div>
     </header>
   );

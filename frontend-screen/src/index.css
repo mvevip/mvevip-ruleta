@@ -29,3 +29,11 @@
   background: linear-gradient(135deg, #27272a 0%, #111827 50%, #3f3f46 100%);
   border: 1px solid rgba(255, 255, 255, 0.15);
 }
+
+
+/* Kiosco: pulso luminoso del botón JUGAR AHORA (sin tocar la opacidad del texto) */
+@keyframes kioskGlow {
+  0%, 100% { box-shadow: 0 0 30px rgba(154, 195, 28, 0.5); }
+  50% { box-shadow: 0 0 90px rgba(154, 195, 28, 1); }
+}
+.kiosk-glow { animation: kioskGlow 1.4s ease-in-out infinite; }

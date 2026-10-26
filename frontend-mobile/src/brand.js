@@ -43,6 +43,7 @@ export function detectRequestedChannel() {
   const stand = (params.get('stand') || params.get('brand') || '').toLowerCase();
 
   if (view === 'mail') return 'mail';
+  if (screenParam === 'KIOSK_01' || stand === 'kiosk') return 'kiosk';
   if (path.startsWith('/formulario2') || screenParam === 'STAND_02' || screenParam === 'STAND_LOCAL_2' || stand === 'ford') return 'ford';
   if (screenParam === 'STAND_01' || screenParam === 'STAND_LOCAL' || stand === 'autos') return 'autos';
   return null;
@@ -65,17 +66,32 @@ export function detectMailView() {
   return (params.get('view') || '').toLowerCase() === 'mail';
 }
 
+/**
+ * Kiosco de 2 pantallas: `/?screen=KIOSK_01` (el QR de la pantalla de arriba lo incluye siempre).
+ * El celular solo se registra; el giro lo dispara el botón de la pantalla de abajo.
+ */
+export function detectKioskView() {
+  if (typeof window === 'undefined') return false;
+  const params = new URLSearchParams(window.location.search);
+  const screenParam = (params.get('screen') || '').toUpperCase();
+  const stand = (params.get('stand') || params.get('brand') || '').toLowerCase();
+  return screenParam === 'KIOSK_01' || stand === 'kiosk';
+}
+
 export function getMobileBrandConfig() {
   const brand = detectMobileBrand();
   const isFord = brand === 'ford';
-  const isMail = !isFord && detectMailView();
+  const isKiosk = !isFord && detectKioskView();
+  const isMail = !isFord && !isKiosk && detectMailView();
 
   // Si es /formulario2, SIEMPRE apunta a la pantalla 2 (STAND_02 / STAND_LOCAL_2)
   const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const rawScreen = params.get('screen');
 
   let screenId;
-  if (isMail) {
+  if (isKiosk) {
+    screenId = 'KIOSK_01';
+  } else if (isMail) {
     screenId = 'MAIL_01';
   } else if (isFord) {
     screenId = (rawScreen === 'STAND_02' || rawScreen === 'STAND_LOCAL_2')
@@ -86,8 +102,9 @@ export function getMobileBrandConfig() {
   }
 
   return {
-    key: isMail ? 'mail' : brand,
+    key: isKiosk ? 'kiosk' : isMail ? 'mail' : brand,
     isFord,
+    isKiosk,
     isMail,
     screenId,
     logoSrc: isFord ? '/logo_ford.jpeg' : '/logotipo.png',

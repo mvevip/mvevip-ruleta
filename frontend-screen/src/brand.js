@@ -15,12 +15,18 @@ export function detectScreenBrand() {
   ) {
     return 'ford';
   }
+
+  // Kiosco de 2 pantallas (arriba: ruleta / abajo: botón): /pantalla/?screen=KIOSK_01
+  if (standParam === 'kiosk' || screenParam === 'KIOSK_01') {
+    return 'kiosk';
+  }
   return 'autos';
 }
 
 export function getScreenBrandConfig() {
   const brand = detectScreenBrand();
   const isFord = brand === 'ford';
+  const isKiosk = brand === 'kiosk';
 
   const isProduction = typeof window !== 'undefined' && (
     window.location.hostname === 'autos.mvevip.com' ||
@@ -28,9 +34,11 @@ export function getScreenBrandConfig() {
     window.location.hostname.endsWith('.cloudfront.net')
   );
 
-  const defaultScreenId = isFord
-    ? (isProduction ? 'STAND_02' : 'STAND_LOCAL_2')
-    : (isProduction ? 'STAND_01' : 'STAND_LOCAL');
+  const defaultScreenId = isKiosk
+    ? 'KIOSK_01'
+    : isFord
+      ? (isProduction ? 'STAND_02' : 'STAND_LOCAL_2')
+      : (isProduction ? 'STAND_01' : 'STAND_LOCAL');
 
   const baseMobileOrigin = isProduction
     ? (typeof window !== 'undefined' ? `${window.location.origin}` : 'https://autos.mvevip.com')
@@ -42,7 +50,8 @@ export function getScreenBrandConfig() {
   return {
     brand,
     isFord,
-    stand: isFord ? 'ford' : 'autos',
+    isKiosk,
+    stand: isKiosk ? 'kiosk' : isFord ? 'ford' : 'autos',
     screenId: defaultScreenId,
     mobileUrl,
     name: isFord ? 'Ford | Quito Motors' : 'Marketing VIP',

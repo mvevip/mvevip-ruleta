@@ -45,21 +45,21 @@ export default function App() {
   const [activeStand, setActiveStand] = useState(() => {
     try {
       const saved = localStorage.getItem('vip_admin_stand');
-      return saved === 'ford' || saved === 'mail' ? saved : 'autos';
+      return saved === 'ford' || saved === 'mail' || saved === 'kiosk' ? saved : 'autos';
     } catch (_) {
       return 'autos';
     }
   });
-  // Filtro de la pestaña Leads: arranca en el canal activo del selector superior y lo sigue ('all' | 'autos' | 'ford' | 'mail')
+  // Filtro de la pestaña Leads: arranca en el canal activo del selector superior y lo sigue ('all' | 'autos' | 'ford' | 'mail' | 'kiosk')
   const [leadStandFilter, setLeadStandFilter] = useState(() => {
     try {
       const saved = localStorage.getItem('vip_admin_stand');
-      return saved === 'ford' || saved === 'mail' ? saved : 'autos';
+      return saved === 'ford' || saved === 'mail' || saved === 'kiosk' ? saved : 'autos';
     } catch (_) {
       return 'autos';
     }
   });
-  const [leadTotals, setLeadTotals] = useState({ autos: 0, ford: 0, mail: 0, all: 0 });
+  const [leadTotals, setLeadTotals] = useState({ autos: 0, ford: 0, mail: 0, kiosk: 0, all: 0 });
   const [showChannels, setShowChannels] = useState(false); // modal Canales de acceso (habilitar / por defecto)
   const [activeTab, setActiveTab] = useState('prizes'); // 'prizes' | 'leads' | 'destinations' | 'displays' | 'redeem' | 'metrics'
   const [leadsSubTab, setLeadsSubTab] = useState('captured'); // 'captured' | 'test_users'
@@ -352,6 +352,22 @@ export default function App() {
     }
   };
 
+  // Kiosco: pedir que la pantalla del botón reimprima un ticket en la térmica local
+  const handleReprintTicket = async (code) => {
+    try {
+      const res = await fetch(`${API_URL}/api/admin/kiosk/reprint/${encodeURIComponent(code)}`, {
+        method: 'POST',
+        headers: getAdminHeaders()
+      });
+      const json = await res.json();
+      setSavedMsg(json.success ? json.message : (json.message || 'No se pudo solicitar la reimpresión'));
+      setTimeout(() => setSavedMsg(''), 3500);
+    } catch (e) {
+      setSavedMsg('Error de conexión al solicitar la reimpresión');
+      setTimeout(() => setSavedMsg(''), 3500);
+    }
+  };
+
   // Canjear Ticket
   const handleRedeemTicket = async (code) => {
     try {
@@ -412,6 +428,7 @@ export default function App() {
     if (leadStandFilter === 'autos' && l.stand !== 'autos') return false;
     if (leadStandFilter === 'ford' && l.stand !== 'ford') return false;
     if (leadStandFilter === 'mail' && l.stand !== 'mail') return false;
+    if (leadStandFilter === 'kiosk' && l.stand !== 'kiosk') return false;
     const q = searchQuery.toLowerCase();
     if (!q) return true;
     return (
@@ -425,6 +442,7 @@ export default function App() {
 
   const isFordStand = activeStand === 'ford';
   const isMailStand = activeStand === 'mail';
+  const isKioskStand = activeStand === 'kiosk';
 
   return (
     <div className="min-h-screen carbon-bg text-white flex flex-col justify-between pb-20 select-none">
@@ -440,7 +458,7 @@ export default function App() {
             <div>
               <h1 className="font-racing font-bold text-sm text-white tracking-wider leading-none">
                 ADMIN <span className={isFordStand ? 'text-blue-400' : 'text-[#9AC31C]'}>
-                  {isFordStand ? 'FORD (PANTALLA 2)' : isMailStand ? 'CORREO (CAMPAÑA)' : 'AUTOS (PANTALLA 1)'}
+                  {isFordStand ? 'FORD (PANTALLA 2)' : isMailStand ? 'CORREO (CAMPAÑA)' : isKioskStand ? 'KIOSCO (2 PANTALLAS)' : 'AUTOS (PANTALLA 1)'}
                 </span>
               </h1>
               <div className="flex items-center gap-1.5 mt-0.5">
@@ -486,12 +504,12 @@ export default function App() {
 
         {/* Selector Global de Stand (AUTOS vs FORD) */}
         {isAuthenticated && (
-          <div className="max-w-md w-full mx-auto grid grid-cols-3 gap-1.5 p-1 bg-zinc-900 rounded-2xl border border-zinc-800">
+          <div className="max-w-md w-full mx-auto grid grid-cols-4 gap-1.5 p-1 bg-zinc-900 rounded-2xl border border-zinc-800">
             <button
               type="button"
               onClick={() => handleSelectStand('autos')}
               className={`py-2 px-2 rounded-xl font-racing font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                !isFordStand && !isMailStand
+                !isFordStand && !isMailStand && !isKioskStand
                   ? 'bg-[#9AC31C] text-black shadow-[0_0_15px_rgba(154,195,28,0.4)]'
                   : 'text-zinc-400 hover:text-white'
               }`}
@@ -519,6 +537,17 @@ export default function App() {
               }`}
             >
               <span>📧 CORREO</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSelectStand('kiosk')}
+              className={`py-2 px-2 rounded-xl font-racing font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                isKioskStand
+                  ? 'bg-fuchsia-500 text-black shadow-[0_0_15px_rgba(217,70,239,0.5)]'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              <span>🖥️ KIOSCO</span>
             </button>
           </div>
         )}
@@ -591,11 +620,11 @@ export default function App() {
             <div className="flex items-center gap-2">
               <span className={`w-2.5 h-2.5 rounded-full animate-pulse ${isFordStand ? 'bg-white' : 'bg-[#9AC31C]'}`} />
               <span className="font-racing font-bold uppercase tracking-wider">
-                {isFordStand ? 'Editando Stand 2: FORD (/pantalla2)' : isMailStand ? 'Editando Canal CORREO (campaña Brevo)' : 'Editando Stand 1: AUTOS (/pantalla)'}
+                {isFordStand ? 'Editando Stand 2: FORD (/pantalla2)' : isMailStand ? 'Editando Canal CORREO (campaña Brevo)' : isKioskStand ? 'Editando KIOSCO (ruleta arriba + botón abajo)' : 'Editando Stand 1: AUTOS (/pantalla)'}
               </span>
             </div>
             <span className="text-[10px] font-mono opacity-85">
-              {isFordStand ? 'Form: /formulario2' : isMailStand ? 'Form: /?view=mail' : 'Form: /'}
+              {isFordStand ? 'Form: /formulario2' : isMailStand ? 'Form: /?view=mail' : isKioskStand ? 'Form: /?screen=KIOSK_01' : 'Form: /'}
             </span>
           </div>
 
@@ -606,7 +635,7 @@ export default function App() {
               <div className="bg-zinc-900/90 border border-[#9AC31C]/40 p-3 rounded-2xl flex items-start gap-2.5">
                 <Percent className="w-4 h-4 text-[#9AC31C] shrink-0 mt-0.5" />
                 <p className="text-[11px] text-zinc-300">
-                  <strong className="text-[#9AC31C]">Premios de {isFordStand ? 'Ford (Pantalla 2)' : isMailStand ? 'Correo (campaña)' : 'Autos (Pantalla 1)'}:</strong> Cada stand/canal tiene su propio inventario y probabilidades independientes.
+                  <strong className="text-[#9AC31C]">Premios de {isFordStand ? 'Ford (Pantalla 2)' : isMailStand ? 'Correo (campaña)' : isKioskStand ? 'Kiosco' : 'Autos (Pantalla 1)'}:</strong> Cada stand/canal tiene su propio inventario y probabilidades independientes.
                 </p>
               </div>
 
@@ -749,7 +778,7 @@ export default function App() {
               ) : (
                 <div className="space-y-3">
                   {/* Filtro rápido de Leads por Stand (Todos / Autos / Ford) */}
-                  <div className="grid grid-cols-4 gap-1.5 p-1 bg-zinc-900 rounded-xl border border-zinc-800 text-[10px] font-racing font-bold">
+                  <div className="grid grid-cols-5 gap-1.5 p-1 bg-zinc-900 rounded-xl border border-zinc-800 text-[10px] font-racing font-bold">
                     <button
                       type="button"
                       onClick={() => setLeadStandFilter('all')}
@@ -786,6 +815,15 @@ export default function App() {
                     >
                       Correo ({leadTotals.mail})
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setLeadStandFilter('kiosk')}
+                      className={`py-1.5 rounded-lg uppercase transition-all cursor-pointer ${
+                        leadStandFilter === 'kiosk' ? 'bg-fuchsia-500 text-black' : 'text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      Kiosco ({leadTotals.kiosk})
+                    </button>
                   </div>
 
                   {/* Buscador de leads */}
@@ -817,9 +855,11 @@ export default function App() {
                               ? 'bg-[#212650] text-white border border-blue-400/50'
                               : l.stand === 'mail'
                                 ? 'bg-amber-500/20 text-amber-300 border border-amber-400/40'
-                                : 'bg-[#9AC31C]/20 text-[#9AC31C] border border-[#9AC31C]/40'
+                                : l.stand === 'kiosk'
+                                  ? 'bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-400/40'
+                                  : 'bg-[#9AC31C]/20 text-[#9AC31C] border border-[#9AC31C]/40'
                           }`}>
-                            {l.stand === 'ford' ? '🚘 FORD' : l.stand === 'mail' ? '📧 CORREO' : '🏎️ AUTOS'}
+                            {l.stand === 'ford' ? '🚘 FORD' : l.stand === 'mail' ? '📧 CORREO' : l.stand === 'kiosk' ? '🖥️ KIOSCO' : '🏎️ AUTOS'}
                           </span>
                           {l.is_test ? (
                             <span className="text-[9px] font-mono text-purple-300 bg-purple-950/80 border border-purple-500/40 px-1.5 py-0.5 rounded font-bold">
@@ -847,6 +887,16 @@ export default function App() {
                       <div className="text-xs text-zinc-300">
                         Premio: <strong className="text-[#9AC31C]">{l.prize_name || 'Pendiente'}</strong>
                       </div>
+
+                      {l.stand === 'kiosk' && l.ticket_code && (
+                        <button
+                          type="button"
+                          onClick={() => handleReprintTicket(l.ticket_code)}
+                          className="text-[11px] font-bold text-fuchsia-300 border border-fuchsia-400/40 bg-fuchsia-500/10 px-2.5 py-1 rounded-lg cursor-pointer"
+                        >
+                          🖨️ Reimprimir ticket
+                        </button>
+                      )}
 
                       {/* Selector de Asesor con búsqueda y validación estricta */}
                       <StrictAdvisorSelect
@@ -952,7 +1002,7 @@ export default function App() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-zinc-900 p-4 rounded-2xl border border-zinc-800 text-center">
-                  <span className="text-[10px] text-zinc-400 font-racing uppercase">Leads ({isFordStand ? 'Ford' : isMailStand ? 'Correo' : 'Autos'})</span>
+                  <span className="text-[10px] text-zinc-400 font-racing uppercase">Leads ({isFordStand ? 'Ford' : isMailStand ? 'Correo' : isKioskStand ? 'Kiosco' : 'Autos'})</span>
                   <p className="text-2xl font-racing font-black text-[#9AC31C] mt-1">{metrics.totalLeads}</p>
                 </div>
                 <div className="bg-zinc-900 p-4 rounded-2xl border border-zinc-800 text-center">

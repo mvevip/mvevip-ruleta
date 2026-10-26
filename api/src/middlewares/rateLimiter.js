@@ -42,7 +42,7 @@ const globalLimiter = rateLimit({
   max: 300,
   skip: (req) => {
     // No limitar health check ni polling ultra ligero de pantalla de feria
-    return req.path === '/health' || req.path.endsWith('/spin/latest') || req.path.endsWith('/screen/activity');
+    return req.path === '/health' || req.path.endsWith('/spin/latest') || req.path.endsWith('/screen/activity') || req.path.endsWith('/kiosk/state');
   },
   standardHeaders: true,
   legacyHeaders: false,

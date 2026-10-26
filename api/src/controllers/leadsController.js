@@ -48,7 +48,7 @@ async function getLeads(req, res) {
 
     // Totales reales por canal (no dependen del filtro ni del tope de filas)
     const [countRows] = await pool.query('SELECT screen_id, COUNT(*) AS n FROM leads GROUP BY screen_id');
-    const totals = { autos: 0, ford: 0, mail: 0, all: 0 };
+    const totals = { autos: 0, ford: 0, mail: 0, kiosk: 0, all: 0 };
     countRows.forEach((r) => {
       const st = deriveLeadStand(r.screen_id);
       totals[st] = (totals[st] || 0) + Number(r.n);
@@ -214,6 +214,15 @@ async function getMetrics(req, res) {
       [mailScreens]
     );
 
+    const [[kioskLeadsRow]] = await pool.query(
+      'SELECT COUNT(*) AS count FROM leads WHERE (is_test = 0 OR is_test IS NULL) AND screen_id IN (?)',
+      [screenIdsOf('kiosk')]
+    );
+    const [[kioskSpinsRow]] = await pool.query(
+      'SELECT COUNT(*) AS count FROM spins WHERE (is_test = 0 OR is_test IS NULL) AND screen_id IN (?)',
+      [screenIdsOf('kiosk')]
+    );
+
     res.json({
       success: true,
       stand: filterByStand || 'all',
@@ -238,6 +247,10 @@ async function getMetrics(req, res) {
           mail: {
             leads: mailLeadsRow.count,
             spins: mailSpinsRow.count
+          },
+          kiosk: {
+            leads: kioskLeadsRow.count,
+            spins: kioskSpinsRow.count
           }
         }
       }

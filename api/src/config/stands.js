@@ -3,6 +3,8 @@
  *  - autos: Formulario `/` + Pantalla `/pantalla`   (screen_id STAND_01 / STAND_LOCAL)
  *  - ford:  Formulario `/formulario2` + Pantalla `/pantalla2` (screen_id STAND_02 / STAND_LOCAL_2)
  *  - mail:  Campaña por correo `/?view=mail` (screen_id MAIL_01). Sin pantalla física, sin cola ni sockets.
+ *  - kiosk: Kiosco de 2 pantallas (screen_id KIOSK_01): arriba ruleta (`/pantalla/?screen=KIOSK_01`), abajo botón (`?view=kiosk-button`),
+ *           celular `/?screen=KIOSK_01`. El giro lo dispara el botón del kiosco, no el celular.
  * El servidor deriva siempre el stand desde valores validados (lista blanca).
  */
 
@@ -13,7 +15,8 @@ const SCREEN_TO_STAND = {
   STAND_LOCAL: 'autos',
   STAND_02: 'ford',
   STAND_LOCAL_2: 'ford',
-  MAIL_01: 'mail'
+  MAIL_01: 'mail',
+  KIOSK_01: 'kiosk'
 };
 
 const STANDS = {
@@ -37,6 +40,13 @@ const STANDS = {
     screenIds: ['MAIL_01'],
     displayPrefix: 'mail_',
     syncKey: 'displays_mail'
+  },
+  kiosk: {
+    key: 'kiosk',
+    label: 'Kiosco',
+    screenIds: ['KIOSK_01'],
+    displayPrefix: 'kiosk_',
+    syncKey: 'displays_kiosk'
   }
 };
 

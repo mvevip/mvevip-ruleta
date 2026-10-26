@@ -205,7 +205,7 @@ async function checkConnection() {
       `).catch(() => {});
 
       // 10. Soporte multi-stand (Autos / Ford). SOLO se auto-migra fuera de producción.
-      // En producción: ejecutar manualmente deploy/migrations/002_stand_support.sql, 003_mail_stand.sql, 004_prize_icons.sql, 005_leads_crm_link.sql y 006_channel_settings.sql
+      // En producción: ejecutar manualmente deploy/migrations/002_stand_support.sql, 003_mail_stand.sql, 004_prize_icons.sql, 005_leads_crm_link.sql, 006_channel_settings.sql y 007_kiosk.sql
       if (config.NODE_ENV !== 'production') {
         await connection.query(`ALTER TABLE prizes ADD COLUMN stand VARCHAR(20) NOT NULL DEFAULT 'autos'`).catch(() => {});
         await connection.query(`ALTER TABLE prizes ADD INDEX idx_prizes_stand (stand)`).catch(() => {});
@@ -251,6 +251,47 @@ async function checkConnection() {
         `).catch(() => {});
         await connection.query(`
           INSERT IGNORE INTO channel_settings (channel, enabled, is_default) VALUES ('autos', 1, 1), ('ford', 1, 0), ('mail', 1, 0)
+        `).catch(() => {});
+
+        // Kiosco de 2 pantallas (stand 'kiosk'). En producción: deploy/migrations/007_kiosk.sql
+        await connection.query(`
+          CREATE TABLE IF NOT EXISTS kiosk_sessions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            screen_id VARCHAR(50) NOT NULL DEFAULT 'KIOSK_01',
+            lead_id INT NOT NULL,
+            status ENUM('REGISTERED','SPINNING','REVEALED','DONE','EXPIRED') NOT NULL DEFAULT 'REGISTERED',
+            phone_token VARCHAR(48) NOT NULL,
+            prize_id INT NULL,
+            ticket_code VARCHAR(50) NULL,
+            is_test TINYINT(1) NOT NULL DEFAULT 0,
+            print_status VARCHAR(20) NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            expires_at DATETIME NOT NULL,
+            started_at DATETIME NULL,
+            revealed_at DATETIME NULL,
+            finished_at DATETIME NULL,
+            INDEX idx_kiosk_screen_status (screen_id, status),
+            INDEX idx_kiosk_ticket (ticket_code),
+            FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE CASCADE
+          ) ENGINE=InnoDB
+        `).catch(() => {});
+        await connection.query(`ALTER TABLE prizes ADD COLUMN icon VARCHAR(40) NULL DEFAULT NULL`).catch(() => {});
+        const [[kioskPrizes]] = await connection.query(`SELECT COUNT(*) AS count FROM prizes WHERE stand = 'kiosk'`);
+        if (kioskPrizes.count === 0) {
+          console.log('[Database] Poblando premios semilla del kiosco...');
+          await connection.query(`
+            INSERT INTO prizes (name, description, category, color_hex, text_color, icon, weight, stock, max_daily_wins, active, stand)
+            SELECT name, description, category, color_hex, text_color, icon, weight, stock, 0, active, 'kiosk'
+            FROM prizes WHERE stand = 'autos' AND active = 1
+          `).catch(() => {});
+        }
+        await connection.query(`
+          INSERT IGNORE INTO display_configs (screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent, wheel_scale_x, wheel_font_size, video_logo_scale, video_qr_scale, video_qr_position, video_logo_visible)
+          SELECT CONCAT('kiosk_', screen_key), orientation, slide_duration, layout_ratio, video_url, qr_scale_percent, wheel_scale_x, wheel_font_size, video_logo_scale, video_qr_scale, video_qr_position, video_logo_visible
+          FROM display_configs WHERE screen_key IN ('roulette', 'qr', 'slider', 'combo')
+        `).catch(() => {});
+        await connection.query(`
+          INSERT IGNORE INTO system_sync (sync_key, version_timestamp, action) VALUES ('displays_kiosk', ${Date.now()}, 'INITIAL')
         `).catch(() => {});
 
         // Vínculo con el CRM en el canal Correo. En producción: deploy/migrations/005_leads_crm_link.sql

@@ -449,6 +449,15 @@ export default function App() {
         ticketCode: data.ticketCode,
         destination: data.destination
       });
+
+      // Kiosco: avisar al servidor que la ruleta ya se detuvo, para revelar el premio en el celular y mandar a imprimir
+      if (brand.isKiosk) {
+        fetch(`${API_URL}/api/kiosk/revealed`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ticket_code: data.ticketCode })
+        }).catch(() => {});
+      }
     }, 8000);
   };
 

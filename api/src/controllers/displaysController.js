@@ -66,7 +66,10 @@ async function getDisplaysConfig(req, res) {
 
     const configMap = {};
     configs
-      .filter(row => (prefix ? row.screen_key.startsWith(prefix) : !row.screen_key.startsWith('ford_')))
+      .filter(row => (prefix
+        ? row.screen_key.startsWith(prefix)
+        // Autos (sin prefijo): excluir las filas de los demás stands (ford_, mail_, kiosk_...)
+        : !Object.values(STANDS).some(st => st.displayPrefix && row.screen_key.startsWith(st.displayPrefix))))
       .forEach(row => {
       const logicalKey = prefix ? row.screen_key.slice(prefix.length) : row.screen_key;
       configMap[logicalKey] = {
