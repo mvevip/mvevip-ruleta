@@ -1,0 +1,125 @@
+name: Deploy producción (autos.mvevip.com)
+
+# Solo manual. Se lanza cuando el responsable ordena "despliega".
+# No toca la base de datos (las migraciones SQL las ejecuta el responsable en RDS ANTES de desplegar)
+# ni las variables de entorno del Lambda.
+on:
+  workflow_dispatch:
+    inputs:
+      backup_name:
+        description: "Nombre del backup previo (ej: pre-brevo). Se guarda en backups/<nombre>/"
+        required: true
+        type: string
+      migrations_done:
+        description: "Confirmo que las migraciones SQL pendientes ya se ejecutaron en RDS (o no hay)"
+        required: true
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-west-2
+  DEPLOY_BUCKET: mvevip-recursos
+  FRONTEND_BUCKET: marketingvip-autos-frontend-021891594659-us-west-2
+  CF_ID: E1ZMRVAW1NYIDC
+  LAMBDA_FN: MarketingVIP-Roulette-Api-prod
+  PREFIX: marketingvip-roulette
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+    steps:
+      - name: Validar entradas
+        env:
+          BACKUP_NAME: ${{ inputs.backup_name }}
+          MIGRATIONS_DONE: ${{ inputs.migrations_done }}
+        run: |
+          [[ "$BACKUP_NAME" =~ ^[a-zA-Z0-9._-]{3,60}$ ]] || { echo "backup_name inválido"; exit 1; }
+          [ "$MIGRATIONS_DONE" = "true" ] || { echo "Debes confirmar las migraciones SQL (migrations_done)"; exit 1; }
+          [ "${GITHUB_REF}" = "refs/heads/main" ] || { echo "Solo se despliega desde main"; exit 1; }
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Backup previo (api.zip + frontends)
+        env:
+          BK_NAME: ${{ inputs.backup_name }}
+        run: |
+          BK="s3://$DEPLOY_BUCKET/$PREFIX/backups/$BK_NAME"
+          if aws s3 ls "$BK/INFO.txt" >/dev/null 2>&1; then
+            echo "Ya existe el backup $BK_NAME; usa otro nombre"; exit 1
+          fi
+          aws s3 cp "s3://$DEPLOY_BUCKET/$PREFIX/api.zip" "$BK/api.zip"
+          aws s3 sync "s3://$FRONTEND_BUCKET/" "$BK/frontend/"
+          printf 'commit_desplegado_despues=%s\nfecha=%s\n' "$GITHUB_SHA" "$(date -u +%FT%TZ)" > INFO.txt
+          aws s3 cp INFO.txt "$BK/INFO.txt"
+          echo "Backup en $BK"
+
+      - name: Backend (api.zip)
+        working-directory: api
+        run: |
+          rm -rf ../build-api && mkdir ../build-api
+          cp -r src package.json package-lock.json ../build-api/
+          cd ../build-api
+          npm ci --omit=dev
+          for f in $(find src -name '*.js'); do node --check "$f"; done
+          zip -qr ../api.zip src node_modules package.json
+          ls -lh ../api.zip
+
+      - name: Frontends (build)
+        run: |
+          export VITE_WS_URL= VITE_API_URL= VITE_MOBILE_URL= VITE_SCREEN_URL= VITE_ADMIN_URL=
+          (cd frontend-mobile && npm ci && npm run build)
+          (cd frontend-screen && npm ci && VITE_BASE_PATH=/pantalla/ npm run build)
+          (cd frontend-admin && npm ci && VITE_BASE_PATH=/admin/ npm run build)
+
+      - name: Subir backend y actualizar Lambda
+        run: |
+          aws s3 cp api.zip "s3://$DEPLOY_BUCKET/$PREFIX/api.zip"
+          aws lambda update-function-code --function-name "$LAMBDA_FN" \
+            --s3-bucket "$DEPLOY_BUCKET" --s3-key "$PREFIX/api.zip" >/dev/null
+          aws lambda wait function-updated --function-name "$LAMBDA_FN"
+
+      - name: Subir frontends a S3
+        run: |
+          aws s3 sync frontend-mobile/dist "s3://$FRONTEND_BUCKET/" --delete --exclude "pantalla/*" --exclude "admin/*"
+          aws s3 sync frontend-screen/dist "s3://$FRONTEND_BUCKET/pantalla/" --delete
+          aws s3 sync frontend-admin/dist "s3://$FRONTEND_BUCKET/admin/" --delete
+          for p in "" "pantalla/" "admin/"; do
+            aws s3 cp "s3://$FRONTEND_BUCKET/${p}index.html" "s3://$FRONTEND_BUCKET/${p}index.html" \
+              --metadata-directive REPLACE --cache-control no-cache --content-type text/html
+          done
+
+      - name: Invalidar CloudFront
+        run: |
+          ID=$(aws cloudfront create-invalidation --distribution-id "$CF_ID" --paths "/*" --query Invalidation.Id --output text)
+          aws cloudfront wait invalidation-completed --distribution-id "$CF_ID" --id "$ID"
+
+      - name: Verificar (solo lecturas, sin giros)
+        run: |
+          B=https://autos.mvevip.com
+          for p in / "/?view=mail" /formulario2 /pantalla /pantalla2 /admin/; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$B$p"); echo "$p -> $code"; [ "$code" = 200 ] || exit 1
+          done
+          for s in autos ford mail; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$B/api/prizes?stand=$s"); echo "/api/prizes?stand=$s -> $code"; [ "$code" = 200 ] || exit 1
+          done
+          code=$(curl -s -o /dev/null -w '%{http_code}' "$B/api/channels"); echo "/api/channels -> $code"; [ "$code" = 200 ] || exit 1
+          echo "Despliegue verificado. Rollback: deploy/rollback_pre_mail.sh ${{ inputs.backup_name }}"
