@@ -13,6 +13,44 @@ function deriveLeadStand(screenId) {
   return mapped || 'autos';
 }
 
+// ID del cliente en el CRM (mve.mve_clientes). Nombre de la columna configurable (CRM_ID_COLUMN); por defecto 'cli_id'.
+const CRM_ID_COLUMN = /^[A-Za-z_][A-Za-z0-9_]*$/.test(process.env.CRM_ID_COLUMN || '') ? process.env.CRM_ID_COLUMN : 'cli_id';
+
+/**
+ * Para los leads del canal Correo busca el ID de cliente del CRM, por el correo con el que se vinculó (crm_email)
+ * o, si no hay vínculo, por el correo ingresado. Una sola consulta de solo lectura (cli_email indexado, sin LOWER()).
+ * Nunca interrumpe el listado: si la consulta falla (columna distinta, sin permisos), los leads salen sin ID.
+ */
+async function attachCrmClientIds(rows) {
+  const mailRows = rows.filter((r) => r.screen_id === 'MAIL_01');
+  if (mailRows.length === 0) return;
+
+  const emailOf = (r) => String(r.crm_email || r.email || '').trim().toLowerCase();
+  const emails = [...new Set(mailRows.map(emailOf).filter(Boolean))];
+  if (emails.length === 0) return;
+
+  try {
+    const [crmRows] = await pool.query(
+      `SELECT C.cli_email AS email, C.\`${CRM_ID_COLUMN}\` AS client_id
+       FROM mve.mve_clientes C
+       WHERE C.cli_email IN (?)
+       ORDER BY (C.cli_celular IS NULL OR C.cli_celular = '') ASC`,
+      [emails]
+    );
+    const idByEmail = new Map();
+    crmRows.forEach((c) => {
+      const key = String(c.email || '').trim().toLowerCase();
+      if (key && !idByEmail.has(key)) idByEmail.set(key, c.client_id); // primera fila = la que tiene celular
+    });
+    mailRows.forEach((r) => {
+      const id = idByEmail.get(emailOf(r));
+      r.crm_client_id = id === undefined || id === null ? null : id;
+    });
+  } catch (error) {
+    console.error('[Leads] No se pudo consultar el ID de cliente del CRM:', error.code || error.message);
+  }
+}
+
 async function getLeads(req, res) {
   try {
     const requestedStand = (req.query && req.query.stand) ? String(req.query.stand).toLowerCase() : 'all';
@@ -34,7 +72,7 @@ async function getLeads(req, res) {
 
     const [rows] = await pool.query(
       `SELECT l.id, l.name, l.email, l.phone, l.dream_destination, l.screen_id, l.device_id, l.created_at,
-              l.assigned_to,
+              l.assigned_to, l.crm_email,
               COALESCE(l.is_test, 0) AS is_test,
               s.ticket_code, s.redeemed, p.name AS prize_name,
               (SELECT COUNT(*) FROM leads l2 WHERE l2.device_id = l.device_id AND l.device_id != 'unknown') AS device_leads_count
@@ -54,6 +92,8 @@ async function getLeads(req, res) {
       totals[st] = (totals[st] || 0) + Number(r.n);
       totals.all += Number(r.n);
     });
+
+    await attachCrmClientIds(rows);
 
     const enriched = rows.map(r => {
       const st = deriveLeadStand(r.screen_id);

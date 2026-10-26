@@ -448,6 +448,7 @@ export default function App() {
       (l.name && l.name.toLowerCase().includes(q)) ||
       (l.phone && l.phone.includes(q)) ||
       (l.ticket_code && l.ticket_code.toLowerCase().includes(q)) ||
+      (l.crm_client_id !== undefined && l.crm_client_id !== null && String(l.crm_client_id).includes(q)) ||
       (l.assigned_to && l.assigned_to.toLowerCase().includes(q)) ||
       (l.stand_label && l.stand_label.toLowerCase().includes(q))
     );
@@ -846,7 +847,7 @@ export default function App() {
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Buscar por nombre, teléfono, ticket o asesor..."
+                      placeholder="Buscar por nombre, teléfono, ticket, ID cliente o asesor..."
                       className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-zinc-900 border border-zinc-800 text-white text-xs placeholder-zinc-500 focus:outline-none focus:border-[#9AC31C]"
                     />
                   </div>
@@ -890,6 +891,17 @@ export default function App() {
                         <strong className="text-zinc-200">{formatQuitoDateTime(l.created_at)}</strong>
                         <span className="text-zinc-500">(Quito, UTC-5)</span>
                       </div>
+
+                      {l.stand === 'mail' && (
+                        <div className="flex items-center gap-1.5 text-[11px] font-mono">
+                          <span className="text-zinc-400">🆔 ID CLIENTE:</span>
+                          {l.crm_client_id !== undefined && l.crm_client_id !== null ? (
+                            <strong className="text-amber-300 bg-amber-500/10 border border-amber-400/30 px-1.5 py-0.5 rounded">{l.crm_client_id}</strong>
+                          ) : (
+                            <span className="text-zinc-500">no encontrado en el CRM</span>
+                          )}
+                        </div>
+                      )}
 
                       <div className="flex items-center justify-between text-xs">
                         <a
