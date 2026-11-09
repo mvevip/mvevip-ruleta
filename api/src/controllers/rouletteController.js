@@ -854,10 +854,46 @@ async function redeemTicket(req, res) {
 const screenActivityMap = new Map();
 
 // Registrar actividad de un lead (escaneo de QR o llenado de formulario)
-function recordScreenActivity(req, res) {
+// La actividad también se guarda en la BD (tabla screen_activity, migración 008) porque en producción el API es Lambda:
+// cada contenedor tiene su propia memoria y la pantalla puede consultar a otro contenedor que no vio el escaneo.
+// Si la tabla no existe todavía, se usa solo la memoria (comportamiento anterior).
+// Si la tabla no existe se reintenta cada 60 s (por si la migración se aplica con el contenedor ya activo).
+let screenActivityRetryAt = 0;
+const screenActivityTableOk = () => Date.now() >= screenActivityRetryAt;
+const markScreenActivityMissing = () => { screenActivityRetryAt = Date.now() + 60000; };
+
+async function persistScreenActivity(screenId, ts) {
+  if (!screenActivityTableOk()) return;
+  try {
+    await pool.query(
+      `INSERT INTO screen_activity (screen_id, last_activity_ms) VALUES (?, ?)
+       ON DUPLICATE KEY UPDATE last_activity_ms = GREATEST(last_activity_ms, VALUES(last_activity_ms))`,
+      [screenId, ts]
+    );
+  } catch (e) {
+    if (e && e.code === 'ER_NO_SUCH_TABLE') markScreenActivityMissing();
+  }
+}
+
+async function readScreenActivity(screenId) {
+  const inMemory = screenActivityMap.get(screenId) || 0;
+  if (!screenActivityTableOk()) return inMemory;
+  try {
+    const [rows] = await pool.query('SELECT last_activity_ms FROM screen_activity WHERE screen_id = ?', [screenId]);
+    const fromDb = rows.length ? Number(rows[0].last_activity_ms) : 0;
+    return Math.max(inMemory, fromDb);
+  } catch (e) {
+    if (e && e.code === 'ER_NO_SUCH_TABLE') markScreenActivityMissing();
+    return inMemory;
+  }
+}
+
+async function recordScreenActivity(req, res) {
   const defaultScreen = process.env.NODE_ENV === 'production' ? 'STAND_01' : 'STAND_LOCAL';
   const screenId = normalizeScreenId(req.query.screen_id || (req.body && req.body.screen_id), defaultScreen);
-  screenActivityMap.set(screenId, Date.now());
+  const now = Date.now();
+  screenActivityMap.set(screenId, now);
+  await persistScreenActivity(screenId, now);
 
   if (req.io) {
     req.io.to(screenId).emit('USER_ENGAGED', { screenId, timestamp: Date.now() });
@@ -870,9 +906,9 @@ function recordScreenActivity(req, res) {
 async function getLatestSpin(req, res) {
   const defaultScreen = process.env.NODE_ENV === 'production' ? 'STAND_01' : 'STAND_LOCAL';
   const screen_id = normalizeScreenId(req.query.screen_id, defaultScreen);
-  const lastActivityAt = screenActivityMap.get(screen_id) || 0;
 
   try {
+    const lastActivityAt = await readScreenActivity(screen_id);
     // Consultar si hay un tiro actualmente en ejecución en la cola ('SPINNING')
     const [rows] = await pool.query(
       `SELECT q.id, q.ticket_code, q.screen_id, q.created_at, q.started_at,

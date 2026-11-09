@@ -99,6 +99,13 @@ Stand físico con 2 pantallas: la de arriba muestra video/ruleta; la de abajo (P
 11. **Horas en Quito (26-oct-2026):** RDS (`time_zone` por defecto) y el Lambda trabajan en UTC, y la API entrega las fechas en ISO/UTC. Toda fecha que se MUESTRA debe convertirse a `America/Guayaquil` (UTC-5, sin horario de verano): el admin lo hace con `Intl.DateTimeFormat` en cada tarjeta de lead ("Registro: dd/mm/aaaa HH:mm (Quito, UTC-5)", independiente de la zona del navegador) y el ticket del kiosco con `formatQuito()` en `kioskController.js`. No usar `DATE_FORMAT` de MySQL para mostrar horas.
 12. **ID CLIENTE en los leads del canal Correo (26-oct-2026):** el admin muestra "ID CLIENTE" (columna de ID de `mve.mve_clientes`, configurable con la variable `CRM_ID_COLUMN`, por defecto `cli_codigo`, confirmada por el usuario como el ID de cliente). Se busca por el correo con el que el lead se vinculó (`leads.crm_email`) o, si no hay vínculo, por el correo ingresado; con correo duplicado en el CRM gana la fila que tiene celular. Una sola consulta de solo lectura por listado; si falla (columna distinta, sin permisos) el listado sigue funcionando sin IDs. Se puede buscar un lead por su ID en el buscador de Leads.
 
+### A4. Mejoras del stand Autos para la feria (9-nov-2026) — HECHAS Y PROBADAS EN LOCAL, SIN DESPLEGAR
+Revisión del flujo Autos en producción (celular -> `/api/spin` -> pantalla por polling de 1 s; cola `spin_queue`; sin WebSockets porque el API es Lambda). Dos correcciones:
+1. **Despertar de la pantalla por escaneo de QR:** `screenActivityMap` vivía en memoria del contenedor, así que la pantalla podía consultar a otro contenedor y no ver el escaneo. Ahora `recordScreenActivity` también escribe en la tabla `screen_activity` (migración `008`) y `getLatestSpin` toma el mayor valor entre memoria y BD. Si la tabla no existe, usa solo memoria y reintenta cada 60 s (no falla nada). Probado con dos instancias del API sobre la misma BD: sin tabla la otra instancia ve 0; con tabla ve la actividad.
+2. **Turno vencido (`EXPIRED`) en la cola:** el celular solo entendía SPINNING/COMPLETED/WAITING y un visitante cuyo turno vencía se quedaba en "esperando turno" para siempre. Ahora `EXPIRED` lleva a su pase de premio (el premio ya está registrado). Prueba `deploy/tools/queue_expired_e2e.js` (falla sin la corrección, pasa con ella) y flujo normal de cola verificado (A gira, B en cola, `queue/next` despacha a B).
+Riesgo conocido (no corregido): el RDS `database-mvevip` (db.t4g.small, ~150 conexiones máx.; pico 57 en 14 días) es compartido con el CRM `mve`; pantallas (1 s) y celulares en cola (1,5 s) consultan por polling. Vigilar `DatabaseConnections` durante la feria.
+Entorno de prueba local sin Docker: MariaDB instalada con `apt`, `init_db.sql` + migraciones, API con `NODE_ENV=development DB_HOST=127.0.0.1`.
+
 ### B. Corrección de Algoritmo de Premios y Ángulo
 - Columna `active` asegurada en consultas SQL.
 - Selección ponderada real sin favorecer el primer premio.
@@ -129,6 +136,7 @@ Stand físico con 2 pantallas: la de arriba muestra video/ruleta; la de abajo (P
 | `005_leads_crm_link.sql` | `leads.crm_email`, `leads.crm_match` + índice | Aplicada (22-oct) |
 | `006_channel_settings.sql` | Tabla `channel_settings` (canales habilitados y por defecto) | Aplicada (23-oct) |
 | `007_kiosk.sql` | Tabla `kiosk_sessions`, premios y configuración de pantalla del kiosco | Aplicada (kiosco en producción, probado 26-oct) |
+| `008_screen_activity.sql` | Tabla `screen_activity` (actividad por pantalla compartida entre contenedores Lambda) | **PENDIENTE** (opcional: sin ella el API usa memoria; el usuario la ejecuta antes o después de desplegar, el API la detecta en ≤60 s) |
 
 ### Infraestructura (datos de referencia)
 - Cuenta AWS `021891594659`, región `us-west-2`; el entorno de la IA usa credenciales inyectadas (usuario IAM `admin-cli`); AWS CLI instalada con `pip install awscli`.

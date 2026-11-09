@@ -237,7 +237,9 @@ export default function App() {
             if (status === 'SPINNING') {
               console.log('[Mobile Polling] El backend indica que nuestro turno comenzó!');
               triggerPlayerTurn();
-            } else if (status === 'COMPLETED') {
+            } else if (status === 'COMPLETED' || status === 'EXPIRED') {
+              // EXPIRED: el turno venció en el servidor (p. ej. la pantalla tardó o se recargó). El premio ya está
+              // registrado, así que se muestra el pase en vez de dejar al visitante esperando para siempre.
               setGameState('WON');
               if (queuePollingRef.current) clearInterval(queuePollingRef.current);
             } else if (status === 'WAITING') {
