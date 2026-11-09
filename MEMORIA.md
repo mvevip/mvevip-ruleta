@@ -1,5 +1,5 @@
 # MEMORIA DEL PROYECTO: MARKETING VIP - RULETA DE FERIA Y CAMPAÑA POR CORREO
-**Última actualización:** 27 de Octubre de 2026  
+**Última actualización:** 9 de Noviembre de 2026 (revisión completa del proyecto y de AWS)  
 **Dominio de Producción:** [https://autos.mvevip.com](https://autos.mvevip.com)  
 **Infraestructura:** AWS 100% Serverless (CloudFront `d16kuftm1n5423.cloudfront.net` + S3 + API Gateway + Lambda + RDS MySQL)
 **Repositorios:**
@@ -116,9 +116,9 @@ Stand físico con 2 pantallas: la de arriba muestra video/ruleta; la de abajo (P
 
 ---
 
-## 3. Estado Actual (27 de Octubre de 2026)
+## 3. Estado Actual (9 de Noviembre de 2026)
 
-**Todo lo descrito en la sección 2 está DESPLEGADO en producción** (`https://autos.mvevip.com`) y probado por el usuario con envíos reales de prueba: multi-stand Ford, canal Correo con ruleta de íconos, enlace personalizado de Brevo con consulta al CRM, CORS restringido, número de WhatsApp nuevo (`593987933325`) y retiro del PIN comodín `ADMIN`. La rama `claude/upbeat-faraday-gtjq65` coincide con producción (último código desplegado: commit `8091207`; después solo documentación).
+**Todo lo descrito en la sección 2 está DESPLEGADO en producción** (`https://autos.mvevip.com`) y probado por el usuario con envíos reales de prueba: multi-stand Ford, canal Correo con ruleta de íconos, enlace personalizado de Brevo con consulta al CRM, CORS restringido, número de WhatsApp nuevo (`593987933325`) y retiro del PIN comodín `ADMIN`. **Verificado en AWS el 9-nov-2026:** producción corre el código de `main` en el commit `d7e30d1` (último despliegue por GitHub Actions, run nº 4, 26-oct 21:40 UTC; Lambda y `index.html` del frontend actualizados 21:41 UTC; invalidación de CloudFront completada; sin errores ni timeouts en los logs del Lambda de los 3 días previos). Ramas: `main` es la referencia; `claude/upbeat-faraday-gtjq65` quedó atrasada (ancestro de `main`) y `claude/dreamy-wright-576uz6` coincide con `main`.
 
 ### Migraciones de base de datos (las ejecuta SIEMPRE el usuario en RDS; la IA nunca toca la BD)
 | Migración | Contenido | Estado |
@@ -139,10 +139,18 @@ Stand físico con 2 pantallas: la de arriba muestra video/ruleta; la de abajo (P
 - La cuenta tiene otras 11 distribuciones CloudFront; 4 (`cotiza`, `trip`, `quala`, `tarjetas`) ya usan un Web ACL propio "CreatedByCloudFront-…" con 3 reglas gestionadas de AWS (IP Reputation, Common, KnownBadInputs).
 
 ### Backups y rollback (`s3://mvevip-recursos/marketingvip-roulette/backups/<nombre>/`)
-`pre-ford`, `pre-mail`, `pre-icons`, `pre-center-button`, `pre-voucher`, `pre-cors` (incluye `apigw-cors-before.json`), `pre-crm-lookup`, `pre-wa-number`, `pre-leads-filter`, `pre-channels`.
+`pre-ford`, `pre-mail`, `pre-icons`, `pre-center-button`, `pre-voucher`, `pre-cors` (incluye `apigw-cors-before.json`), `pre-crm-lookup`, `pre-wa-number`, `pre-leads-filter`, `pre-channels`, `pre-kiosk`, `pre-fecha-leads`, `pre-logo-ticket`, `pre-ci-test` (los 4 últimos creados por GitHub Actions).
 Rollback de código y frontend: `deploy/rollback_pre_mail.sh <nombre>` (por defecto `pre-mail`, que quita también el canal Correo; usar el backup más reciente que corresponda). **No revierte** la BD, la config CORS del API Gateway ni las variables del Lambda (cada una tiene su propio rollback anotado en la sección 2: CORS en A2.10, WhatsApp en A2.14).
 
-### Procedimiento de despliegue estándar (solo con orden explícita del usuario)
+### Despliegue por GitHub Actions (método vigente desde el 26-oct-2026)
+- Workflow `.github/workflows/deploy-prod.yml`, **solo manual** (`workflow_dispatch`) y **solo desde `main`**. Entradas: `backup_name` (nombre nuevo del backup previo, p. ej. `pre-brevo`; falla si ya existe) y `migrations_done` (casilla que confirma que las migraciones SQL pendientes ya se ejecutaron en RDS).
+- Pasos: valida entradas -> backup (`api.zip` + frontends a `backups/<nombre>/` con `INFO.txt`) -> arma `api.zip` (`npm ci --omit=dev`, `node --check`) -> compila los 3 frontends -> sube y actualiza el Lambda -> sincroniza S3 (móvil en la raíz sin pisar `pantalla/` ni `admin/`) -> `index.html` con `no-cache` -> invalida CloudFront y espera -> verifica solo con lecturas (rutas y `/api/prizes`, `/api/channels`; sin giros).
+- Autenticación AWS por OIDC, sin claves guardadas: rol `GitHubActions-MarketingVIP-Deploy` (confianza limitada a `repo:mvevip/mvevip-ruleta:environment:production`), variable de repositorio/entorno `AWS_ROLE_ARN`, entorno de GitHub `production`. Política de mínimo privilegio `MarketingVIP-Roulette-Deploy`: solo S3 (`mvevip-recursos/marketingvip-roulette/*` y el bucket de frontends), `lambda:UpdateFunctionCode` en `MarketingVIP-Roulette-Api-prod` y CloudFront `CreateInvalidation` en `E1ZMRVAW1NYIDC`. **No** toca la BD, las variables del Lambda, CORS ni CloudFormation (cada uno se cambia aparte).
+- Flujo acordado con el usuario: el usuario pide desplegar -> la IA recuerda migraciones pendientes y propone `backup_name` -> el usuario confirma con **"despliega"** -> la IA lanza el workflow, vigila el resultado y registra el despliegue en esta memoria. Sin esa confirmación explícita no se lanza.
+- Historial: run 1 (6f5265b, prueba `pre-ci-test`), run 2 (ba5ff21, kiosco, `pre-kiosk`), run 3 (246858e, fechas de leads, `pre-fecha-leads`), run 4 (d7e30d1, logo del ticket, `pre-logo-ticket`). Todos exitosos.
+- Rollback: `deploy/rollback_pre_mail.sh <backup_name>` (usa el backup de S3; no revierte BD, CORS ni variables del Lambda).
+
+### Procedimiento de despliegue manual (histórico; hoy se usa GitHub Actions; solo con orden explícita del usuario)
 1. Backup: copiar `api.zip` actual y sincronizar el bucket de frontends a `backups/<nombre>/` + `INFO.txt`; comparar nº de objetos y tamaño.
 2. Backend: copiar `src`, `package*.json` a una carpeta limpia, `npm ci --omit=dev`, `zip -r api.zip src node_modules package.json`; probar la carga con `timeout` (`lambda.js` levanta el servidor si el puerto está libre y cuelga la prueba sin timeout); subir a `mvevip-recursos/marketingvip-roulette/api.zip`, `aws lambda update-function-code` y `aws lambda wait function-updated`.
 3. Frontends: compilar con `VITE_WS_URL= VITE_API_URL= VITE_MOBILE_URL= VITE_SCREEN_URL= VITE_ADMIN_URL=` vacías y `VITE_BASE_PATH=/pantalla/` o `/admin/` (móvil en `/`). Sin `VITE_TURNSTILE_SITE_KEY` (hoy así está producción).
