@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Play, Printer, Smartphone, Loader2, CheckCircle2, AlertTriangle, Gift } from 'lucide-react';
 import { checkPrinter, printTicket } from '../utils/kioskPrint';
+import { getScreenBrandConfig } from '../brand';
 
 /**
  * Pantalla de ABAJO del kiosco: botón JUGAR AHORA (siempre visible, habilitado solo cuando hay un registro)
  * + impresión del ticket en la térmica local. Todo por polling (en producción el API es Lambda, sin WebSockets).
  *
  * URL: /pantalla/?view=kiosk-button&screen=KIOSK_01&k=<clave del kiosco>[&print=image]
+ * Ferias: screen=RIO_KIOSK (Riobamba) o AMB_KIOSK (Ambato), cada una con su propia clave.
  */
 
 const isProduction = typeof window !== 'undefined' && (
@@ -20,14 +22,18 @@ const API_URL = isProduction
 const POLL_MS = 1000;
 const SHOW_RESULT_MS = 12000; // la pantalla muestra el resultado de la impresión unos segundos tras liberarse el kiosco
 
+// Kiosco de esta pantalla (KIOSK_01 | RIO_KIOSK | AMB_KIOSK); la clave se guarda por kiosco para no mezclarlas
+const KIOSK_SCREEN_ID = getScreenBrandConfig().screenId;
+const KEY_STORAGE = KIOSK_SCREEN_ID === 'KIOSK_01' ? 'vip_kiosk_key' : `vip_kiosk_key_${KIOSK_SCREEN_ID}`;
+
 function readKioskKey() {
   try {
     const fromUrl = new URLSearchParams(window.location.search).get('k');
     if (fromUrl) {
-      localStorage.setItem('vip_kiosk_key', fromUrl);
+      localStorage.setItem(KEY_STORAGE, fromUrl);
       return fromUrl;
     }
-    return localStorage.getItem('vip_kiosk_key') || '';
+    return localStorage.getItem(KEY_STORAGE) || '';
   } catch (e) {
     return '';
   }
@@ -51,7 +57,7 @@ export default function KioskButtonApp() {
       await fetch(`${API_URL}/api/kiosk/printed`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ session_id: sessionId, ok })
+        body: JSON.stringify({ session_id: sessionId, ok, screen_id: KIOSK_SCREEN_ID })
       });
     } catch (e) {
       // Si no llega, el servidor libera el kiosco solo al vencer el tiempo de gracia
@@ -81,7 +87,7 @@ export default function KioskButtonApp() {
     let alive = true;
     const tick = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/kiosk/state?k=${encodeURIComponent(kioskKey)}`, {
+        const res = await fetch(`${API_URL}/api/kiosk/state?screen_id=${KIOSK_SCREEN_ID}&k=${encodeURIComponent(kioskKey)}`, {
           headers: { 'x-kiosk-key': kioskKey },
           cache: 'no-store'
         });
@@ -120,7 +126,7 @@ export default function KioskButtonApp() {
     if (!canPlay) return;
     setPressing(true);
     try {
-      const res = await fetch(`${API_URL}/api/kiosk/start`, { method: 'POST', headers, body: '{}' });
+      const res = await fetch(`${API_URL}/api/kiosk/start`, { method: 'POST', headers, body: JSON.stringify({ screen_id: KIOSK_SCREEN_ID }) });
       const json = await res.json();
       if (json.success) {
         // Bloqueo inmediato (sin esperar al siguiente polling) para evitar un segundo toque

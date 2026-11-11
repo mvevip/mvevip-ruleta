@@ -573,7 +573,7 @@ async function processSpin(req, res) {
 
       // Construir WhatsApp URL
       const whatsappUrl = buildWhatsappUrl({
-        stand, name: name.trim(), ticketCode, prizeName: winningPrize.name, destination: finalDestination, alreadyPlayed: false
+        stand, name: name.trim(), ticketCode, prizeName: winningPrize.name, destination: finalDestination, alreadyPlayed: false, eventInfo
       });
 
       return res.json({
@@ -599,6 +599,7 @@ async function processSpin(req, res) {
             dream_destination: finalDestination
           },
           whatsappUrl,
+          event: publicEventInfo(standEvent),
           expiresInMinutes: 60
         }
       });
@@ -615,7 +616,7 @@ async function processSpin(req, res) {
 
       // Construir WhatsApp URL
       const whatsappUrl = buildWhatsappUrl({
-        stand, name: name.trim(), ticketCode, prizeName: winningPrize.name, destination: finalDestination, alreadyPlayed: false
+        stand, name: name.trim(), ticketCode, prizeName: winningPrize.name, destination: finalDestination, alreadyPlayed: false, eventInfo
       });
 
       // Emitir evento Socket a la pantalla gigante
@@ -655,6 +656,7 @@ async function processSpin(req, res) {
             dream_destination: finalDestination
           },
           whatsappUrl,
+          event: publicEventInfo(standEvent),
           expiresInMinutes: 60
         }
       });
