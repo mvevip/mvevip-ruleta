@@ -103,6 +103,15 @@ export default function VideoAttractOverlay({
         JSON.stringify({ event: 'command', func: 'addEventListener', args: ['onStateChange'] }),
         '*'
       );
+      // Subtítulos siempre deshabilitados (aunque el navegador los tenga activados)
+      iframe.contentWindow.postMessage(
+        JSON.stringify({ event: 'command', func: 'unloadModule', args: ['captions'] }),
+        '*'
+      );
+      iframe.contentWindow.postMessage(
+        JSON.stringify({ event: 'command', func: 'unloadModule', args: ['cc'] }),
+        '*'
+      );
     } catch (_) {}
   };
 
@@ -221,7 +230,7 @@ export default function VideoAttractOverlay({
           <iframe
             ref={iframeRef}
             onLoad={initIframeApi}
-            src={`https://www.youtube-nocookie.com/embed/${activeVideoId}?autoplay=1&mute=0&controls=0&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1&fs=0&enablejsapi=1&playsinline=1&origin=${encodeURIComponent(iframeOrigin)}`}
+            src={`https://www.youtube-nocookie.com/embed/${activeVideoId}?autoplay=1&mute=0&controls=0&modestbranding=1&rel=0&iv_load_policy=3&disablekb=1&fs=0&enablejsapi=1&playsinline=1&cc_load_policy=0&hl=es&origin=${encodeURIComponent(iframeOrigin)}`}
             title="Marketing VIP Video Corporativo"
             allow="autoplay; encrypted-media"
             style={{
