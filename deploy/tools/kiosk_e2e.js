@@ -8,10 +8,12 @@ const path = require('path');
 const { chromium } = require('playwright');
 
 const SHOTS = path.resolve(process.argv[2] || './e2e_shots');
+// Por defecto el kiosco histórico. Ferias: SCREEN=RIO_KIOSK KIOSK_KEY=keyrio111 (o AMB_KIOSK / keyamb222)
+const SCREEN = process.env.SCREEN || 'KIOSK_01';
 const KEY = process.env.KIOSK_KEY || 'testkey123';
-const TOP = 'http://localhost:5502/?screen=KIOSK_01';
-const BOTTOM = `http://localhost:5502/?view=kiosk-button&screen=KIOSK_01&k=${KEY}`;
-const PHONE = 'http://localhost:5503/?screen=KIOSK_01';
+const TOP = `http://localhost:5502/?screen=${SCREEN}`;
+const BOTTOM = `http://localhost:5502/?view=kiosk-button&screen=${SCREEN}&k=${KEY}`;
+const PHONE = `http://localhost:5503/?screen=${SCREEN}`;
 
 const results = [];
 const check = (name, ok, extra = '') => { results.push({ name, ok }); console.log(`${ok ? 'OK  ' : 'FAIL'} ${name}${extra ? ' — ' + extra : ''}`); };

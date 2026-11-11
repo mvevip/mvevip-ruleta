@@ -112,7 +112,17 @@ export function buildTextLines(ticket) {
     '',
     'Fecha: ' + plain(ticket.playedAt),
     '-'.repeat(WIDTH),
-    ...wrap('Presenta este ticket en Marketing VIP para canjear tu premio.', WIDTH),
+    // Ferias (Riobamba / Ambato): feria, lugar, fechas y stand
+    ...(ticket.event
+      ? [
+          ...wrap(ticket.event.fairName, WIDTH).map(center),
+          ...wrap(ticket.event.venue, WIDTH).map(center),
+          ...wrap(ticket.event.datesText, WIDTH).map(center),
+          '',
+          ...wrap(ticket.event.standText, WIDTH).map(center),
+          ...wrap('Presenta este ticket en el stand para canjear tu premio.', WIDTH)
+        ]
+      : wrap('Presenta este ticket en Marketing VIP para canjear tu premio.', WIDTH)),
     '',
     ''
   ];
@@ -232,7 +242,7 @@ export async function renderBoardingPass(ticket) {
   const W = PRINT_WIDTH;
   const canvas = document.createElement('canvas');
   canvas.width = W;
-  canvas.height = 1200; // se recorta al final
+  canvas.height = ticket.event ? 1600 : 1200; // se recorta al final (el bloque de la feria alarga el ticket)
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = '#fff';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -320,8 +330,24 @@ export async function renderBoardingPass(ticket) {
 
   ctx.textAlign = 'center';
   ctx.font = '700 24px "Montserrat", Arial, sans-serif';
-  ctx.fillText('Presenta este código para canjear', W / 2, y); y += 30;
-  ctx.fillText('tu premio en Marketing VIP', W / 2, y); y += 44;
+  if (ticket.event) {
+    // Ferias (Riobamba / Ambato): dónde, cuándo y el stand donde canjear
+    ctx.fillText('Presenta este código para canjear', W / 2, y); y += 30;
+    ctx.fillText('tu premio en el stand', W / 2, y); y += 40;
+    dashedLine(ctx, y); y += 18;
+    ctx.font = '900 26px "Montserrat", Arial, sans-serif';
+    wrapCanvas(ctx, ticket.event.fairName, inner, 2).forEach((line) => { ctx.fillText(line, W / 2, y); y += 32; });
+    ctx.font = '700 24px "Montserrat", Arial, sans-serif';
+    wrapCanvas(ctx, ticket.event.venue, inner, 2).forEach((line) => { ctx.fillText(line, W / 2, y); y += 30; });
+    wrapCanvas(ctx, ticket.event.datesText, inner, 2).forEach((line) => { ctx.fillText(line, W / 2, y); y += 30; });
+    y += 6;
+    ctx.font = '900 26px "Montserrat", Arial, sans-serif';
+    wrapCanvas(ctx, ticket.event.standText, inner, 2).forEach((line) => { ctx.fillText(line, W / 2, y); y += 32; });
+    y += 14;
+  } else {
+    ctx.fillText('Presenta este código para canjear', W / 2, y); y += 30;
+    ctx.fillText('tu premio en Marketing VIP', W / 2, y); y += 44;
+  }
 
   dashedLine(ctx, y); y += 30;
 

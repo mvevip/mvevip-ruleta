@@ -205,7 +205,7 @@ async function checkConnection() {
       `).catch(() => {});
 
       // 10. Soporte multi-stand (Autos / Ford). SOLO se auto-migra fuera de producción.
-      // En producción: ejecutar manualmente deploy/migrations/002_stand_support.sql, 003_mail_stand.sql, 004_prize_icons.sql, 005_leads_crm_link.sql, 006_channel_settings.sql, 007_kiosk.sql y 008_ferias_riobamba_ambato.sql
+      // En producción: ejecutar manualmente deploy/migrations/002_stand_support.sql, 003_mail_stand.sql, 004_prize_icons.sql, 005_leads_crm_link.sql, 006_channel_settings.sql, 007_kiosk.sql, 008_ferias_riobamba_ambato.sql y 009_ferias_pantallas.sql
       if (config.NODE_ENV !== 'production') {
         await connection.query(`ALTER TABLE prizes ADD COLUMN stand VARCHAR(20) NOT NULL DEFAULT 'autos'`).catch(() => {});
         await connection.query(`ALTER TABLE prizes ADD INDEX idx_prizes_stand (stand)`).catch(() => {});
@@ -293,6 +293,17 @@ async function checkConnection() {
         await connection.query(`
           INSERT IGNORE INTO system_sync (sync_key, version_timestamp, action) VALUES ('displays_kiosk', ${Date.now()}, 'INITIAL')
         `).catch(() => {});
+
+        // Ferias Riobamba / Ambato: configuración de pantalla de la pantalla gigante y del kiosco de cada ciudad.
+        // En producción: deploy/migrations/009_ferias_pantallas.sql
+        for (const prefix of ['rio_stand_', 'rio_kiosk_', 'amb_stand_', 'amb_kiosk_']) {
+          await connection.query(`
+            INSERT IGNORE INTO display_configs (screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent, wheel_scale_x, wheel_font_size, video_logo_scale, video_qr_scale, video_qr_position, video_logo_visible)
+            SELECT CONCAT(?, screen_key), orientation, slide_duration, layout_ratio, video_url, qr_scale_percent, wheel_scale_x, wheel_font_size, video_logo_scale, video_qr_scale, video_qr_position, video_logo_visible
+            FROM display_configs WHERE screen_key IN ('roulette', 'qr', 'slider', 'combo')
+          `, [prefix]).catch(() => {});
+          await connection.query(`INSERT IGNORE INTO system_sync (sync_key, version_timestamp, action) VALUES (?, ${Date.now()}, 'INITIAL')`, [`displays_${prefix.slice(0, -1)}`]).catch(() => {});
+        }
 
         // Vínculo con el CRM en el canal Correo. En producción: deploy/migrations/005_leads_crm_link.sql
         await connection.query(`ALTER TABLE leads ADD COLUMN crm_email VARCHAR(150) NULL DEFAULT NULL`).catch(() => {});

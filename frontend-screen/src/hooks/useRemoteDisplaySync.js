@@ -13,9 +13,10 @@ const API_URL = isProduction
 export default function useRemoteDisplaySync(screenKey = 'roulette', socket = null) {
   const brand = getScreenBrandConfig();
   const stand = brand.stand;
-  const storageKey = stand === 'ford'
-    ? `vip_display_config_ford_${screenKey}`
-    : `vip_display_config_${screenKey}`;
+  // Cada stand guarda su propia copia de la configuración (Autos conserva la clave histórica sin prefijo)
+  const storageKey = stand === 'autos'
+    ? `vip_display_config_${screenKey}`
+    : `vip_display_config_${stand}_${screenKey}`;
   const [displayConfig, setDisplayConfig] = useState(() => {
     try {
       const saved = typeof window !== 'undefined' ? localStorage.getItem(storageKey) : null;

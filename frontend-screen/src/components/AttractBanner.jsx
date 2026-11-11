@@ -81,7 +81,7 @@ export default function AttractBanner() {
           <div className="flex items-center gap-2 bg-zinc-900 px-4 py-1.5 rounded-full border border-[#9AC31C]/40 shadow-[0_0_10px_rgba(154,195,28,0.2)]">
             <Award className="w-4 h-4 text-[#9AC31C]" />
             <span className="font-racing text-xs font-bold text-zinc-200 uppercase tracking-widest">
-              Gran Premio Autos 2026
+              {brand.fairCity ? `Feria ${brand.fairCity} 2026` : 'Gran Premio Autos 2026'}
             </span>
           </div>
           <div className="flex items-center gap-2 bg-[#9AC31C]/15 px-3 py-1.5 rounded-full border border-[#9AC31C]/40 text-[#9AC31C] text-xs font-semibold">

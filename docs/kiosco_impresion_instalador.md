@@ -19,7 +19,7 @@ Content-Type: application/json
 Respuesta correcta: `{"ok":true,"job":"..."}`. Error: HTTP 4xx/5xx con `{"ok":false,"error":"..."}`.
 
 Qué debe hacer el servicio:
-1. Decodificar el PNG. Llega **576 px de ancho** (72 mm a 203 dpi) y altura variable (~900 px). Valores solo blanco/negro (sin grises),
+1. Decodificar el PNG. Llega **576 px de ancho** (72 mm a 203 dpi) y altura variable (~900 px; ~1250 px en los tickets de las ferias, que incluyen feria, lugar, fechas y stand). Valores solo blanco/negro (sin grises),
    aunque el PNG sea RGBA de 8 bits: **binarizar con umbral 128** por seguridad.
 2. Convertir a raster ESC/POS (`GS v 0`, modo normal) compatible con la TG2480H; enviar en bloques (p. ej. 128–256 filas) si el equipo lo requiere.
 3. Centrar en el área imprimible (76 mm = 608 puntos; la imagen de 576 deja ~2 mm por lado).

@@ -198,7 +198,7 @@ export default function QRCodeCard({
             : 'bg-zinc-900/90 border border-zinc-800 text-zinc-400'
         }`}>
           <span className={`w-2 h-2 rounded-full ${brand.isFord ? 'bg-white animate-pulse' : 'bg-[#9AC31C]'}`} />
-          <span>{brand.isFord ? 'Stand Ford' : 'Feria Automotriz'} • {effectiveScreenId}</span>
+          <span>{brand.isFord ? 'Stand Ford' : brand.fairCity ? `Feria ${brand.fairCity}` : 'Feria Automotriz'} • {effectiveScreenId}</span>
         </div>
       </div>
 

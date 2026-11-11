@@ -1,5 +1,8 @@
 /**
- * Kiosco de 2 pantallas (stand 'kiosk', screen_id KIOSK_01).
+ * Kiosco de 2 pantallas (stand 'kiosk', screen_id KIOSK_01; ferias: RIO_KIOSK y AMB_KIOSK).
+ * El kiosco concreto se indica con `screen_id` (query o cuerpo); sin él, KIOSK_01 (comportamiento histórico).
+ * Cada kiosco tiene su clave (config.SECURITY.kioskKeys), su catálogo de premios (el de su ciudad, compartido con
+ * pantalla y correo) y, en las ferias, su regla de una participación por ciudad y su hora de cierre.
  *
  *   celular: registro  ->  pantalla de abajo: botón JUGAR AHORA  ->  pantalla de arriba: ruleta  ->  premio + impresión
  *
@@ -25,9 +28,10 @@ const {
   selectWeightedPrize,
   generateTicketCode
 } = require('../services/rouletteLogic');
-const { screenIdsOf } = require('../config/stands');
+const { STANDS, standFromScreenId, prizePoolOf, eventOf, screenIdsOfEvent } = require('../config/stands');
+const { getEventInfo, isEventClosed, publicEventInfo } = require('../config/events');
 
-const KIOSK_SCREEN_ID = 'KIOSK_01';
+const KIOSK_SCREEN_ID = 'KIOSK_01'; // kiosco histórico (valor por defecto cuando la petición no indica screen_id)
 const REGISTER_TTL_SEC = 120;   // el botón se bloquea de nuevo si no se pulsa en 2 minutos
 const REVEAL_AFTER_SEC = 25;    // RESPALDO: normalmente la pantalla de arriba avisa (POST /revealed) cuando la ruleta se detiene
 const REVEAL_HOLD_SEC = 25;     // tras revelar, el kiosco se libera solo si la impresión no confirma
@@ -37,21 +41,28 @@ function sendError(res, status, code, message, extra = {}) {
   return res.status(status).json({ success: false, code, message, ...extra });
 }
 
-/** Protege las rutas de la pantalla del botón (iniciar giro, confirmar impresión). */
-function requireKioskKey(req, res, next) {
-  const expected = config.SECURITY.kioskKey;
-  if (!expected) return sendError(res, 503, 'KIOSK_NOT_CONFIGURED', 'El kiosco no está configurado (falta KIOSK_KEY).');
-  const provided = String(req.headers['x-kiosk-key'] || (req.query && req.query.k) || '');
-  const a = Buffer.from(provided);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
-    return sendError(res, 401, 'KIOSK_UNAUTHORIZED', 'Clave de kiosco no válida.');
-  }
-  next();
+/**
+ * Kiosco de la petición: screen_id (query o cuerpo) validado contra el registro (debe ser un stand de tipo kiosco).
+ * Devuelve { screenId, stand, event, pool, eventInfo, destination } o null si el screen_id no es un kiosco.
+ */
+function resolveKiosk(req) {
+  const raw = String((req.query && req.query.screen_id) || (req.body && req.body.screen_id) || KIOSK_SCREEN_ID).trim().toUpperCase();
+  const standKey = standFromScreenId(raw);
+  if (!standKey || !STANDS[standKey] || STANDS[standKey].front !== 'kiosk') return null;
+  const event = eventOf(standKey);
+  const eventInfo = getEventInfo(event);
+  return {
+    screenId: raw,
+    stand: standKey,
+    event,
+    pool: prizePoolOf(standKey),
+    eventInfo,
+    destination: eventInfo ? `Feria ${eventInfo.city} · Kiosco` : KIOSK_DESTINATION
+  };
 }
 
-function isKioskKeyValid(req) {
-  const expected = config.SECURITY.kioskKey;
+function keyMatches(req, screenId) {
+  const expected = config.SECURITY.kioskKeys[screenId];
   if (!expected) return false;
   const provided = String(req.headers['x-kiosk-key'] || (req.query && req.query.k) || '');
   const a = Buffer.from(provided);
@@ -59,27 +70,50 @@ function isKioskKeyValid(req) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+/** Protege las rutas de la pantalla del botón (iniciar giro, confirmar impresión) con la clave de ESE kiosco. */
+function requireKioskKey(req, res, next) {
+  const kiosk = resolveKiosk(req);
+  if (!kiosk) return sendError(res, 400, 'INVALID_KIOSK', 'Kiosco no válido.');
+  if (!config.SECURITY.kioskKeys[kiosk.screenId]) {
+    return sendError(res, 503, 'KIOSK_NOT_CONFIGURED', 'El kiosco no está configurado (falta su clave).');
+  }
+  if (!keyMatches(req, kiosk.screenId)) {
+    return sendError(res, 401, 'KIOSK_UNAUTHORIZED', 'Clave de kiosco no válida.');
+  }
+  req.kiosk = kiosk;
+  next();
+}
+
+/** screen_id de todos los kioscos del registro (histórico + ferias). */
+function kioskScreenIds() {
+  return Object.values(STANDS).filter((st) => st.front === 'kiosk').flatMap((st) => st.screenIds);
+}
+
+function isKioskKeyValid(req, screenId) {
+  return keyMatches(req, screenId);
+}
+
 /** Transiciones por tiempo (idempotentes y seguras ante peticiones concurrentes). */
-async function advanceSessions(conn) {
+async function advanceSessions(conn, screenId) {
   await conn.query(
     `UPDATE kiosk_sessions SET status = 'EXPIRED', finished_at = NOW()
      WHERE screen_id = ? AND status = 'REGISTERED' AND expires_at < NOW()`,
-    [KIOSK_SCREEN_ID]
+    [screenId]
   );
   await conn.query(
     `UPDATE kiosk_sessions SET status = 'REVEALED', revealed_at = NOW()
      WHERE screen_id = ? AND status = 'SPINNING' AND started_at < DATE_SUB(NOW(), INTERVAL ? SECOND)`,
-    [KIOSK_SCREEN_ID, REVEAL_AFTER_SEC]
+    [screenId, REVEAL_AFTER_SEC]
   );
   await conn.query(
     `UPDATE kiosk_sessions SET status = 'DONE', finished_at = NOW(), print_status = COALESCE(print_status, 'TIMEOUT')
      WHERE screen_id = ? AND status = 'REVEALED' AND revealed_at < DATE_SUB(NOW(), INTERVAL ? SECOND)`,
-    [KIOSK_SCREEN_ID, REVEAL_HOLD_SEC]
+    [screenId, REVEAL_HOLD_SEC]
   );
 }
 
 const SESSION_SELECT = `
-  SELECT ks.id, ks.status, ks.phone_token, ks.ticket_code, ks.is_test, ks.print_status,
+  SELECT ks.id, ks.screen_id, ks.status, ks.phone_token, ks.ticket_code, ks.is_test, ks.print_status,
          ks.created_at, ks.expires_at, ks.started_at, ks.revealed_at,
          GREATEST(TIMESTAMPDIFF(SECOND, NOW(), ks.expires_at), 0) AS seconds_left,
          l.name AS lead_name, l.phone AS lead_phone,
@@ -90,10 +124,10 @@ const SESSION_SELECT = `
   JOIN leads l ON l.id = ks.lead_id
   LEFT JOIN prizes p ON p.id = ks.prize_id`;
 
-async function findActiveSession(conn) {
+async function findActiveSession(conn, screenId) {
   const [rows] = await conn.query(
     `${SESSION_SELECT} WHERE ks.screen_id = ? AND ks.status IN ('REGISTERED','SPINNING','REVEALED') ORDER BY ks.id DESC LIMIT 1`,
-    [KIOSK_SCREEN_ID]
+    [screenId]
   );
   return rows[0] || null;
 }
@@ -106,6 +140,8 @@ function ticketPayload(row) {
     qrText: row.ticket_code,
     leadName: row.lead_name,
     playedAt: formatQuito(row.played_at),
+    // Ferias: nombre, lugar, fechas y stand para el ticket del celular y la impresión (null en el kiosco histórico)
+    event: publicEventInfo(eventOf(standFromScreenId(row.screen_id) || 'kiosk')),
     winner: {
       id: row.prize_id,
       name: row.prize_name,
@@ -136,6 +172,9 @@ function maskPhone(phone) {
 // POST /api/kiosk/register  — lo llama el celular tras el formulario
 async function registerParticipant(req, res) {
   const { name, email: rawEmail, phone: rawPhone, device_id = 'unknown' } = req.body || {};
+  const kiosk = resolveKiosk(req);
+  if (!kiosk) return sendError(res, 400, 'INVALID_KIOSK', 'Kiosco no válido.');
+  const KIOSK_ID = kiosk.screenId;
 
   if (!name || String(name).trim().length < 3) {
     return sendError(res, 400, 'INVALID_NAME', 'Por favor ingresa tu nombre y apellido completos.');
@@ -148,7 +187,7 @@ async function registerParticipant(req, res) {
   const cleanName = String(name).trim().slice(0, 150);
   const cleanPhone = phoneValidation.phone;
   const cleanEmail = emailValidation.email;
-  const lockName = `kiosk_register_${KIOSK_SCREEN_ID}`;
+  const lockName = `kiosk_register_${KIOSK_ID}`;
 
   const conn = await pool.getConnection();
   let lockAcquired = false;
@@ -157,7 +196,7 @@ async function registerParticipant(req, res) {
     lockAcquired = Boolean(lockRow && lockRow.got === 1);
     if (!lockAcquired) return sendError(res, 429, 'KIOSK_BUSY', 'El kiosco está ocupado, intenta en unos segundos.');
 
-    await advanceSessions(conn);
+    await advanceSessions(conn, KIOSK_ID);
 
     const [testUsers] = await conn.query(
       'SELECT id FROM test_users WHERE active = TRUE AND (phone = ? OR email = ?)',
@@ -165,10 +204,11 @@ async function registerParticipant(req, res) {
     );
     const isTestUser = testUsers.length > 0;
 
-    // ¿Ya jugó en el kiosco? Se le muestra su premio anterior y NO se activa el botón
+    // ¿Ya jugó? Se le muestra su premio anterior y NO se activa el botón. En las ferias cuenta CUALQUIER frente de la
+    // ciudad (pantalla, kiosco o correo): una participación por ciudad. El kiosco histórico solo mira su propio screen_id.
     if (!isTestUser) {
       const [previous] = await conn.query(
-        `SELECT s.ticket_code, l.name AS lead_name,
+        `SELECT s.ticket_code, l.name AS lead_name, l.screen_id AS lead_screen_id,
                 p.id AS prize_id, p.name AS prize_name, p.description AS prize_description, p.category AS prize_category, p.icon AS prize_icon,
                 s.created_at AS played_at
          FROM leads l
@@ -176,16 +216,17 @@ async function registerParticipant(req, res) {
          JOIN prizes p ON p.id = s.prize_id
          WHERE (l.phone = ? OR l.email = ?) AND l.screen_id IN (?)
          ORDER BY s.id DESC LIMIT 1`,
-        [cleanPhone, cleanEmail, screenIdsOf('kiosk')]
+        [cleanPhone, cleanEmail, screenIdsOfEvent(kiosk.event)]
       );
       if (previous.length > 0) {
         const prev = previous[0];
         return res.json({
           success: true,
           already_played: true,
-          message: '¡Ya participaste en este kiosco! Aquí tienes tu ticket.',
+          message: kiosk.eventInfo ? '¡Ya participaste en esta feria! Aquí tienes tu ticket.' : '¡Ya participaste en este kiosco! Aquí tienes tu ticket.',
           data: ticketPayload({
             id: null,
+            screen_id: prev.lead_screen_id,
             ticket_code: prev.ticket_code,
             lead_name: prev.lead_name,
             played_at: prev.played_at,
@@ -199,8 +240,13 @@ async function registerParticipant(req, res) {
       }
     }
 
+    // Feria cerrada (domingo 15-nov 22:00 hora Ecuador): no se aceptan registros nuevos (usuarios de prueba sí)
+    if (!isTestUser && isEventClosed(kiosk.event)) {
+      return sendError(res, 403, 'EVENT_CLOSED', 'La feria ya terminó. ¡Gracias por participar!', { event: publicEventInfo(kiosk.event) });
+    }
+
     // Un solo jugador por turno: si hay una sesión activa se pide esperar
-    const active = await findActiveSession(conn);
+    const active = await findActiveSession(conn, KIOSK_ID);
     if (active) {
       return sendError(res, 409, 'KIOSK_BUSY', 'El kiosco está ocupado con otro participante. Espera unos segundos e inténtalo de nuevo.', {
         retryAfterSeconds: active.status === 'REGISTERED' ? Math.max(Number(active.seconds_left) || 5, 5) : 15
@@ -213,10 +259,10 @@ async function registerParticipant(req, res) {
     let leadId;
     const [existingLead] = await conn.query(
       `SELECT l.id FROM leads l
-       WHERE (l.phone = ? OR l.email = ?) AND l.screen_id IN (?)
+       WHERE (l.phone = ? OR l.email = ?) AND l.screen_id = ?
          AND NOT EXISTS (SELECT 1 FROM spins s WHERE s.lead_id = l.id)
        ORDER BY l.id DESC LIMIT 1`,
-      [cleanPhone, cleanEmail, screenIdsOf('kiosk')]
+      [cleanPhone, cleanEmail, KIOSK_ID]
     );
     if (existingLead.length > 0) {
       leadId = existingLead[0].id;
@@ -226,7 +272,7 @@ async function registerParticipant(req, res) {
       const [leadResult] = await conn.query(
         `INSERT INTO leads (name, email, phone, dream_destination, screen_id, device_id, ip_address, user_agent, is_test)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [cleanName, cleanEmail, cleanPhone, KIOSK_DESTINATION, KIOSK_SCREEN_ID, device_id, req.ip, req.headers['user-agent'], isTestUser ? 1 : 0]
+        [cleanName, cleanEmail, cleanPhone, kiosk.destination, KIOSK_ID, device_id, req.ip, req.headers['user-agent'], isTestUser ? 1 : 0]
       );
       leadId = leadResult.insertId;
     }
@@ -235,7 +281,7 @@ async function registerParticipant(req, res) {
     const [sessionResult] = await conn.query(
       `INSERT INTO kiosk_sessions (screen_id, lead_id, status, phone_token, is_test, expires_at)
        VALUES (?, ?, 'REGISTERED', ?, ?, DATE_ADD(NOW(), INTERVAL ? SECOND))`,
-      [KIOSK_SCREEN_ID, leadId, phoneToken, isTestUser ? 1 : 0, REGISTER_TTL_SEC]
+      [KIOSK_ID, leadId, phoneToken, isTestUser ? 1 : 0, REGISTER_TTL_SEC]
     );
     await conn.commit();
 
@@ -259,20 +305,23 @@ async function registerParticipant(req, res) {
 }
 
 // GET /api/kiosk/state
-//   - Pantalla del botón (clave de kiosco): estado completo + datos de impresión cuando toca imprimir
+//   - Pantalla del botón (clave de ESE kiosco + screen_id): estado completo + datos de impresión cuando toca imprimir
 //   - Celular (session + token): su propio estado y, al revelarse, su premio
 async function getState(req, res) {
+  const kiosk = resolveKiosk(req);
+  if (!kiosk) return sendError(res, 400, 'INVALID_KIOSK', 'Kiosco no válido.');
   const conn = await pool.getConnection();
   try {
-    await advanceSessions(conn);
     res.set('Cache-Control', 'no-store');
 
     const sessionParam = Number(req.query.session) || 0;
     const tokenParam = String(req.query.token || '');
 
-    // ---- Celular ----
+    // ---- Celular ---- (la sesión y su token identifican el kiosco; no hace falta screen_id)
     if (sessionParam && tokenParam) {
-      const [rows] = await conn.query(`${SESSION_SELECT} WHERE ks.id = ? AND ks.screen_id = ?`, [sessionParam, KIOSK_SCREEN_ID]);
+      const [owner] = await conn.query('SELECT screen_id FROM kiosk_sessions WHERE id = ?', [sessionParam]);
+      if (owner[0]) await advanceSessions(conn, owner[0].screen_id);
+      const [rows] = await conn.query(`${SESSION_SELECT} WHERE ks.id = ?`, [sessionParam]);
       const row = rows[0];
       const stored = row ? Buffer.from(row.phone_token) : null;
       const given = Buffer.from(tokenParam);
@@ -284,10 +333,12 @@ async function getState(req, res) {
       return res.json(out);
     }
 
+    await advanceSessions(conn, kiosk.screenId);
+
     // ---- Pantalla del botón ----
-    if (isKioskKeyValid(req)) {
-      const active = await findActiveSession(conn);
-      const out = { success: true, status: active ? active.status : 'IDLE', session: null, print: null, reprint: null };
+    if (isKioskKeyValid(req, kiosk.screenId)) {
+      const active = await findActiveSession(conn, kiosk.screenId);
+      const out = { success: true, status: active ? active.status : 'IDLE', session: null, print: null, reprint: null, event: publicEventInfo(kiosk.event) };
       if (active) {
         out.session = {
           id: active.id,
@@ -303,7 +354,7 @@ async function getState(req, res) {
       // Reimpresión pedida desde el admin
       const [reprintRows] = await conn.query(
         `${SESSION_SELECT} WHERE ks.screen_id = ? AND ks.print_status = 'REPRINT' ORDER BY ks.id DESC LIMIT 1`,
-        [KIOSK_SCREEN_ID]
+        [kiosk.screenId]
       );
       if (reprintRows[0]) out.reprint = ticketPayload(reprintRows[0]);
 
@@ -311,7 +362,7 @@ async function getState(req, res) {
     }
 
     // ---- Público: solo si el kiosco está libre u ocupado (sin datos personales) ----
-    const active = await findActiveSession(conn);
+    const active = await findActiveSession(conn, kiosk.screenId);
     return res.json({ success: true, status: active ? 'BUSY' : 'IDLE' });
   } catch (error) {
     console.error('[Kiosk] Error consultando estado:', error);
@@ -323,7 +374,9 @@ async function getState(req, res) {
 
 // POST /api/kiosk/start  — lo llama el botón JUGAR AHORA (pantalla de abajo)
 async function startSpin(req, res) {
-  const lockName = `kiosk_register_${KIOSK_SCREEN_ID}`;
+  const kiosk = req.kiosk || resolveKiosk(req); // requireKioskKey ya lo resolvió
+  const KIOSK_ID = kiosk.screenId;
+  const lockName = `kiosk_register_${KIOSK_ID}`;
   const conn = await pool.getConnection();
   let lockAcquired = false;
   try {
@@ -331,8 +384,8 @@ async function startSpin(req, res) {
     lockAcquired = Boolean(lockRow && lockRow.got === 1);
     if (!lockAcquired) return sendError(res, 429, 'KIOSK_BUSY', 'Procesando, intenta de nuevo.');
 
-    await advanceSessions(conn);
-    const active = await findActiveSession(conn);
+    await advanceSessions(conn, KIOSK_ID);
+    const active = await findActiveSession(conn, KIOSK_ID);
     if (!active || active.status !== 'REGISTERED') {
       return sendError(res, 409, 'NO_REGISTERED_SESSION', 'No hay un participante registrado esperando jugar.');
     }
@@ -341,7 +394,8 @@ async function startSpin(req, res) {
 
     const [prizes] = await conn.query(
       `SELECT id, name, description, category, color_hex, text_color, icon, weight, stock, max_daily_wins, active
-       FROM prizes WHERE active = 1 AND stand = 'kiosk' ORDER BY id ASC FOR UPDATE`
+       FROM prizes WHERE active = 1 AND stand = ? ORDER BY id ASC FOR UPDATE`,
+      [kiosk.pool] // catálogo del kiosco; en las ferias, el de la ciudad (compartido con pantalla y correo)
     );
     if (prizes.length === 0) {
       await conn.rollback();
@@ -374,7 +428,7 @@ async function startSpin(req, res) {
 
     await conn.query(
       'INSERT INTO spins (lead_id, prize_id, ticket_code, screen_id, is_test) VALUES (?, ?, ?, ?, ?)',
-      [sessionLead.lead_id, winningPrize.id, ticketCode, KIOSK_SCREEN_ID, isTest ? 1 : 0]
+      [sessionLead.lead_id, winningPrize.id, ticketCode, KIOSK_ID, isTest ? 1 : 0]
     );
     if (!isTest) {
       await conn.query('UPDATE prizes SET stock = GREATEST(stock - 1, 0) WHERE id = ?', [winningPrize.id]);
@@ -383,12 +437,12 @@ async function startSpin(req, res) {
     // Misma fila que usa la pantalla de arriba (/api/spin/latest) para animar la ruleta
     await conn.query(
       `UPDATE spin_queue SET status = 'EXPIRED', completed_at = NOW() WHERE screen_id = ? AND status IN ('SPINNING','WAITING')`,
-      [KIOSK_SCREEN_ID]
+      [KIOSK_ID]
     );
     await conn.query(
       `INSERT INTO spin_queue (lead_id, prize_id, ticket_code, screen_id, status, started_at)
        VALUES (?, ?, ?, ?, 'SPINNING', NOW())`,
-      [sessionLead.lead_id, winningPrize.id, ticketCode, KIOSK_SCREEN_ID]
+      [sessionLead.lead_id, winningPrize.id, ticketCode, KIOSK_ID]
     );
 
     await conn.query(
@@ -399,14 +453,14 @@ async function startSpin(req, res) {
 
     // Local/WebSocket (opcional): en producción la pantalla de arriba lo recoge por polling
     if (req.io) {
-      req.io.to(KIOSK_SCREEN_ID).emit('TRIGGER_SPIN', {
-        screenId: KIOSK_SCREEN_ID,
+      req.io.to(KIOSK_ID).emit('TRIGGER_SPIN', {
+        screenId: KIOSK_ID,
         leadName: active.lead_name,
         prize: winningPrize,
         sliceIndex: winningIndex,
         totalSlices: prizes.length,
         ticketCode,
-        destination: KIOSK_DESTINATION
+        destination: kiosk.destination
       });
     }
 
@@ -429,8 +483,8 @@ async function markRevealed(req, res) {
     // Solo avanza una sesión que está girando (y no antes de 4 s desde el inicio: evita adelantos por error)
     await pool.query(
       `UPDATE kiosk_sessions SET status = 'REVEALED', revealed_at = NOW()
-       WHERE screen_id = ? AND ticket_code = ? AND status = 'SPINNING' AND started_at < DATE_SUB(NOW(), INTERVAL 4 SECOND)`,
-      [KIOSK_SCREEN_ID, ticketCode]
+       WHERE ticket_code = ? AND status = 'SPINNING' AND started_at < DATE_SUB(NOW(), INTERVAL 4 SECOND)`,
+      [ticketCode]
     );
     return res.json({ success: true });
   } catch (error) {
@@ -441,6 +495,7 @@ async function markRevealed(req, res) {
 
 // POST /api/kiosk/printed  — la pantalla del botón informa el resultado de la impresión
 async function reportPrinted(req, res) {
+  const KIOSK_ID = (req.kiosk || resolveKiosk(req)).screenId;
   const sessionId = Number(req.body && req.body.session_id) || 0;
   const ok = Boolean(req.body && req.body.ok);
   if (!sessionId) return sendError(res, 400, 'INVALID_SESSION', 'Falta session_id.');
@@ -449,14 +504,14 @@ async function reportPrinted(req, res) {
     // Una reimpresión (print_status = 'REPRINT') solo actualiza el resultado
     const [reprint] = await pool.query(
       `UPDATE kiosk_sessions SET print_status = ? WHERE id = ? AND screen_id = ? AND print_status = 'REPRINT'`,
-      [printStatus, sessionId, KIOSK_SCREEN_ID]
+      [printStatus, sessionId, KIOSK_ID]
     );
     if (reprint.affectedRows === 0) {
       // Impresión normal: libera el kiosco para el siguiente participante
       await pool.query(
         `UPDATE kiosk_sessions SET print_status = ?, status = 'DONE', finished_at = NOW()
          WHERE id = ? AND screen_id = ? AND status IN ('REVEALED','SPINNING')`,
-        [printStatus, sessionId, KIOSK_SCREEN_ID]
+        [printStatus, sessionId, KIOSK_ID]
       );
     }
     return res.json({ success: true });
@@ -471,8 +526,8 @@ async function requestReprint(req, res) {
   const code = String(req.params.code || '').trim().toUpperCase();
   try {
     const [result] = await pool.query(
-      `UPDATE kiosk_sessions SET print_status = 'REPRINT' WHERE screen_id = ? AND ticket_code = ? AND status IN ('REVEALED','DONE')`,
-      [KIOSK_SCREEN_ID, code]
+      `UPDATE kiosk_sessions SET print_status = 'REPRINT' WHERE screen_id IN (?) AND ticket_code = ? AND status IN ('REVEALED','DONE')`,
+      [kioskScreenIds(), code]
     );
     if (result.affectedRows === 0) {
       return sendError(res, 404, 'TICKET_NOT_FOUND', 'No se encontró un ticket del kiosco con ese código.');

@@ -28,6 +28,27 @@ export function detectMobileBrand() {
 }
 
 /**
+ * Pantallas de las ferias (Riobamba / Ambato): `/?screen=RIO_STAND` (QR de la pantalla gigante) y `/?screen=RIO_KIOSK`
+ * (QR del kiosco), igual con AMB_*. Se ven con la marca Autos (Marketing VIP). El servidor valida el screen_id.
+ */
+const FAIR_SCREENS = {
+  RIO_STAND: { stand: 'rio_stand', event: 'riobamba', city: 'Riobamba', kiosk: false },
+  RIO_KIOSK: { stand: 'rio_kiosk', event: 'riobamba', city: 'Riobamba', kiosk: true },
+  AMB_STAND: { stand: 'amb_stand', event: 'ambato', city: 'Ambato', kiosk: false },
+  AMB_KIOSK: { stand: 'amb_kiosk', event: 'ambato', city: 'Ambato', kiosk: true }
+};
+
+function fairScreenFromUrl() {
+  if (typeof window === 'undefined') return null;
+  const params = new URLSearchParams(window.location.search);
+  const screenParam = (params.get('screen') || '').toUpperCase();
+  if (FAIR_SCREENS[screenParam]) return { screenId: screenParam, ...FAIR_SCREENS[screenParam] };
+  const stand = (params.get('stand') || params.get('brand') || '').toLowerCase();
+  const found = Object.entries(FAIR_SCREENS).find(([, v]) => v.stand === stand);
+  return found ? { screenId: found[0], ...found[1] } : null;
+}
+
+/**
  * Evento del canal Correo. Misma regla que el servidor (api/src/services/mailLookup.js, resolveMailEvent):
  *  - ?ev=riobamba | ambato | cuotas manda;
  *  - sin ev, la clave del enlace decide: campana_cuotas (el enlace ya enviado a los clientes de Riobamba) y
@@ -77,6 +98,9 @@ export function detectRequestedChannel() {
 
   // Correo: cuotas es el canal 'mail' (se puede habilitar/deshabilitar en el admin); las ferias tienen el suyo
   if (view === 'mail') return MAIL_EVENTS[resolveMailEvent()].stand;
+  // Pantallas y kioscos de las ferias: acceso explícito sin gate (no dependen del canal por defecto del admin)
+  const fair = fairScreenFromUrl();
+  if (fair) return fair.stand;
   if (screenParam === 'KIOSK_01' || stand === 'kiosk') return 'kiosk';
   if (path.startsWith('/formulario2') || screenParam === 'STAND_02' || screenParam === 'STAND_LOCAL_2' || stand === 'ford') return 'ford';
   if (screenParam === 'STAND_01' || screenParam === 'STAND_LOCAL' || stand === 'autos') return 'autos';
@@ -109,7 +133,8 @@ export function detectKioskView() {
   const params = new URLSearchParams(window.location.search);
   const screenParam = (params.get('screen') || '').toUpperCase();
   const stand = (params.get('stand') || params.get('brand') || '').toLowerCase();
-  return screenParam === 'KIOSK_01' || stand === 'kiosk';
+  const fair = fairScreenFromUrl();
+  return screenParam === 'KIOSK_01' || stand === 'kiosk' || Boolean(fair && fair.kiosk);
 }
 
 export function getMobileBrandConfig() {
@@ -122,9 +147,11 @@ export function getMobileBrandConfig() {
   const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const rawScreen = params.get('screen');
 
+  const fair = !isFord ? fairScreenFromUrl() : null; // feria de Riobamba / Ambato (pantalla o kiosco)
+
   let screenId;
   if (isKiosk) {
-    screenId = 'KIOSK_01';
+    screenId = fair && fair.kiosk ? fair.screenId : 'KIOSK_01';
   } else if (isMail) {
     screenId = MAIL_EVENTS[resolveMailEvent()].screenId;
   } else if (isFord) {
@@ -134,6 +161,8 @@ export function getMobileBrandConfig() {
   } else {
     screenId = rawScreen || (isProduction ? 'STAND_01' : 'STAND_LOCAL');
   }
+  const fairEvent = isMail ? (resolveMailEvent() !== 'cuotas' ? resolveMailEvent() : null) : (fair ? fair.event : null);
+  const fairCity = fairEvent === 'riobamba' ? 'Riobamba' : fairEvent === 'ambato' ? 'Ambato' : null;
 
   const mailEvent = isMail ? resolveMailEvent() : null; // 'cuotas' | 'riobamba' | 'ambato'
 
@@ -143,7 +172,9 @@ export function getMobileBrandConfig() {
     isKiosk,
     isMail,
     mailEvent,
-    isFair: Boolean(mailEvent) && mailEvent !== 'cuotas', // feria de Riobamba / Ambato (no cuotas)
+    isFair: Boolean(mailEvent) && mailEvent !== 'cuotas', // correo de la feria de Riobamba / Ambato (no cuotas)
+    fairEvent, // 'riobamba' | 'ambato' | null (cualquier frente de la feria)
+    fairCity,
     mailStand: isMail ? MAIL_EVENTS[mailEvent].stand : null, // stand del API: 'mail' | 'rio_mail' | 'amb_mail'
     screenId,
     logoSrc: isFord ? '/logo_ford.jpeg' : '/logotipo.png',
@@ -153,7 +184,9 @@ export function getMobileBrandConfig() {
     onAccent: isFord ? '#ffffff' : '#000000',
     footerText: isFord
       ? 'Ford • Quito Motors • Stand Feria Automotriz 2026'
-      : isMail
+      : fairCity && !isMail
+        ? `Marketing VIP • Especialistas en sueños • Feria ${fairCity} 2026`
+        : isMail
         ? 'Marketing VIP • Especialistas en sueños'
         : 'Marketing VIP • Especialistas en sueños • Stand Feria Automotriz 2026'
   };

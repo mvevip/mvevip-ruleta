@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import confetti from 'canvas-confetti';
-import { ShieldCheck, AlertTriangle, ArrowRight, Tv, Loader2, Gift, Plane, Clock } from 'lucide-react';
+import { ShieldCheck, AlertTriangle, ArrowRight, Tv, Loader2, Gift, Plane, Clock, MapPin } from 'lucide-react';
 import Header from './components/Header';
 import LeadForm from './components/LeadForm';
 import { getMobileBrandConfig } from './brand';
@@ -21,7 +21,9 @@ const API_URL = isProduction
   : `${window.location.protocol}//${window.location.hostname}:5500`;
 
 const POLL_MS = 1500;
-const SESSION_KEY = 'vip_kiosk_session';
+// Cada kiosco guarda su propia sesión (KIOSK_01 conserva la clave histórica)
+const sessionKeyFor = (screenId) => (screenId === 'KIOSK_01' ? 'vip_kiosk_session' : `vip_kiosk_session_${screenId}`);
+
 
 function getOrCreateDeviceId() {
   try {
@@ -36,18 +38,18 @@ function getOrCreateDeviceId() {
   }
 }
 
-function loadSavedSession() {
+function loadSavedSession(screenId) {
   try {
-    const raw = sessionStorage.getItem(SESSION_KEY);
+    const raw = sessionStorage.getItem(sessionKeyFor(screenId));
     return raw ? JSON.parse(raw) : null;
   } catch (e) {
     return null;
   }
 }
-function saveSession(value) {
+function saveSession(screenId, value) {
   try {
-    if (value) sessionStorage.setItem(SESSION_KEY, JSON.stringify(value));
-    else sessionStorage.removeItem(SESSION_KEY);
+    if (value) sessionStorage.setItem(sessionKeyFor(screenId), JSON.stringify(value));
+    else sessionStorage.removeItem(sessionKeyFor(screenId));
   } catch (e) { /* sin efecto */ }
 }
 
@@ -88,6 +90,30 @@ function KioskVoucher({ ticket, alreadyPlayed }) {
         <p className="text-xl font-black leading-tight mb-1">{ticket.winner.name}</p>
         {ticket.winner.description && <p className="text-xs text-zinc-600 mb-3">{ticket.winner.description}</p>}
 
+        {ticket.event && (
+          <div className="mb-3 rounded-2xl border-2 border-[#9AC31C] bg-[#9AC31C]/10 p-2.5 text-center">
+            <div className="flex items-center justify-center gap-1.5 text-[10px] font-racing font-black text-[#5f7d0c] uppercase tracking-widest">
+              <MapPin className="w-3.5 h-3.5 shrink-0" />
+              <span>Canjea tu premio en la feria</span>
+            </div>
+            <p className="text-sm font-bold text-zinc-900 mt-1 leading-tight">{ticket.event.fairName}</p>
+            <p className="text-xs font-semibold text-zinc-700 leading-tight">{ticket.event.venue}</p>
+            <p className="text-[11px] text-zinc-600 leading-tight">{ticket.event.datesText}</p>
+            <p className="text-[12px] font-racing font-black text-zinc-900 mt-1 leading-tight">{ticket.event.standText}</p>
+            {ticket.event.mapsUrl && (
+              <a
+                href={ticket.event.mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1.5 inline-flex items-center justify-center gap-1.5 px-3.5 py-1 rounded-full bg-[#0B2A4A] text-white text-[11px] font-bold shadow active:scale-95 transition-transform"
+              >
+                <MapPin className="w-3 h-3 text-[#C6F03A]" />
+                Cómo llegar
+              </a>
+            )}
+          </div>
+        )}
+
         <div className="flex items-end justify-between border-t border-dashed border-zinc-300 pt-3">
           <div>
             <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Código de canje</p>
@@ -101,7 +127,7 @@ function KioskVoucher({ ticket, alreadyPlayed }) {
       </div>
 
       <p className="text-xs text-zinc-600 text-center max-w-xs">
-        Presenta este código o el QR para canjear tu premio. También sale impreso en el kiosco.
+        {ticket.event ? 'Presenta este código o el QR en el stand de Marketing VIP para canjear tu premio. También sale impreso en el kiosco.' : 'Presenta este código o el QR para canjear tu premio. También sale impreso en el kiosco.'}
       </p>
     </div>
   );
@@ -112,7 +138,7 @@ export default function KioskApp() {
   const screenId = brand.screenId;
   const deviceIdRef = useRef(getOrCreateDeviceId());
 
-  const [phase, setPhase] = useState('FORM'); // FORM | WAITING | SPINNING | REVEALED | EXPIRED | BUSY | ALREADY
+  const [phase, setPhase] = useState('FORM'); // FORM | WAITING | SPINNING | REVEALED | EXPIRED | BUSY | ALREADY | CLOSED
   const [formData, setFormData] = useState({ name: '', phone: '', email: '', accept_privacy: true, dream_destination: '' });
   const [errors, setErrors] = useState({});
   const [apiError, setApiError] = useState(null);
@@ -120,7 +146,7 @@ export default function KioskApp() {
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [ticket, setTicket] = useState(null);
   const [retryIn, setRetryIn] = useState(0);
-  const sessionRef = useRef(loadSavedSession());
+  const sessionRef = useRef(loadSavedSession(screenId));
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -166,7 +192,7 @@ export default function KioskApp() {
         const json = await res.json();
         if (!alive) return;
         if (res.status === 404) {
-          sessionRef.current = null; saveSession(null); setPhase('FORM'); return;
+          sessionRef.current = null; saveSession(screenId, null); setPhase('FORM'); return;
         }
         if (!json.success) return;
         if (json.status === 'REGISTERED') {
@@ -178,7 +204,7 @@ export default function KioskApp() {
           setTicket(json.data);
           setPhase('REVEALED');
         } else if (json.status === 'EXPIRED') {
-          sessionRef.current = null; saveSession(null);
+          sessionRef.current = null; saveSession(screenId, null);
           setPhase('EXPIRED');
         }
       } catch (e) { /* red inestable: se reintenta en el siguiente ciclo */ }
@@ -221,11 +247,16 @@ export default function KioskApp() {
           phone: formData.phone,
           email: formData.email,
           device_id: deviceIdRef.current,
+          screen_id: screenId,
           turnstile_token: 'BYPASS_DEV'
         })
       });
       const json = await res.json();
 
+      if (res.status === 403 && json.code === 'EVENT_CLOSED') {
+        setPhase('CLOSED');
+        return;
+      }
       if (res.status === 409 && json.code === 'KIOSK_BUSY') {
         setRetryIn(Number(json.retryAfterSeconds) || 15);
         setPhase('BUSY');
@@ -239,7 +270,7 @@ export default function KioskApp() {
         return;
       }
       sessionRef.current = { id: json.data.sessionId, token: json.data.token };
-      saveSession(sessionRef.current);
+      saveSession(screenId, sessionRef.current);
       setSecondsLeft(json.data.expiresInSeconds || 120);
       setPhase('WAITING');
     } catch (err) {
@@ -315,6 +346,14 @@ export default function KioskApp() {
             <h2 className="font-racing font-black text-lg uppercase text-zinc-900">Tu turno venció</h2>
             <p className="text-sm text-zinc-700 mt-2">No se presionó el botón a tiempo. Vuelve a registrarte para jugar.</p>
             <button type="button" onClick={() => setPhase('FORM')} className={primaryBtn}>Volver a intentar</button>
+          </div>
+        )}
+
+        {phase === 'CLOSED' && (
+          <div className="bg-white/95 border-2 border-[#9AC31C] rounded-3xl p-6 shadow-xl text-center">
+            <Clock className="w-10 h-10 text-[#7A9E14] mx-auto mb-3" />
+            <h2 className="font-racing font-black text-lg uppercase text-zinc-900">La feria ya terminó</h2>
+            <p className="text-sm text-zinc-700 mt-2">¡Gracias por acompañarnos! Pronto tendremos nuevas sorpresas.</p>
           </div>
         )}
 

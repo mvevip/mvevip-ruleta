@@ -38,6 +38,8 @@ export default function PrizeVoucher({ result }) {
   const isMail = brand.isMail;
   // Ferias (Riobamba / Ambato): en lugar de la cita del sábado se muestra dónde y cuándo es la feria y el stand
   const isFair = isMail && Boolean(event);
+  // Cualquier frente de la feria (pantalla gigante, kiosco o correo): el pase muestra dónde, cuándo y el stand
+  const hasEvent = Boolean(event);
   const PrizeIcon = isMail ? getPrizeIcon(winner.icon) : null;
 
   return (
@@ -139,7 +141,7 @@ export default function PrizeVoucher({ result }) {
         )}
 
         {/* Feria (Riobamba / Ambato): ubicación, fechas y stand */}
-        {isFair && (
+        {hasEvent && (
           <div className="rounded-2xl border-2 border-[#9AC31C] bg-[#9AC31C]/10 p-3 text-center">
             <div className="flex items-center justify-center gap-1.5 text-[11px] [@media(max-height:600px)]:text-[10px] font-racing font-black text-[#5f7d0c] uppercase tracking-widest [@media(max-height:600px)]:tracking-wide">
               <MapPin className="w-4 h-4 shrink-0" />
@@ -162,7 +164,7 @@ export default function PrizeVoucher({ result }) {
         )}
 
         {/* Validez de Urgencia */}
-        {!isMail && (
+        {!isMail && !hasEvent && (
           <div className="flex items-center justify-center gap-1.5 text-xs text-zinc-600 font-medium">
             <Clock className="w-3.5 h-3.5 text-[#7A9E14]" />
             <span>

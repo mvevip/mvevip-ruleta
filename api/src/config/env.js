@@ -27,6 +27,12 @@ module.exports = {
     // Clave para firmar los enlaces del correo (?correo=...&t=...). Sin clave, la búsqueda por correo queda deshabilitada.
     // Clave del kiosco (pantalla del botón): protege iniciar el giro y confirmar la impresión. Sin clave, esas rutas quedan deshabilitadas.
     kioskKey: (process.env.KIOSK_KEY || '').trim(),
+    // Una clave por kiosco (KIOSK_01 = KIOSK_KEY histórica; Riobamba y Ambato tienen la suya). Sin clave -> 503 en ese kiosco.
+    kioskKeys: {
+      KIOSK_01: (process.env.KIOSK_KEY || '').trim(),
+      RIO_KIOSK: (process.env.KIOSK_KEY_RIO || '').trim(),
+      AMB_KIOSK: (process.env.KIOSK_KEY_AMB || '').trim()
+    },
     mailTokenSecret: process.env.MAIL_TOKEN_SECRET || '',
     allowedOrigins: (process.env.ALLOWED_ORIGINS || 'https://autos.mvevip.com,https://mvevip.com,http://localhost:5500,http://localhost:5502,http://localhost:5503,http://localhost:5504')
       .split(',')
