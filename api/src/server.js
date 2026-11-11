@@ -6,6 +6,7 @@ const config = require('./config/env');
 const { checkConnection } = require('./config/db');
 const { setupSocket } = require('./socket/socketHandler');
 const apiRoutes = require('./routes/apiRoutes');
+const { eventSettingsMiddleware } = require('./services/eventSettings');
 
 const app = express();
 const server = http.createServer(app);
@@ -90,6 +91,9 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+// Datos de las ferias (editables desde el Admin): se refrescan con caché corta antes de atender /api
+app.use('/api', eventSettingsMiddleware);
 
 // Rutas de API
 app.use('/api', apiRoutes);

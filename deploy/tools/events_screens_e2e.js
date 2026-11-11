@@ -22,7 +22,7 @@ async function playKiosk(screenId, p) {
   const reg = await call('POST', '/api/kiosk/register', { ...p, screen_id: screenId, turnstile_token: 'BYPASS_DEV' });
   if (!reg.body.success || reg.body.already_played) return { reg };
   const start = await call('POST', '/api/kiosk/start', { screen_id: screenId }, { 'x-kiosk-key': KEYS[screenId] });
-  await wait(4500);
+  await wait(6000);
   const state = await call('GET', `/api/kiosk/state?screen_id=${screenId}&k=${KEYS[screenId]}`);
   const phone = await call('GET', `/api/kiosk/state?session=${reg.body.data.sessionId}&token=${reg.body.data.token}`);
   return { reg, start, state, phone };

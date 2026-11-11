@@ -21,10 +21,17 @@ import {
   Type
 } from 'lucide-react';
 
-export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotification, stand = 'autos' }) {
+export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotification, stand = 'autos', standLabel = '', screenPath = '', formPath = '' }) {
   const isFord = stand === 'ford';
-  const screenBasePath = isFord ? '/pantalla2' : '/pantalla';
-  const mobileFormPath = isFord ? '/formulario2' : '/';
+  // Rutas del stand: Autos y Ford conservan las suyas; el kiosco y las ferias llegan desde el Admin (p. ej. /pantalla/?screen=RIO_STAND)
+  const rawScreenPath = screenPath || (isFord ? '/pantalla2' : '/pantalla');
+  const [screenBasePath, screenQs] = rawScreenPath.split('?'); // '/pantalla/' + 'screen=RIO_STAND'
+  const withScreenQuery = (extra) => {
+    const qs = [screenQs, extra].filter(Boolean).join('&');
+    return qs ? `${screenBasePath}?${qs}` : screenBasePath;
+  };
+  const mobileFormPath = formPath || (isFord ? '/formulario2' : '/');
+  const standName = standLabel || (isFord ? 'FORD (Pantalla 2)' : 'AUTOS (Pantalla 1)');
 
   const [displayConfigs, setDisplayConfigs] = useState({
     roulette: { orientation: 'auto', slide_duration: 8, layout_ratio: 'default', video_url: 'AzQlHkHx6HI', wheel_scale_x: 100, wheel_font_size: 100, video_logo_scale: 100, video_logo_visible: false },
@@ -576,7 +583,7 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
       });
       const json = await res.json();
       if (json.success) {
-        onNotification(`¡Comando emitido! Las pantallas de ${isFord ? 'FORD (Pantalla 2)' : 'AUTOS (Pantalla 1)'} se están recargando`);
+        onNotification(`¡Comando emitido! Las pantallas de ${standName} se están recargando`);
       } else {
         alert(json.error || 'Error al emitir recarga');
       }
@@ -610,10 +617,10 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
           </div>
           <div>
             <h3 className="font-racing font-bold text-sm text-white uppercase tracking-wider">
-              Control Remoto • {isFord ? 'Stand 2 (Ford)' : 'Stand 1 (Autos)'}
+              Control Remoto • {standLabel || (isFord ? 'Stand 2 (Ford)' : 'Stand 1 (Autos)')}
             </h3>
             <p className="text-[11px] text-zinc-300">
-              Sincroniza y recarga las pantallas de <strong className="text-white">{screenBasePath}</strong> (Formulario: <a href={`${mobileHostUrl}${mobileFormPath}`} target="_blank" rel="noreferrer" className="underline text-[#9AC31C]">{mobileFormPath}</a>)
+              Sincroniza y recarga las pantallas de <strong className="text-white">{withScreenQuery('')}</strong> (Formulario: <a href={`${mobileHostUrl}${mobileFormPath}`} target="_blank" rel="noreferrer" className="underline text-[#9AC31C]">{mobileFormPath}</a>)
             </p>
           </div>
         </div>
@@ -625,7 +632,7 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
           className="w-full sm:w-auto px-4 py-2.5 bg-gradient-to-r from-[#84A816] via-[#9AC31C] to-[#84A816] hover:brightness-110 active:scale-95 text-black font-racing font-bold text-xs uppercase tracking-wider rounded-xl shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all disabled:opacity-50"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-          <span>{isSyncing ? 'ENVIANDO SEÑAL...' : `RECARGAR ${isFord ? 'PANTALLA 2' : 'PANTALLA 1'}`}</span>
+          <span>{isSyncing ? 'ENVIANDO SEÑAL...' : `RECARGAR ${standLabel ? 'PANTALLAS' : isFord ? 'PANTALLA 2' : 'PANTALLA 1'}`}</span>
         </button>
       </div>
 
@@ -634,7 +641,7 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
         <div className="flex items-center gap-2">
           <Tv className="w-4 h-4 text-[#9AC31C]" />
           <h3 className="font-racing font-bold text-sm text-white uppercase tracking-wider">
-            Pantallas de {isFord ? 'Ford (/pantalla2)' : 'Autos (/pantalla)'} & Orientación
+            Pantallas de {standLabel || (isFord ? 'Ford (/pantalla2)' : 'Autos (/pantalla)')} & Orientación
           </h3>
         </div>
 
@@ -644,10 +651,10 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
             <div className="flex items-center justify-between">
               <span className="font-racing font-bold text-xs text-white uppercase flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-[#9AC31C]" />
-                Ruleta Principal ({screenBasePath})
+                Ruleta Principal ({withScreenQuery('')})
               </span>
               <a
-                href={`${screenHostUrl}${screenBasePath}`}
+                href={`${screenHostUrl}${withScreenQuery('')}`}
                 target="_blank"
                 rel="noreferrer"
                 className="text-[11px] text-[#9AC31C] hover:underline flex items-center gap-1"
@@ -931,7 +938,7 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
                 Solo QR Gigante
               </span>
               <a
-                href={`${screenHostUrl}${screenBasePath}?view=qr`}
+                href={`${screenHostUrl}${withScreenQuery('view=qr')}`}
                 target="_blank"
                 rel="noreferrer"
                 className="text-[11px] text-[#9AC31C] hover:underline flex items-center gap-1"
@@ -994,7 +1001,7 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
                 Solo Slider Banners
               </span>
               <a
-                href={`${screenHostUrl}${screenBasePath}?view=slider`}
+                href={`${screenHostUrl}${withScreenQuery('view=slider')}`}
                 target="_blank"
                 rel="noreferrer"
                 className="text-[11px] text-[#9AC31C] hover:underline flex items-center gap-1"
@@ -1025,7 +1032,7 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
                 Híbrida (Slider + QR)
               </span>
               <a
-                href={`${screenHostUrl}${screenBasePath}?view=combo`}
+                href={`${screenHostUrl}${withScreenQuery('view=combo')}`}
                 target="_blank"
                 rel="noreferrer"
                 className="text-[11px] text-[#9AC31C] hover:underline flex items-center gap-1"

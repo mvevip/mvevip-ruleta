@@ -6,8 +6,10 @@ const {
   nonAutosScreenIds,
   STANDS,
   isValidStand,
-  isMailStand
+  isMailStand,
+  screenIdsOfEvent
 } = require('../config/stands');
+const { isFairEvent, getEventInfo } = require('../config/events');
 
 function deriveLeadStand(screenId) {
   const mapped = standFromScreenId(screenId);
@@ -57,9 +59,16 @@ async function getLeads(req, res) {
     const requestedStand = (req.query && req.query.stand) ? String(req.query.stand).toLowerCase() : 'all';
     const filterByStand = isValidStand(requestedStand) ? requestedStand : null;
 
+    // ?event=riobamba|ambato: todos los frentes de la ciudad (pantalla, kiosco y correo)
+    const requestedEvent = (req.query && req.query.event) ? String(req.query.event).toLowerCase() : '';
+    const filterByEvent = isFairEvent(requestedEvent) ? requestedEvent : null;
+
     let whereSql = '';
     let params = [];
-    if (filterByStand === 'autos') {
+    if (filterByEvent) {
+      whereSql = 'WHERE l.screen_id IN (?)';
+      params = [screenIdsOfEvent(filterByEvent)];
+    } else if (filterByStand === 'autos') {
       whereSql = 'WHERE (l.screen_id IS NULL OR l.screen_id NOT IN (?))';
       params = [nonAutosScreenIds()];
     } else if (filterByStand) {
@@ -87,12 +96,14 @@ async function getLeads(req, res) {
 
     // Totales reales por canal (no dependen del filtro ni del tope de filas)
     const [countRows] = await pool.query('SELECT screen_id, COUNT(*) AS n FROM leads GROUP BY screen_id');
-    const totals = { all: 0 };
+    const totals = { all: 0, events: {} };
     Object.keys(STANDS).forEach((key) => { totals[key] = 0; });
     countRows.forEach((r) => {
       const st = deriveLeadStand(r.screen_id);
       totals[st] = (totals[st] || 0) + Number(r.n);
       totals.all += Number(r.n);
+      const ev = STANDS[st] ? STANDS[st].event : 'autos';
+      totals.events[ev] = (totals.events[ev] || 0) + Number(r.n);
     });
 
     await attachCrmClientIds(rows);
@@ -105,6 +116,7 @@ async function getLeads(req, res) {
         stand_label: STANDS[st]?.label || 'Autos',
         // Evento (ciudad) y frente por el que entró el lead; derivados del screen_id (ver config/stands.js)
         event: STANDS[st]?.event || 'autos',
+        event_label: (getEventInfo(STANDS[st]?.event) || {}).city || null,
         front: STANDS[st]?.front || 'stand'
       };
     });
@@ -112,6 +124,7 @@ async function getLeads(req, res) {
     res.json({
       success: true,
       stand: filterByStand || 'all',
+      event: filterByEvent,
       count: enriched.length,
       totals,
       advisors: OFFICIAL_ADVISORS,
@@ -171,11 +184,18 @@ async function getMetrics(req, res) {
     const mailScreens = screenIdsOf('mail');
     const nonAutosScreens = nonAutosScreenIds();
 
+    const requestedEvent = (req.query && req.query.event) ? String(req.query.event).toLowerCase() : '';
+    const filterByEvent = isFairEvent(requestedEvent) ? requestedEvent : null;
+
     let leadStandClause = '';
     let spinStandClause = '';
     let standParams = [];
 
-    if (filterByStand === 'autos') {
+    if (filterByEvent) {
+      leadStandClause = ' AND screen_id IN (?)';
+      spinStandClause = ' AND s.screen_id IN (?)';
+      standParams = [screenIdsOfEvent(filterByEvent)];
+    } else if (filterByStand === 'autos') {
       leadStandClause = ' AND (screen_id IS NULL OR screen_id NOT IN (?))';
       spinStandClause = ' AND (s.screen_id IS NULL OR s.screen_id NOT IN (?))';
       standParams = [nonAutosScreens];
@@ -286,6 +306,7 @@ async function getMetrics(req, res) {
     res.json({
       success: true,
       stand: filterByStand || 'all',
+      event: filterByEvent,
       data: {
         totalLeads: leadCount.total_leads,
         totalSpins: spinCount.total_spins,

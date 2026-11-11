@@ -205,7 +205,7 @@ async function checkConnection() {
       `).catch(() => {});
 
       // 10. Soporte multi-stand (Autos / Ford). SOLO se auto-migra fuera de producción.
-      // En producción: ejecutar manualmente deploy/migrations/002_stand_support.sql, 003_mail_stand.sql, 004_prize_icons.sql, 005_leads_crm_link.sql, 006_channel_settings.sql, 007_kiosk.sql, 008_ferias_riobamba_ambato.sql y 009_ferias_pantallas.sql
+      // En producción: ejecutar manualmente deploy/migrations/002_stand_support.sql, 003_mail_stand.sql, 004_prize_icons.sql, 005_leads_crm_link.sql, 006_channel_settings.sql, 007_kiosk.sql, 008_ferias_riobamba_ambato.sql, 009_ferias_pantallas.sql y 010_event_settings.sql
       if (config.NODE_ENV !== 'production') {
         await connection.query(`ALTER TABLE prizes ADD COLUMN stand VARCHAR(20) NOT NULL DEFAULT 'autos'`).catch(() => {});
         await connection.query(`ALTER TABLE prizes ADD INDEX idx_prizes_stand (stand)`).catch(() => {});
@@ -292,6 +292,21 @@ async function checkConnection() {
         `).catch(() => {});
         await connection.query(`
           INSERT IGNORE INTO system_sync (sync_key, version_timestamp, action) VALUES ('displays_kiosk', ${Date.now()}, 'INITIAL')
+        `).catch(() => {});
+
+        // Datos de las ferias editables desde el Admin. En producción: deploy/migrations/010_event_settings.sql
+        await connection.query(`
+          CREATE TABLE IF NOT EXISTS event_settings (
+            event VARCHAR(20) PRIMARY KEY,
+            fair_name VARCHAR(150) NULL,
+            venue VARCHAR(200) NULL,
+            maps_url VARCHAR(500) NULL,
+            dates_text VARCHAR(150) NULL,
+            stand_text VARCHAR(150) NULL,
+            closes_at VARCHAR(40) NULL,
+            is_open TINYINT(1) NOT NULL DEFAULT 1,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+          ) ENGINE=InnoDB
         `).catch(() => {});
 
         // Ferias Riobamba / Ambato: configuración de pantalla de la pantalla gigante y del kiosco de cada ciudad.
