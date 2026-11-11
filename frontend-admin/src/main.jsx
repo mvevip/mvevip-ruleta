@@ -1,10 +1,16 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import { AdminProvider } from './context/AdminContext';
+import { registerServiceWorker } from './lib/pwa';
 import './index.css';
+
+registerServiceWorker();
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <App />
+    <AdminProvider>
+      <App />
+    </AdminProvider>
   </React.StrictMode>
 );

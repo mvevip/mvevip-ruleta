@@ -75,3 +75,12 @@ export const TONE = {
   sky: { active: 'bg-sky-500 text-black shadow-[0_0_15px_rgba(14,165,233,0.5)]', badge: 'bg-sky-500/20 text-sky-300 border border-sky-400/40', chip: 'bg-sky-500 text-black' },
   rose: { active: 'bg-rose-500 text-black shadow-[0_0_15px_rgba(244,63,94,0.5)]', badge: 'bg-rose-500/20 text-rose-300 border border-rose-400/40', chip: 'bg-rose-500 text-black' }
 };
+
+// screen_id (como lo guarda la base de datos) -> stand del Admin
+const SCREEN_TO_STAND = {
+  STAND_01: 'autos', STAND_LOCAL: 'autos', STAND_02: 'ford', STAND_LOCAL_2: 'ford', MAIL_01: 'mail', KIOSK_01: 'kiosk',
+  RIO_STAND: 'rio_stand', RIO_KIOSK: 'rio_kiosk', RIO_MAIL: 'rio_mail', AMB_STAND: 'amb_stand', AMB_KIOSK: 'amb_kiosk', AMB_MAIL: 'amb_mail'
+};
+export function standOfScreenId(screenId) {
+  return STAND_META[SCREEN_TO_STAND[screenId]] || STAND_META.autos;
+}

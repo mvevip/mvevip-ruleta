@@ -601,26 +601,27 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
     ? `${window.location.protocol}//${window.location.hostname}:5503`
     : '';
 
+  const presetClass = (active) =>
+    `px-2.5 py-1 text-[11px] rounded-full font-semibold border transition-all cursor-pointer ${
+      active
+        ? 'bg-navy text-white border-navy'
+        : 'bg-white text-ink-2 border-line-strong hover:bg-surface-2'
+    }`;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* TARJETA MANDO CONTROL REMOTO */}
-      <div className={`p-4 rounded-2xl border-2 flex flex-col sm:flex-row items-center justify-between gap-3 ${
-        isFord
-          ? 'bg-gradient-to-r from-[#212650] via-[#171b3a] to-[#212650] border-blue-400/60 shadow-[0_0_25px_rgba(33,38,80,0.4)]'
-          : 'bg-gradient-to-r from-zinc-900 via-zinc-950 to-zinc-900 border-[#9AC31C]/60 shadow-[0_0_25px_rgba(154,195,28,0.2)]'
-      }`}>
+      <div className="card card-pad flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-xl border flex items-center justify-center ${
-            isFord ? 'bg-white/15 border-white/40 text-white' : 'bg-[#9AC31C]/20 border-[#9AC31C] text-[#9AC31C]'
-          }`}>
+          <div className="w-10 h-10 rounded-xl border border-line bg-brand-soft text-brand-dark flex items-center justify-center shrink-0">
             <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} />
           </div>
           <div>
-            <h3 className="font-racing font-bold text-sm text-white uppercase tracking-wider">
-              Control Remoto • {standLabel || (isFord ? 'Stand 2 (Ford)' : 'Stand 1 (Autos)')}
+            <h3 className="panel-title">
+              Control remoto • {standLabel || (isFord ? 'Stand 2 (Ford)' : 'Stand 1 (Autos)')}
             </h3>
-            <p className="text-[11px] text-zinc-300">
-              Sincroniza y recarga las pantallas de <strong className="text-white">{withScreenQuery('')}</strong> (Formulario: <a href={`${mobileHostUrl}${mobileFormPath}`} target="_blank" rel="noreferrer" className="underline text-[#9AC31C]">{mobileFormPath}</a>)
+            <p className="text-xs text-ink-muted mt-0.5">
+              Sincroniza y recarga las pantallas de <strong className="text-ink">{withScreenQuery('')}</strong> (Formulario: <a href={`${mobileHostUrl}${mobileFormPath}`} target="_blank" rel="noreferrer" className="underline text-brand-dark font-semibold">{mobileFormPath}</a>)
             </p>
           </div>
         </div>
@@ -629,94 +630,94 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
           type="button"
           onClick={handleTriggerRemoteReload}
           disabled={isSyncing}
-          className="w-full sm:w-auto px-4 py-2.5 bg-gradient-to-r from-[#84A816] via-[#9AC31C] to-[#84A816] hover:brightness-110 active:scale-95 text-black font-racing font-bold text-xs uppercase tracking-wider rounded-xl shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all disabled:opacity-50"
+          className="btn-primary w-full sm:w-auto min-h-[40px] flex items-center justify-center gap-2 disabled:opacity-50"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-          <span>{isSyncing ? 'ENVIANDO SEÑAL...' : `RECARGAR ${standLabel ? 'PANTALLAS' : isFord ? 'PANTALLA 2' : 'PANTALLA 1'}`}</span>
+          <span>{isSyncing ? 'Enviando señal...' : `Recargar ${standLabel ? 'pantallas' : isFord ? 'pantalla 2' : 'pantalla 1'}`}</span>
         </button>
       </div>
 
       {/* SECCIÓN 1: CONFIGURACIÓN DE PANTALLAS Y ORIENTACIÓN */}
       <div className="space-y-3">
         <div className="flex items-center gap-2">
-          <Tv className="w-4 h-4 text-[#9AC31C]" />
-          <h3 className="font-racing font-bold text-sm text-white uppercase tracking-wider">
-            Pantallas de {standLabel || (isFord ? 'Ford (/pantalla2)' : 'Autos (/pantalla)')} & Orientación
+          <Tv className="w-4 h-4 text-brand-dark" />
+          <h3 className="panel-title">
+            Pantallas de {standLabel || (isFord ? 'Ford (/pantalla2)' : 'Autos (/pantalla)')} y orientación
           </h3>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
           {/* Pantalla 1: Ruleta */}
-          <div className="bg-zinc-900/90 border border-zinc-800 p-4 rounded-2xl space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="font-racing font-bold text-xs text-white uppercase flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#9AC31C]" />
-                Ruleta Principal ({withScreenQuery('')})
+          <div className="card card-pad space-y-4">
+            <div className="flex items-center justify-between gap-2">
+              <span className="panel-title flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-brand" />
+                Ruleta principal ({withScreenQuery('')})
               </span>
               <a
                 href={`${screenHostUrl}${withScreenQuery('')}`}
                 target="_blank"
                 rel="noreferrer"
-                className="text-[11px] text-[#9AC31C] hover:underline flex items-center gap-1"
+                className="text-xs font-semibold text-brand-dark hover:underline flex items-center gap-1"
               >
                 <span>Abrir</span>
                 <ExternalLink className="w-3 h-3" />
               </a>
             </div>
-            <p className="text-[11px] text-zinc-400">
-              Pantalla del juego con ruleta rin, telemetría y QR hacia <code className="text-zinc-200">{mobileFormPath}</code>.
+            <p className="text-xs text-ink-muted">
+              Pantalla del juego con ruleta, telemetría y QR hacia <code className="text-ink-2 font-mono">{mobileFormPath}</code>.
             </p>
 
             {/* Video de YouTube de atracción */}
-            <div className="pt-2.5 border-t border-zinc-800 space-y-1.5">
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="text-zinc-300 font-medium flex items-center gap-1.5">
-                  <Video className="w-3.5 h-3.5 text-[#9AC31C]" />
-                  Video Standby (YouTube):
+            <div className="bg-surface-2 border border-line rounded-xl p-3 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-ink-2 font-semibold flex items-center gap-1.5">
+                  <Video className="w-3.5 h-3.5 text-brand-dark" />
+                  Video de espera (YouTube)
                 </span>
                 {rouletteVideoInput && (
                   <a
                     href={`https://www.youtube.com/watch?v=${rouletteVideoInput}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-[10px] text-zinc-400 hover:text-[#9AC31C] flex items-center gap-1 transition-colors"
+                    className="text-xs text-ink-muted hover:text-brand-dark flex items-center gap-1 transition-colors"
                     title="Ver en YouTube"
                   >
                     <span>Ver</span>
-                    <ExternalLink className="w-2.5 h-2.5" />
+                    <ExternalLink className="w-3 h-3" />
                   </a>
                 )}
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
                 <input
                   type="text"
                   value={rouletteVideoInput}
                   onChange={(e) => setRouletteVideoInput(e.target.value)}
                   placeholder="ID o link (ej: AzQlHkHx6HI)"
-                  className="flex-1 bg-zinc-950 border border-zinc-700 text-xs text-white rounded-lg px-2.5 py-1.5 focus:border-[#9AC31C] focus:outline-none placeholder-zinc-600 font-mono"
+                  className="input flex-1 font-mono"
                 />
                 <button
                   type="button"
                   onClick={() => handleUpdateVideoUrl('roulette')}
                   disabled={isSavingVideo}
-                  className="px-3 py-1.5 bg-[#9AC31C] hover:bg-[#84A816] active:scale-95 text-black font-racing font-bold text-[10px] uppercase tracking-wider rounded-lg transition-all cursor-pointer whitespace-nowrap disabled:opacity-50"
+                  className="btn-primary btn-sm min-h-[40px] whitespace-nowrap disabled:opacity-50"
                 >
                   {isSavingVideo ? '...' : 'Guardar'}
                 </button>
               </div>
-              <p className="text-[10px] text-zinc-500 leading-tight">
+              <p className="text-xs text-ink-muted leading-tight">
                 Pega el enlace de YouTube o el ID. Se actualizará en la pantalla grande.
               </p>
             </div>
 
             {/* Ensanchamiento Horizontal de la Ruleta (Aspecto Ovalado) */}
-            <div className="pt-2.5 border-t border-zinc-800 space-y-2">
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="text-zinc-300 font-medium flex items-center gap-1.5">
-                  <Maximize2 className="w-3.5 h-3.5 text-[#9AC31C]" />
-                  Ensanchamiento Horizontal (Ovalado):
+            <div className="bg-surface-2 border border-line rounded-xl p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2 text-xs">
+                <span className="text-ink-2 font-semibold flex items-center gap-1.5">
+                  <Maximize2 className="w-3.5 h-3.5 text-brand-dark" />
+                  Ensanchamiento horizontal (ovalado)
                 </span>
-                <span className="font-mono font-bold text-xs text-[#9AC31C] bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800">
+                <span className="badge-lime font-mono">
                   {rouletteWheelScale}% ({(rouletteWheelScale / 100).toFixed(2)}x)
                 </span>
               </div>
@@ -729,20 +730,20 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
                   step="1"
                   value={rouletteWheelScale}
                   onChange={(e) => setRouletteWheelScale(Number(e.target.value))}
-                  className="flex-1 accent-[#9AC31C] cursor-pointer h-1.5 bg-zinc-800 rounded-lg appearance-none"
+                  className="flex-1 accent-[#9AC31C] cursor-pointer"
                 />
                 <button
                   type="button"
                   onClick={() => handleUpdateWheelScale(rouletteWheelScale)}
                   disabled={isSavingWheelScale}
-                  className="px-3 py-1.5 bg-[#9AC31C] hover:bg-[#84A816] active:scale-95 text-black font-racing font-bold text-[10px] uppercase tracking-wider rounded-lg transition-all cursor-pointer whitespace-nowrap disabled:opacity-50"
+                  className="btn-primary btn-sm min-h-[40px] whitespace-nowrap disabled:opacity-50"
                 >
                   {isSavingWheelScale ? '...' : 'Guardar'}
                 </button>
               </div>
 
               {/* Botones rápidos de preset */}
-              <div className="flex flex-wrap items-center gap-1">
+              <div className="flex flex-wrap items-center gap-1.5">
                 {[
                   { label: '100% Circular', val: 100 },
                   { label: '110% Leve', val: 110 },
@@ -757,29 +758,25 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
                       setRouletteWheelScale(preset.val);
                       handleUpdateWheelScale(preset.val);
                     }}
-                    className={`px-1.5 py-0.5 text-[9px] rounded font-mono transition-all cursor-pointer ${
-                      rouletteWheelScale === preset.val
-                        ? 'bg-[#9AC31C] text-black font-bold'
-                        : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700'
-                    }`}
+                    className={presetClass(rouletteWheelScale === preset.val)}
                   >
                     {preset.label}
                   </button>
                 ))}
               </div>
-              <p className="text-[10px] text-zinc-500 leading-tight">
+              <p className="text-xs text-ink-muted leading-tight">
                 Ajusta la anchura de la ruleta en la pantalla del stand para adaptarla a pantallas anchas LED.
               </p>
             </div>
 
             {/* Tamaño de Letras de Premios en la Ruleta */}
-            <div className="pt-2.5 border-t border-zinc-800 space-y-2">
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="text-zinc-300 font-medium flex items-center gap-1.5">
-                  <Type className="w-3.5 h-3.5 text-[#9AC31C]" />
-                  Tamaño de Letras de Premios:
+            <div className="bg-surface-2 border border-line rounded-xl p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2 text-xs">
+                <span className="text-ink-2 font-semibold flex items-center gap-1.5">
+                  <Type className="w-3.5 h-3.5 text-brand-dark" />
+                  Tamaño de letras de premios
                 </span>
-                <span className="font-mono font-bold text-xs text-[#9AC31C] bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800">
+                <span className="badge-lime font-mono">
                   {rouletteWheelFontSize}% {rouletteWheelFontSize > 100 ? `(+${rouletteWheelFontSize - 100}%)` : ''}
                 </span>
               </div>
@@ -792,20 +789,20 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
                   step="1"
                   value={rouletteWheelFontSize}
                   onChange={(e) => setRouletteWheelFontSize(Number(e.target.value))}
-                  className="flex-1 accent-[#9AC31C] cursor-pointer h-1.5 bg-zinc-800 rounded-lg appearance-none"
+                  className="flex-1 accent-[#9AC31C] cursor-pointer"
                 />
                 <button
                   type="button"
                   onClick={() => handleUpdateWheelFontSize(rouletteWheelFontSize)}
                   disabled={isSavingWheelFontSize}
-                  className="px-3 py-1.5 bg-[#9AC31C] hover:bg-[#84A816] active:scale-95 text-black font-racing font-bold text-[10px] uppercase tracking-wider rounded-lg transition-all cursor-pointer whitespace-nowrap disabled:opacity-50"
+                  className="btn-primary btn-sm min-h-[40px] whitespace-nowrap disabled:opacity-50"
                 >
                   {isSavingWheelFontSize ? '...' : 'Guardar'}
                 </button>
               </div>
 
               {/* Botones rápidos de preset */}
-              <div className="flex flex-wrap items-center gap-1">
+              <div className="flex flex-wrap items-center gap-1.5">
                 {[
                   { label: '90% Compacto', val: 90 },
                   { label: '100% Estándar', val: 100 },
@@ -820,48 +817,40 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
                       setRouletteWheelFontSize(preset.val);
                       handleUpdateWheelFontSize(preset.val);
                     }}
-                    className={`px-1.5 py-0.5 text-[9px] rounded font-mono transition-all cursor-pointer ${
-                      rouletteWheelFontSize === preset.val
-                        ? 'bg-[#9AC31C] text-black font-bold'
-                        : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700'
-                    }`}
+                    className={presetClass(rouletteWheelFontSize === preset.val)}
                   >
                     {preset.label}
                   </button>
                 ))}
               </div>
-              <p className="text-[10px] text-zinc-500 leading-tight">
+              <p className="text-xs text-ink-muted leading-tight">
                 Aumenta el tamaño del texto dentro de cada gajo con ajuste automático de seguridad para no salirse.
               </p>
             </div>
 
             {/* Visibilidad y Tamaño del Logotipo en Pantalla de Video */}
-            <div className="pt-2.5 border-t border-zinc-800 space-y-2">
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="text-zinc-300 font-medium flex items-center gap-1.5">
-                  <ImageIcon className="w-3.5 h-3.5 text-[#9AC31C]" />
-                  Logo en Pantalla de Video:
+            <div className="bg-surface-2 border border-line rounded-xl p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2 text-xs">
+                <span className="text-ink-2 font-semibold flex items-center gap-1.5">
+                  <ImageIcon className="w-3.5 h-3.5 text-brand-dark" />
+                  Logo en pantalla de video
                 </span>
                 <button
                   type="button"
                   onClick={() => handleToggleVideoLogoVisible(!rouletteVideoLogoVisible)}
                   disabled={isSavingVideoLogoVisible}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-racing font-bold text-[10px] uppercase tracking-wider transition-all cursor-pointer border disabled:opacity-50 ${
-                    rouletteVideoLogoVisible
-                      ? 'bg-[#9AC31C] text-black border-[#9AC31C] shadow-[0_0_12px_rgba(154,195,28,0.4)]'
-                      : 'bg-zinc-950 text-zinc-400 border-zinc-700 hover:text-white hover:border-zinc-500'
-                  }`}
+                  className={`${rouletteVideoLogoVisible ? 'btn-primary' : 'btn-ghost'} btn-sm min-h-[40px] flex items-center gap-1.5 disabled:opacity-50`}
                   title={rouletteVideoLogoVisible ? 'Ocultar logotipo en video' : 'Mostrar logotipo en video'}
                 >
                   {rouletteVideoLogoVisible ? (
                     <>
                       <Eye className="w-3.5 h-3.5" />
-                      <span>Visible (Clic para ocultar)</span>
+                      <span>Visible (clic para ocultar)</span>
                     </>
                   ) : (
                     <>
                       <EyeOff className="w-3.5 h-3.5" />
-                      <span>Oculto (Clic para mostrar)</span>
+                      <span>Oculto (clic para mostrar)</span>
                     </>
                   )}
                 </button>
@@ -869,9 +858,9 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
 
               {rouletteVideoLogoVisible && (
                 <>
-                  <div className="flex items-center justify-between text-[11px] pt-1">
-                    <span className="text-zinc-400">Escala del Logo:</span>
-                    <span className="font-mono font-bold text-xs text-[#9AC31C] bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800">
+                  <div className="flex items-center justify-between text-xs pt-1">
+                    <span className="text-ink-muted">Escala del logo:</span>
+                    <span className="badge-lime font-mono">
                       {rouletteVideoLogoScale}% ({Math.round(54 * (rouletteVideoLogoScale / 100))}px)
                     </span>
                   </div>
@@ -884,20 +873,20 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
                       step="5"
                       value={rouletteVideoLogoScale}
                       onChange={(e) => setRouletteVideoLogoScale(Number(e.target.value))}
-                      className="flex-1 accent-[#9AC31C] cursor-pointer h-1.5 bg-zinc-800 rounded-lg appearance-none"
+                      className="flex-1 accent-[#9AC31C] cursor-pointer"
                     />
                     <button
                       type="button"
                       onClick={() => handleUpdateVideoLogoScale(rouletteVideoLogoScale)}
                       disabled={isSavingVideoLogoScale}
-                      className="px-3 py-1.5 bg-[#9AC31C] hover:bg-[#84A816] active:scale-95 text-black font-racing font-bold text-[10px] uppercase tracking-wider rounded-lg transition-all cursor-pointer whitespace-nowrap disabled:opacity-50"
+                      className="btn-primary btn-sm min-h-[40px] whitespace-nowrap disabled:opacity-50"
                     >
                       {isSavingVideoLogoScale ? '...' : 'Guardar'}
                     </button>
                   </div>
 
                   {/* Botones rápidos de preset */}
-                  <div className="flex flex-wrap items-center gap-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     {[
                       { label: '100% (54px)', val: 100 },
                       { label: '125% (68px)', val: 125 },
@@ -912,11 +901,7 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
                           setRouletteVideoLogoScale(preset.val);
                           handleUpdateVideoLogoScale(preset.val);
                         }}
-                        className={`px-1.5 py-0.5 text-[9px] rounded font-mono transition-all cursor-pointer ${
-                          rouletteVideoLogoScale === preset.val
-                            ? 'bg-[#9AC31C] text-black font-bold'
-                            : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700'
-                        }`}
+                        className={presetClass(rouletteVideoLogoScale === preset.val)}
                       >
                         {preset.label}
                       </button>
@@ -924,165 +909,167 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
                   </div>
                 </>
               )}
-              <p className="text-[10px] text-zinc-500 leading-tight">
+              <p className="text-xs text-ink-muted leading-tight">
                 Por defecto el logotipo permanece escondido para no tapar el video. Actívalo aquí si deseas mostrarlo.
               </p>
             </div>
           </div>
 
-          {/* Pantalla 2: Solo QR */}
-          <div className="bg-zinc-900/90 border border-zinc-800 p-4 rounded-2xl space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="font-racing font-bold text-xs text-white uppercase flex items-center gap-1.5">
-                <Smartphone className="w-3.5 h-3.5 text-[#9AC31C]" />
-                Solo QR Gigante
-              </span>
-              <a
-                href={`${screenHostUrl}${withScreenQuery('view=qr')}`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-[11px] text-[#9AC31C] hover:underline flex items-center gap-1"
-              >
-                <span>Abrir</span>
-                <ExternalLink className="w-3 h-3" />
-              </a>
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] text-zinc-400">Orientación:</span>
-              <select
-                value={displayConfigs.qr?.orientation || 'auto'}
-                onChange={(e) => handleUpdateOrientation('qr', e.target.value)}
-                className="bg-zinc-950 border border-zinc-700 text-xs text-white rounded-lg px-2 py-1 focus:border-[#9AC31C] focus:outline-none"
-              >
-                <option value="auto">Automática (Auto)</option>
-                <option value="landscape">Horizontal (Landscape)</option>
-                <option value="portrait">Vertical (Portrait / Tótem)</option>
-              </select>
-            </div>
-            <div className="flex items-center justify-between gap-2 pt-2 border-t border-zinc-800">
-              <span className="text-[11px] text-zinc-400">Tamaño QR:</span>
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="range"
-                  min="40"
-                  max="95"
-                  step="5"
-                  value={displayConfigs.qr?.qr_scale_percent || 75}
-                  onChange={(e) => {
-                    const val = Number(e.target.value);
-                    setDisplayConfigs(prev => ({
-                      ...prev,
-                      qr: { ...prev.qr, qr_scale_percent: val }
-                    }));
-                  }}
-                  onMouseUp={(e) => handleUpdateQrScale('qr', e.target.value)}
-                  onTouchEnd={(e) => handleUpdateQrScale('qr', e.target.value)}
-                  className="w-20 sm:w-24 accent-[#9AC31C] cursor-pointer"
-                />
-                <span className="text-xs font-mono font-bold text-[#9AC31C] w-8 text-right">
-                  {displayConfigs.qr?.qr_scale_percent || 75}%
+          <div className="space-y-4">
+            {/* Pantalla 2: Solo QR */}
+            <div className="card card-pad space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="panel-title flex items-center gap-1.5">
+                  <Smartphone className="w-3.5 h-3.5 text-brand-dark" />
+                  Solo QR gigante
                 </span>
-                <button
-                  type="button"
-                  onClick={() => handleUpdateQrScale('qr', displayConfigs.qr?.qr_scale_percent || 75)}
-                  className="px-2 py-0.5 bg-[#9AC31C] hover:bg-[#84A816] text-black font-racing font-bold text-[10px] rounded active:scale-95 transition-transform"
+                <a
+                  href={`${screenHostUrl}${withScreenQuery('view=qr')}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs font-semibold text-brand-dark hover:underline flex items-center gap-1"
                 >
-                  OK
-                </button>
+                  <span>Abrir</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-ink-muted">Orientación:</span>
+                <select
+                  value={displayConfigs.qr?.orientation || 'auto'}
+                  onChange={(e) => handleUpdateOrientation('qr', e.target.value)}
+                  className="input !w-auto"
+                >
+                  <option value="auto">Automática (Auto)</option>
+                  <option value="landscape">Horizontal (Landscape)</option>
+                  <option value="portrait">Vertical (Portrait / Tótem)</option>
+                </select>
+              </div>
+              <div className="flex items-center justify-between gap-2 pt-3 border-t border-line">
+                <span className="text-xs text-ink-muted">Tamaño QR:</span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    min="40"
+                    max="95"
+                    step="5"
+                    value={displayConfigs.qr?.qr_scale_percent || 75}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setDisplayConfigs(prev => ({
+                        ...prev,
+                        qr: { ...prev.qr, qr_scale_percent: val }
+                      }));
+                    }}
+                    onMouseUp={(e) => handleUpdateQrScale('qr', e.target.value)}
+                    onTouchEnd={(e) => handleUpdateQrScale('qr', e.target.value)}
+                    className="w-20 sm:w-28 accent-[#9AC31C] cursor-pointer"
+                  />
+                  <span className="text-xs font-mono font-bold text-brand-dark w-9 text-right">
+                    {displayConfigs.qr?.qr_scale_percent || 75}%
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateQrScale('qr', displayConfigs.qr?.qr_scale_percent || 75)}
+                    className="btn-primary btn-sm min-h-[40px]"
+                  >
+                    OK
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Pantalla 3: Solo Slider */}
-          <div className="bg-zinc-900/90 border border-zinc-800 p-4 rounded-2xl space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="font-racing font-bold text-xs text-white uppercase flex items-center gap-1.5">
-                <ImageIcon className="w-3.5 h-3.5 text-[#9AC31C]" />
-                Solo Slider Banners
-              </span>
-              <a
-                href={`${screenHostUrl}${withScreenQuery('view=slider')}`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-[11px] text-[#9AC31C] hover:underline flex items-center gap-1"
-              >
-                <span>Abrir</span>
-                <ExternalLink className="w-3 h-3" />
-              </a>
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] text-zinc-400">Orientación:</span>
-              <select
-                value={displayConfigs.slider?.orientation || 'auto'}
-                onChange={(e) => handleUpdateOrientation('slider', e.target.value)}
-                className="bg-zinc-950 border border-zinc-700 text-xs text-white rounded-lg px-2 py-1 focus:border-[#9AC31C] focus:outline-none"
-              >
-                <option value="auto">Automática (Auto)</option>
-                <option value="landscape">Horizontal (Landscape)</option>
-                <option value="portrait">Vertical (Portrait / Tótem)</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Pantalla 4: Híbrida Combo */}
-          <div className="bg-zinc-900/90 border border-zinc-800 p-4 rounded-2xl space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="font-racing font-bold text-xs text-white uppercase flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-[#9AC31C]" />
-                Híbrida (Slider + QR)
-              </span>
-              <a
-                href={`${screenHostUrl}${withScreenQuery('view=combo')}`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-[11px] text-[#9AC31C] hover:underline flex items-center gap-1"
-              >
-                <span>Abrir</span>
-                <ExternalLink className="w-3 h-3" />
-              </a>
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] text-zinc-400">Orientación:</span>
-              <select
-                value={displayConfigs.combo?.orientation || 'auto'}
-                onChange={(e) => handleUpdateOrientation('combo', e.target.value)}
-                className="bg-zinc-950 border border-zinc-700 text-xs text-white rounded-lg px-2 py-1 focus:border-[#9AC31C] focus:outline-none"
-              >
-                <option value="auto">Automática (Auto)</option>
-                <option value="landscape">Horizontal (Landscape)</option>
-                <option value="portrait">Vertical (Portrait / Tótem)</option>
-              </select>
-            </div>
-            <div className="flex items-center justify-between gap-2 pt-2 border-t border-zinc-800">
-              <span className="text-[11px] text-zinc-400">Tamaño QR:</span>
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="range"
-                  min="30"
-                  max="90"
-                  step="5"
-                  value={displayConfigs.combo?.qr_scale_percent || 55}
-                  onChange={(e) => {
-                    const val = Number(e.target.value);
-                    setDisplayConfigs(prev => ({
-                      ...prev,
-                      combo: { ...prev.combo, qr_scale_percent: val }
-                    }));
-                  }}
-                  onMouseUp={(e) => handleUpdateQrScale('combo', e.target.value)}
-                  onTouchEnd={(e) => handleUpdateQrScale('combo', e.target.value)}
-                  className="w-20 sm:w-24 accent-[#9AC31C] cursor-pointer"
-                />
-                <span className="text-xs font-mono font-bold text-[#9AC31C] w-8 text-right">
-                  {displayConfigs.combo?.qr_scale_percent || 55}%
+            {/* Pantalla 3: Solo Slider */}
+            <div className="card card-pad space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="panel-title flex items-center gap-1.5">
+                  <ImageIcon className="w-3.5 h-3.5 text-brand-dark" />
+                  Solo slider de banners
                 </span>
-                <button
-                  type="button"
-                  onClick={() => handleUpdateQrScale('combo', displayConfigs.combo?.qr_scale_percent || 55)}
-                  className="px-2 py-0.5 bg-[#9AC31C] hover:bg-[#84A816] text-black font-racing font-bold text-[10px] rounded active:scale-95 transition-transform"
+                <a
+                  href={`${screenHostUrl}${withScreenQuery('view=slider')}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs font-semibold text-brand-dark hover:underline flex items-center gap-1"
                 >
-                  OK
-                </button>
+                  <span>Abrir</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-ink-muted">Orientación:</span>
+                <select
+                  value={displayConfigs.slider?.orientation || 'auto'}
+                  onChange={(e) => handleUpdateOrientation('slider', e.target.value)}
+                  className="input !w-auto"
+                >
+                  <option value="auto">Automática (Auto)</option>
+                  <option value="landscape">Horizontal (Landscape)</option>
+                  <option value="portrait">Vertical (Portrait / Tótem)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Pantalla 4: Híbrida Combo */}
+            <div className="card card-pad space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="panel-title flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-brand-dark" />
+                  Híbrida (slider + QR)
+                </span>
+                <a
+                  href={`${screenHostUrl}${withScreenQuery('view=combo')}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs font-semibold text-brand-dark hover:underline flex items-center gap-1"
+                >
+                  <span>Abrir</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-ink-muted">Orientación:</span>
+                <select
+                  value={displayConfigs.combo?.orientation || 'auto'}
+                  onChange={(e) => handleUpdateOrientation('combo', e.target.value)}
+                  className="input !w-auto"
+                >
+                  <option value="auto">Automática (Auto)</option>
+                  <option value="landscape">Horizontal (Landscape)</option>
+                  <option value="portrait">Vertical (Portrait / Tótem)</option>
+                </select>
+              </div>
+              <div className="flex items-center justify-between gap-2 pt-3 border-t border-line">
+                <span className="text-xs text-ink-muted">Tamaño QR:</span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    min="30"
+                    max="90"
+                    step="5"
+                    value={displayConfigs.combo?.qr_scale_percent || 55}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setDisplayConfigs(prev => ({
+                        ...prev,
+                        combo: { ...prev.combo, qr_scale_percent: val }
+                      }));
+                    }}
+                    onMouseUp={(e) => handleUpdateQrScale('combo', e.target.value)}
+                    onTouchEnd={(e) => handleUpdateQrScale('combo', e.target.value)}
+                    className="w-20 sm:w-28 accent-[#9AC31C] cursor-pointer"
+                  />
+                  <span className="text-xs font-mono font-bold text-brand-dark w-9 text-right">
+                    {displayConfigs.combo?.qr_scale_percent || 55}%
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateQrScale('combo', displayConfigs.combo?.qr_scale_percent || 55)}
+                    className="btn-primary btn-sm min-h-[40px]"
+                  >
+                    OK
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1091,170 +1078,166 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
 
       {/* SECCIÓN 2: GESTOR DE IMÁGENES DEL SLIDER */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ImageIcon className="w-4 h-4 text-[#9AC31C]" />
-            <h3 className="font-racing font-bold text-sm text-white uppercase tracking-wider">
-              Banners y Slider de Imágenes ({sliderImages.length})
-            </h3>
-          </div>
+        <div className="flex items-center gap-2">
+          <ImageIcon className="w-4 h-4 text-brand-dark" />
+          <h3 className="panel-title">
+            Banners y slider de imágenes ({sliderImages.length})
+          </h3>
         </div>
 
-        {/* Formulario de Subida con Compresión WebP en Cliente */}
-        <form onSubmit={handleUploadImage} className="bg-zinc-900/90 border border-zinc-800 p-4 rounded-2xl space-y-3">
-          <span className="text-xs font-racing font-bold text-[#9AC31C] uppercase block">
-            Subir Nueva Imagen Publicitaria
-          </span>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+          {/* Formulario de Subida con Compresión WebP en Cliente */}
+          <form onSubmit={handleUploadImage} className="card card-pad space-y-3">
+            <span className="panel-title block">
+              Subir nueva imagen publicitaria
+            </span>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="text-[10px] text-zinc-400 block mb-1">Título / Nombre de Campaña</label>
-              <input
-                type="text"
-                placeholder="Ej: Promo Autos 0km 2026"
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                className="w-full bg-zinc-950 border border-zinc-700 text-xs text-white rounded-xl px-3 py-2 focus:border-[#9AC31C] focus:outline-none"
-              />
-            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="label">Título / nombre de campaña</label>
+                <input
+                  type="text"
+                  placeholder="Ej: Promo Autos 0km 2026"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  className="input"
+                />
+              </div>
 
-            <div>
-              <label className="text-[10px] text-zinc-400 block mb-1">Tiempo en Pantalla (Segundos)</label>
-              <input
-                type="number"
-                min="2"
-                max="60"
-                value={newDuration}
-                onChange={(e) => setNewDuration(parseInt(e.target.value, 10) || 8)}
-                className="w-full bg-zinc-950 border border-zinc-700 text-xs text-white rounded-xl px-3 py-2 focus:border-[#9AC31C] focus:outline-none font-mono"
-              />
-            </div>
-          </div>
-
-          {/* Selector de Archivo */}
-          <div>
-            <label className="text-[10px] text-zinc-400 block mb-1">Seleccionar Imagen (JPG, PNG, WebP)</label>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              className="w-full text-xs text-zinc-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-racing file:bg-zinc-800 file:text-[#9AC31C] hover:file:bg-zinc-700 cursor-pointer"
-            />
-          </div>
-
-          {/* Preview y Detalles de Compresión */}
-          {imagePreview && (
-            <div className="flex items-center gap-3 p-2 bg-zinc-950 rounded-xl border border-zinc-800">
-              <img src={imagePreview} alt="Preview" className="w-16 h-12 object-cover rounded-lg border border-zinc-700" />
-              <div className="text-[11px] text-zinc-300">
-                <span className="text-[#9AC31C] font-semibold block">
-                  {isCompressing ? 'Optimizando imagen...' : `Lista para subir (~${compressedSizeKb} KB WebP)`}
-                </span>
-                <span className="text-zinc-500 text-[10px]">Optimizada automáticamente a Full HD</span>
+              <div>
+                <label className="label">Tiempo en pantalla (segundos)</label>
+                <input
+                  type="number"
+                  min="2"
+                  max="60"
+                  value={newDuration}
+                  onChange={(e) => setNewDuration(parseInt(e.target.value, 10) || 8)}
+                  className="input font-mono"
+                />
               </div>
             </div>
-          )}
 
-          <button
-            type="submit"
-            disabled={!compressedDataUrl || isCompressing || isUploading}
-            className="w-full py-2.5 bg-[#9AC31C] hover:bg-[#84A816] active:scale-95 text-black font-racing font-bold text-xs uppercase tracking-wider rounded-xl shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all disabled:opacity-50"
-          >
-            <Upload className="w-4 h-4" />
-            <span>{isUploading ? 'SUBIENDO...' : 'AGREGAR AL SLIDER'}</span>
-          </button>
-        </form>
-
-        {/* Lista de Imágenes Existentes */}
-        <div className="space-y-2">
-          {sliderImages.length === 0 ? (
-            <div className="bg-zinc-900/60 border border-zinc-800/80 p-6 rounded-2xl text-center text-zinc-500 text-xs">
-              No hay imágenes en el slider. Sube la primera imagen arriba.
+            {/* Selector de Archivo */}
+            <div>
+              <label className="label">Seleccionar imagen (JPG, PNG, WebP)</label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="w-full text-xs text-ink-2 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border file:border-line-strong file:text-xs file:font-semibold file:bg-white file:text-ink-2 hover:file:bg-surface-2 cursor-pointer"
+              />
             </div>
-          ) : (
-            sliderImages.map((image, index) => (
-              <div
-                key={image.id}
-                className={`bg-zinc-900/90 border p-3 rounded-2xl flex items-center justify-between gap-3 transition-all ${
-                  image.active ? 'border-zinc-800' : 'border-zinc-800/40 opacity-50'
-                }`}
-              >
-                {/* Miniatura e Información */}
-                <div className="flex items-center gap-3 min-w-0">
-                  <img
-                    src={image.image_url}
-                    alt={image.title}
-                    className="w-16 h-12 object-cover rounded-xl border border-zinc-700 shrink-0"
-                  />
-                  <div className="min-w-0">
-                    <span className="text-xs font-bold text-white truncate block">
-                      {image.title || `Slide #${index + 1}`}
-                    </span>
-                    <div className="flex items-center gap-2 mt-0.5 text-[11px] text-zinc-400">
-                      <Clock className="w-3 h-3 text-[#9AC31C]" />
-                      <input
-                        type="number"
-                        min="2"
-                        max="60"
-                        value={image.duration_seconds}
-                        onChange={(e) => handleChangeDuration(image.id, e.target.value)}
-                        className="w-12 bg-zinc-950 border border-zinc-700 px-1 py-0.5 rounded text-center text-white text-[11px] font-mono focus:border-[#9AC31C] focus:outline-none"
-                      />
-                      <span>segundos</span>
+
+            {/* Preview y Detalles de Compresión */}
+            {imagePreview && (
+              <div className="flex items-center gap-3 p-2 bg-surface-2 rounded-xl border border-line">
+                <img src={imagePreview} alt="Preview" className="w-16 h-12 object-cover rounded-lg border border-line bg-surface" />
+                <div className="text-xs text-ink-2">
+                  <span className="text-brand-dark font-semibold block">
+                    {isCompressing ? 'Optimizando imagen...' : `Lista para subir (~${compressedSizeKb} KB WebP)`}
+                  </span>
+                  <span className="text-ink-muted text-xs">Optimizada automáticamente a Full HD</span>
+                </div>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={!compressedDataUrl || isCompressing || isUploading}
+              className="btn-primary w-full min-h-[40px] flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              <Upload className="w-4 h-4" />
+              <span>{isUploading ? 'Subiendo...' : 'Agregar al slider'}</span>
+            </button>
+          </form>
+
+          {/* Lista de Imágenes Existentes */}
+          <div className="space-y-2">
+            {sliderImages.length === 0 ? (
+              <div className="card card-pad text-center text-ink-muted text-xs">
+                No hay imágenes en el slider. Sube la primera imagen con el formulario.
+              </div>
+            ) : (
+              sliderImages.map((image, index) => (
+                <div
+                  key={image.id}
+                  className={`card p-3 flex items-center justify-between gap-3 transition-all ${
+                    image.active ? '' : 'opacity-60'
+                  }`}
+                >
+                  {/* Miniatura e Información */}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <img
+                      src={image.image_url}
+                      alt={image.title}
+                      className="w-16 h-12 object-cover rounded-xl border border-line bg-surface-2 shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <span className="text-sm font-bold text-ink truncate block">
+                        {image.title || `Slide #${index + 1}`}
+                      </span>
+                      <div className="flex items-center gap-2 mt-0.5 text-xs text-ink-muted">
+                        <Clock className="w-3 h-3 text-brand-dark" />
+                        <input
+                          type="number"
+                          min="2"
+                          max="60"
+                          value={image.duration_seconds}
+                          onChange={(e) => handleChangeDuration(image.id, e.target.value)}
+                          className="input !w-14 !px-1 !py-0.5 text-center font-mono"
+                        />
+                        <span>segundos</span>
+                      </div>
                     </div>
                   </div>
+
+                  {/* Acciones: Reordenar, Toggle Activo y Eliminar */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      disabled={index === 0}
+                      onClick={() => handleMoveImage(index, -1)}
+                      className="btn-icon !w-9 !h-9 disabled:opacity-30"
+                      title="Mover arriba"
+                    >
+                      <ArrowUp className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={index === sliderImages.length - 1}
+                      onClick={() => handleMoveImage(index, 1)}
+                      className="btn-icon !w-9 !h-9 disabled:opacity-30"
+                      title="Mover abajo"
+                    >
+                      <ArrowDown className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleToggleImageActive(image)}
+                      className={`btn-icon !w-9 !h-9 ${
+                        image.active ? '!bg-brand-soft !text-brand-dark !border-brand' : '!text-ink-muted'
+                      }`}
+                      title={image.active ? 'Desactivar de pantalla' : 'Activar en pantalla'}
+                    >
+                      {image.active ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteImage(image.id, image.title)}
+                      className="btn-icon !w-9 !h-9 !text-red-600 hover:!bg-red-50"
+                      title="Eliminar del slider"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
-
-                {/* Acciones: Reordenar, Toggle Activo y Eliminar */}
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {/* Subir orden */}
-                  <button
-                    type="button"
-                    disabled={index === 0}
-                    onClick={() => handleMoveImage(index, -1)}
-                    className="p-1.5 rounded-lg bg-zinc-800 text-zinc-300 hover:text-white disabled:opacity-30 cursor-pointer"
-                    title="Mover arriba"
-                  >
-                    <ArrowUp className="w-3.5 h-3.5" />
-                  </button>
-
-                  {/* Bajar orden */}
-                  <button
-                    type="button"
-                    disabled={index === sliderImages.length - 1}
-                    onClick={() => handleMoveImage(index, 1)}
-                    className="p-1.5 rounded-lg bg-zinc-800 text-zinc-300 hover:text-white disabled:opacity-30 cursor-pointer"
-                    title="Mover abajo"
-                  >
-                    <ArrowDown className="w-3.5 h-3.5" />
-                  </button>
-
-                  {/* Activar / Desactivar */}
-                  <button
-                    type="button"
-                    onClick={() => handleToggleImageActive(image)}
-                    className={`p-1.5 rounded-lg cursor-pointer ${
-                      image.active ? 'bg-[#9AC31C]/20 text-[#9AC31C]' : 'bg-zinc-800 text-zinc-500'
-                    }`}
-                    title={image.active ? 'Desactivar de pantalla' : 'Activar en pantalla'}
-                  >
-                    {image.active ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                  </button>
-
-                  {/* Eliminar */}
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteImage(image.id, image.title)}
-                    className="p-1.5 rounded-lg bg-zinc-800 text-red-400 hover:text-red-300 hover:bg-red-950/60 cursor-pointer"
-                    title="Eliminar del slider"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
+              ))
+            )}
+          </div>
         </div>
       </div>
     </div>

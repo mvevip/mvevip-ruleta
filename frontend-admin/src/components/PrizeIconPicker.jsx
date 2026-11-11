@@ -12,18 +12,18 @@ export default function PrizeIconPicker({ value, onChange }) {
   const currentLabel = PRIZE_ICONS.find((i) => i.key === value)?.label;
 
   return (
-    <div className="bg-zinc-900/80 rounded-xl border border-zinc-800">
+    <div className="bg-surface-2 rounded-xl border border-line">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between gap-2 px-3 py-2 text-xs text-zinc-300 cursor-pointer"
+        className="w-full flex items-center justify-between gap-2 px-3 py-2 text-xs text-ink-2 cursor-pointer"
       >
         <span className="flex items-center gap-2 min-w-0">
-          <span className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center shrink-0">
-            {Current ? <Current className="w-5 h-5 text-[#9AC31C]" strokeWidth={1.8} /> : <span className="text-[10px] text-zinc-500">Aa</span>}
+          <span className="w-8 h-8 rounded-lg bg-white border border-line-strong flex items-center justify-center shrink-0">
+            {Current ? <Current className="w-5 h-5 text-brand-dark" strokeWidth={1.8} /> : <span className="text-xs text-ink-muted">Aa</span>}
           </span>
           <span className="truncate">
-            Ícono en la ruleta: <strong className="text-white">{currentLabel || 'Sin ícono (se muestra el texto)'}</strong>
+            Ícono en la ruleta: <strong className="text-ink">{currentLabel || 'Sin ícono (se muestra el texto)'}</strong>
           </span>
         </span>
         {open ? <ChevronUp className="w-4 h-4 shrink-0" /> : <ChevronDown className="w-4 h-4 shrink-0" />}
@@ -42,8 +42,8 @@ export default function PrizeIconPicker({ value, onChange }) {
                   onClick={() => { onChange(key); setOpen(false); }}
                   className={`aspect-square rounded-xl border flex flex-col items-center justify-center gap-0.5 p-1 cursor-pointer transition-all active:scale-95 ${
                     selected
-                      ? 'bg-[#9AC31C]/20 border-[#9AC31C] text-[#9AC31C]'
-                      : 'bg-zinc-950 border-zinc-800 text-zinc-300 hover:border-zinc-600'
+                      ? 'bg-brand-soft border-brand text-ink'
+                      : 'bg-white border-line text-ink-2 hover:bg-surface-2 hover:border-line-strong'
                   }`}
                 >
                   <Icon className="w-5 h-5" strokeWidth={1.8} />
@@ -55,11 +55,11 @@ export default function PrizeIconPicker({ value, onChange }) {
           <button
             type="button"
             onClick={() => { onChange(''); setOpen(false); }}
-            className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-white cursor-pointer"
+            className="flex items-center gap-1 text-xs text-ink-muted hover:text-ink cursor-pointer"
           >
             <X className="w-3 h-3" /> Quitar ícono (mostrar el nombre en texto)
           </button>
-          <p className="text-[10px] text-zinc-500">Recuerda pulsar «Guardar» para aplicar el cambio.</p>
+          <p className="text-xs text-ink-muted">Recuerda pulsar «Guardar» para aplicar el cambio.</p>
         </div>
       )}
     </div>

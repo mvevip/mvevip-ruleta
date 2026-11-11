@@ -205,7 +205,7 @@ async function checkConnection() {
       `).catch(() => {});
 
       // 10. Soporte multi-stand (Autos / Ford). SOLO se auto-migra fuera de producción.
-      // En producción: ejecutar manualmente deploy/migrations/002_stand_support.sql, 003_mail_stand.sql, 004_prize_icons.sql, 005_leads_crm_link.sql, 006_channel_settings.sql, 007_kiosk.sql, 008_ferias_riobamba_ambato.sql, 009_ferias_pantallas.sql y 010_event_settings.sql
+      // En producción: ejecutar manualmente deploy/migrations/002_stand_support.sql, 003_mail_stand.sql, 004_prize_icons.sql, 005_leads_crm_link.sql, 006_channel_settings.sql, 007_kiosk.sql, 008_ferias_riobamba_ambato.sql, 009_ferias_pantallas.sql, 010_event_settings.sql y 011_push_subscriptions.sql
       if (config.NODE_ENV !== 'production') {
         await connection.query(`ALTER TABLE prizes ADD COLUMN stand VARCHAR(20) NOT NULL DEFAULT 'autos'`).catch(() => {});
         await connection.query(`ALTER TABLE prizes ADD INDEX idx_prizes_stand (stand)`).catch(() => {});
@@ -292,6 +292,24 @@ async function checkConnection() {
         `).catch(() => {});
         await connection.query(`
           INSERT IGNORE INTO system_sync (sync_key, version_timestamp, action) VALUES ('displays_kiosk', ${Date.now()}, 'INITIAL')
+        `).catch(() => {});
+
+        // Notificaciones push del Admin. En producción: deploy/migrations/011_push_subscriptions.sql
+        await connection.query(`
+          CREATE TABLE IF NOT EXISTS push_subscriptions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            endpoint_hash CHAR(64) NOT NULL,
+            endpoint TEXT NOT NULL,
+            p256dh VARCHAR(255) NOT NULL,
+            auth VARCHAR(255) NOT NULL,
+            label VARCHAR(80) NULL,
+            filters JSON NULL,
+            user_agent VARCHAR(255) NULL,
+            failure_count INT NOT NULL DEFAULT 0,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            last_sent_at DATETIME NULL,
+            UNIQUE KEY uq_push_endpoint (endpoint_hash)
+          ) ENGINE=InnoDB
         `).catch(() => {});
 
         // Datos de las ferias editables desde el Admin. En producción: deploy/migrations/010_event_settings.sql

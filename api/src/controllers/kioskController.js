@@ -30,6 +30,7 @@ const {
 } = require('../services/rouletteLogic');
 const { STANDS, standFromScreenId, prizePoolOf, eventOf, screenIdsOfEvent } = require('../config/stands');
 const { getEventInfo, isEventClosed, publicEventInfo } = require('../config/events');
+const pushService = require('../services/pushService');
 
 const KIOSK_SCREEN_ID = 'KIOSK_01'; // kiosco histórico (valor por defecto cuando la petición no indica screen_id)
 const REGISTER_TTL_SEC = 120;   // el botón se bloquea de nuevo si no se pulsa en 2 minutos
@@ -284,6 +285,11 @@ async function registerParticipant(req, res) {
       [KIOSK_ID, leadId, phoneToken, isTestUser ? 1 : 0, REGISTER_TTL_SEC]
     );
     await conn.commit();
+
+    // Lead nuevo (no un registro repetido): aviso push a los dispositivos del Admin
+    if (existingLead.length === 0) {
+      await pushService.notifyNewLead({ stand: kiosk.stand, leadName: cleanName, prizeName: null, isTest: isTestUser });
+    }
 
     return res.json({
       success: true,
