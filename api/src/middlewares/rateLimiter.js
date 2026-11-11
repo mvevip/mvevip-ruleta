@@ -27,7 +27,9 @@ const lookupLimiter = rateLimit({
 // Limitador para endpoints administrativos (Protege contra ataques de fuerza bruta al PIN)
 const adminLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minuto
-  max: 60, // Máximo 60 peticiones por minuto
+  max: 60, // Hasta 60 peticiones FALLIDAS por minuto por IP (PIN incorrecto, validaciones): freno a la fuerza bruta
+  // Las peticiones correctas no cuentan: varios equipos del stand comparten la misma conexión y el panel consulta con frecuencia
+  skipSuccessfulRequests: true,
   standardHeaders: true,
   legacyHeaders: false,
   message: {

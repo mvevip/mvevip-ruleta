@@ -21,6 +21,13 @@ module.exports = {
     slogan: process.env.COMPANY_SLOGAN || 'Especialistas en sueños',
     whatsapp: process.env.WHATSAPP_NUMBER || '593987933325'
   },
+  // Notificaciones push (Web Push / VAPID). Sin claves, las notificaciones quedan desactivadas (el resto del sistema no cambia).
+  PUSH: {
+    publicKey: (process.env.VAPID_PUBLIC_KEY || '').trim(),
+    privateKey: (process.env.VAPID_PRIVATE_KEY || '').trim(),
+    // Identifica al remitente ante los servicios de push (Google, Apple, Mozilla): una URL, no datos personales
+    subject: (process.env.VAPID_SUBJECT || 'https://autos.mvevip.com').trim()
+  },
   SECURITY: {
     adminPin: (process.env.ADMIN_PIN || 'VIP2026').trim().toUpperCase(),
     turnstileSecretKey: process.env.TURNSTILE_SECRET_KEY || '',

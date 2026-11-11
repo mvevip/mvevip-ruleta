@@ -1,0 +1,24 @@
+{
+  "name": "Marketing VIP · Panel de administración",
+  "short_name": "VIP Admin",
+  "description": "Leads, premios, canje y pantallas de las ferias de Marketing VIP, con avisos de cada lead nuevo.",
+  "lang": "es",
+  "dir": "ltr",
+  "id": "./",
+  "start_url": "./#/resumen",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#F4F7FB",
+  "theme_color": "#0B2A4A",
+  "categories": ["business", "productivity"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Leads", "short_name": "Leads", "url": "./#/leads", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Canjear premio", "short_name": "Canje", "url": "./#/canje", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

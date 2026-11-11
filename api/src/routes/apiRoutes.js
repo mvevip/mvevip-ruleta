@@ -8,6 +8,7 @@ const testUsersController = require('../controllers/testUsersController');
 const mailController = require('../controllers/mailController');
 const channelsController = require('../controllers/channelsController');
 const eventsController = require('../controllers/eventsController');
+const pushController = require('../controllers/pushController');
 const kioskController = require('../controllers/kioskController');
 const { spinLimiter, adminLimiter, lookupLimiter } = require('../middlewares/rateLimiter');
 const { requireAdminAuth } = require('../middlewares/authMiddleware');
@@ -50,6 +51,15 @@ router.put('/admin/prizes/:id', adminLimiter, requireAdminAuth, rouletteControll
 
 // Rutas Administrativas de Canales de acceso (habilitar/deshabilitar y canal por defecto)
 router.get('/admin/channels', adminLimiter, requireAdminAuth, channelsController.getAdminChannels);
+// Notificaciones push del Admin (VAPID): la clave pública es la única ruta pública
+router.get('/push/public-key', pushController.getPublicKey);
+router.post('/admin/push/subscribe', adminLimiter, requireAdminAuth, pushController.subscribe);
+router.post('/admin/push/unsubscribe', adminLimiter, requireAdminAuth, pushController.unsubscribe);
+router.get('/admin/push/status', adminLimiter, requireAdminAuth, pushController.status);
+router.put('/admin/push/filters', adminLimiter, requireAdminAuth, pushController.updateFilters);
+router.post('/admin/push/test', adminLimiter, requireAdminAuth, pushController.test);
+router.get('/admin/push/devices', adminLimiter, requireAdminAuth, pushController.listDevices);
+router.delete('/admin/push/devices/:id', adminLimiter, requireAdminAuth, pushController.removeDevice);
 // Datos de las ferias (Riobamba / Ambato) editables desde el Admin
 router.get('/admin/events', adminLimiter, requireAdminAuth, eventsController.getAdminEvents);
 router.put('/admin/events/:event', adminLimiter, requireAdminAuth, eventsController.updateEvent);

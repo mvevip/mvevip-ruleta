@@ -2,20 +2,130 @@
 @tailwind components;
 @tailwind utilities;
 
-.carbon-bg {
-  background-color: #0c0d11;
-  background-image: 
-    radial-gradient(#1c1d24 15%, transparent 16%), 
-    radial-gradient(#14151b 15%, transparent 16%);
-  background-size: 14px 14px;
-  background-position: 0 0, 7px 7px;
+/* =====================================================================
+   Sistema de diseño CLARO del Admin (Marketing VIP): lima #9AC31C + azul marino #0B2A4A.
+   Guía de uso: docs/admin_design_system.md
+   ===================================================================== */
+
+:root {
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
 }
 
-.glow-brand {
-  box-shadow: 0 0 20px rgba(154, 195, 28, 0.5);
+html, body, #root { min-height: 100%; }
+body {
+  background: #F4F7FB;
+  color: #0F172A;
+  font-family: 'Montserrat', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.brushed-metal {
-  background: linear-gradient(135deg, #27272a 0%, #111827 50%, #3f3f46 100%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+::selection { background: #D9EC9B; color: #0F172A; }
+
+/* Barras de desplazamiento discretas */
+* { scrollbar-width: thin; scrollbar-color: #CBD5E1 transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+
+:focus-visible { outline: 2px solid #9AC31C; outline-offset: 2px; }
+
+@layer components {
+  /* ---------- Superficies ---------- */
+  .card { @apply min-w-0 bg-surface border border-line rounded-2xl shadow-card; }
+  .card-pad { @apply p-4 sm:p-5; }
+  .card-hover { @apply transition-all duration-200 hover:shadow-pop hover:-translate-y-0.5 hover:border-line-strong; }
+  .panel-title { @apply font-racing font-bold text-sm uppercase tracking-wider text-navy; }
+  .page-title { @apply font-racing font-black text-xl sm:text-2xl uppercase tracking-wide text-navy leading-tight; }
+  .page-sub { @apply text-sm text-ink-muted mt-1; }
+  .section-label { @apply text-[11px] font-bold uppercase tracking-wider text-ink-muted; }
+
+  /* ---------- Botones ---------- */
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all duration-150 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 cursor-pointer select-none; }
+  .btn-primary { @apply btn bg-brand text-ink shadow-sm hover:bg-brand-light; }
+  .btn-navy { @apply btn bg-navy text-white hover:bg-navy-700; }
+  .btn-ghost { @apply btn bg-white text-ink-2 border border-line-strong hover:bg-surface-2 hover:border-slate-400; }
+  .btn-soft { @apply btn bg-brand-soft text-brand-dark hover:bg-[#E6F2C2]; }
+  .btn-danger { @apply btn bg-red-600 text-white hover:bg-red-700; }
+  .btn-danger-soft { @apply btn bg-red-50 text-red-700 border border-red-200 hover:bg-red-100; }
+  .btn-sm { @apply px-3 py-1.5 text-xs rounded-lg; }
+  .btn-icon { @apply inline-flex items-center justify-center rounded-xl w-10 h-10 bg-white border border-line-strong text-ink-2 hover:bg-surface-2 transition-all active:scale-95 cursor-pointer; }
+
+  /* ---------- Formularios ---------- */
+  .input { @apply w-full rounded-xl border border-line-strong bg-white px-3.5 py-2.5 text-sm text-ink placeholder-slate-400 focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/30 transition-all disabled:bg-surface-2 disabled:text-ink-muted; }
+  .label { @apply block text-[11px] font-bold uppercase tracking-wider text-ink-muted mb-1.5; }
+  .help { @apply text-xs text-ink-muted mt-1.5 leading-relaxed; }
+
+  /* ---------- Insignias y chips ---------- */
+  .badge { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold whitespace-nowrap border; }
+  .badge-slate { @apply badge bg-slate-100 text-slate-700 border-slate-200; }
+  .badge-lime { @apply badge bg-brand-soft text-brand-dark border-[#D9EC9B]; }
+  .badge-sky { @apply badge bg-sky-50 text-sky-700 border-sky-200; }
+  .badge-rose { @apply badge bg-rose-50 text-rose-700 border-rose-200; }
+  .badge-amber { @apply badge bg-amber-50 text-amber-800 border-amber-200; }
+  .badge-fuchsia { @apply badge bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200; }
+  .badge-green { @apply badge bg-emerald-50 text-emerald-700 border-emerald-200; }
+  .badge-red { @apply badge bg-red-50 text-red-700 border-red-200; }
+  .badge-navy { @apply badge bg-navy-soft text-navy border-[#C9D8E8]; }
+  .chip { @apply inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold border border-line-strong bg-white text-ink-2 hover:bg-surface-2 transition-all cursor-pointer select-none; }
+  .chip-active { @apply bg-navy text-white border-navy hover:bg-navy; }
+
+  /* ---------- Segmentos / pestañas ---------- */
+  .seg { @apply inline-flex items-center gap-1 rounded-2xl bg-slate-100 p-1; }
+  .seg-item { @apply rounded-xl px-3.5 py-2 text-xs font-bold text-ink-muted hover:text-ink transition-all cursor-pointer whitespace-nowrap; }
+  .seg-item-active { @apply bg-white text-ink shadow-sm; }
+
+  /* ---------- Indicadores ---------- */
+  .kpi { @apply card card-pad flex flex-col gap-1; }
+  .kpi-label { @apply text-[11px] font-bold uppercase tracking-wider text-ink-muted; }
+  .kpi-value { @apply font-racing font-black text-3xl text-navy leading-none; }
+  .kpi-hint { @apply text-xs text-ink-muted; }
+
+  /* ---------- Tablas ---------- */
+  .table-wrap { @apply card overflow-hidden; }
+  .table-base { @apply w-full text-sm text-left; }
+  .table-base thead th { @apply bg-surface-2 text-[11px] font-bold uppercase tracking-wider text-ink-muted px-4 py-3 border-b border-line whitespace-nowrap; }
+  .table-base tbody td { @apply px-4 py-3 border-b border-line align-middle; }
+  .table-base tbody tr:last-child td { @apply border-b-0; }
+  .table-base tbody tr { @apply transition-colors hover:bg-surface-2/70; }
+
+  /* ---------- Estados ---------- */
+  .skeleton { @apply animate-pulse rounded-lg bg-slate-200/70; }
+  .notice { @apply flex gap-2.5 rounded-xl border px-3.5 py-3 text-sm; }
+  .notice-info { @apply notice bg-sky-50 border-sky-200 text-sky-900; }
+  .notice-warn { @apply notice bg-amber-50 border-amber-200 text-amber-900; }
+  .notice-danger { @apply notice bg-red-50 border-red-200 text-red-900; }
+  .notice-ok { @apply notice bg-emerald-50 border-emerald-200 text-emerald-900; }
+
+  /* ---------- Interruptor ---------- */
+  .switch { @apply relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full bg-slate-300 transition-colors; }
+  .switch[aria-checked="true"] { @apply bg-brand; }
+  .switch-dot { @apply absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all; }
+  .switch[aria-checked="true"] .switch-dot { @apply left-[22px]; }
 }
+
+/* Animaciones */
+@keyframes slide-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pop-in { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+.anim-slide-up { animation: slide-up 0.32s ease-out both; }
+.anim-fade-in { animation: fade-in 0.25s ease-out both; }
+.anim-pop { animation: pop-in 0.2s ease-out both; }
+
+/* Pulso de "en vivo" */
+@keyframes live-ping { 0% { transform: scale(1); opacity: 0.7; } 100% { transform: scale(2.4); opacity: 0; } }
+.live-dot { position: relative; display: inline-block; width: 8px; height: 8px; border-radius: 999px; background: #22C55E; }
+.live-dot::after { content: ''; position: absolute; inset: 0; border-radius: 999px; background: #22C55E; animation: live-ping 1.6s ease-out infinite; }
+
+/* Safe areas (iPhone) para la barra inferior y la superior */
+.pb-safe { padding-bottom: calc(0.5rem + var(--safe-bottom)); }
+.pt-safe { padding-top: var(--safe-top); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+
+/* Utilidad: ocultar barra de desplazamiento en carruseles horizontales */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }

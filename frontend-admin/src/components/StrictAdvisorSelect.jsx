@@ -164,25 +164,25 @@ export default function StrictAdvisorSelect({
     : validList.filter((adv) => normalizeText(adv).includes(normQuery));
 
   return (
-    <div ref={containerRef} className="pt-2 border-t border-zinc-800/80 space-y-1 relative">
+    <div ref={containerRef} className="pt-2 border-t border-line space-y-1 relative">
       <div className="flex items-center justify-between text-[11px]">
-        <span className="text-zinc-400 font-medium flex items-center gap-1.5">
-          <UserCheck className="w-3.5 h-3.5 text-[#9AC31C]" />
-          <span>Asesor Asignado:</span>
+        <span className="text-ink-muted font-medium flex items-center gap-1.5">
+          <UserCheck className="w-3.5 h-3.5 text-brand-dark" />
+          <span>Asesor asignado:</span>
         </span>
         {isSaving && (
-          <span className="text-[10px] font-mono text-amber-400 animate-pulse">
+          <span className="text-xs text-amber-700 animate-pulse">
             Guardando...
           </span>
         )}
         {!isSaving && justSaved && (
-          <span className="text-[10px] font-mono text-[#9AC31C] flex items-center gap-1 font-bold">
+          <span className="text-xs text-brand-dark flex items-center gap-1 font-bold">
             <Check className="w-3 h-3" />
             <span>Guardado</span>
           </span>
         )}
         {!isSaving && !justSaved && value && (
-          <span className="text-[10px] font-mono text-emerald-400 font-semibold">
+          <span className="text-xs text-emerald-700 font-semibold">
             Asignado
           </span>
         )}
@@ -202,12 +202,12 @@ export default function StrictAdvisorSelect({
           placeholder="Escribe para buscar o selecciona asesor..."
           disabled={isSaving}
           autoComplete="off"
-          className={`w-full pl-3 pr-14 py-2 rounded-xl bg-zinc-950 border text-xs font-mono transition-all focus:outline-none ${
+          className={`input pr-14 text-xs font-mono ${
             invalidMsg
-              ? 'border-red-500 text-red-300'
+              ? '!border-red-500 text-red-700'
               : value
-              ? 'border-[#9AC31C]/60 text-[#9AC31C] font-bold focus:border-[#9AC31C]'
-              : 'border-zinc-700 text-white placeholder-zinc-500 focus:border-[#9AC31C]'
+              ? '!border-brand text-ink font-bold'
+              : ''
           }`}
         />
 
@@ -220,7 +220,7 @@ export default function StrictAdvisorSelect({
                 e.stopPropagation();
                 commitSelection('');
               }}
-              className="p-1 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-zinc-800 transition-colors cursor-pointer"
+              className="p-1 rounded-lg text-ink-muted hover:text-red-600 hover:bg-surface-2 transition-colors cursor-pointer"
               title="Limpiar asesor asignado"
             >
               <X className="w-3.5 h-3.5" />
@@ -233,16 +233,16 @@ export default function StrictAdvisorSelect({
               e.stopPropagation();
               setIsOpen((prev) => !prev);
             }}
-            className="p-1 rounded-lg text-zinc-400 hover:text-[#9AC31C] hover:bg-zinc-800 transition-colors cursor-pointer"
+            className="p-1 rounded-lg text-ink-muted hover:text-brand-dark hover:bg-surface-2 transition-colors cursor-pointer"
             title="Ver lista de asesores"
           >
-            <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180 text-[#9AC31C]' : ''}`} />
+            <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180 text-brand-dark' : ''}`} />
           </button>
         </div>
 
         {/* Lista desplegable filtrada con validación estricta */}
         {isOpen && (
-          <div className="absolute left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto rounded-xl bg-zinc-950 border border-[#9AC31C]/60 shadow-[0_10px_30px_rgba(0,0,0,0.85)] z-50 divide-y divide-zinc-800/70">
+          <div className="absolute left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto rounded-xl bg-white border border-line-strong shadow-pop z-50 divide-y divide-line">
             {filteredAdvisors.length > 0 ? (
               filteredAdvisors.map((adv) => {
                 const isSelected = value === adv;
@@ -257,17 +257,17 @@ export default function StrictAdvisorSelect({
                     }}
                     className={`w-full text-left px-3 py-2 text-xs font-mono flex items-center justify-between transition-colors cursor-pointer ${
                       isSelected
-                        ? 'bg-[#9AC31C]/20 text-[#9AC31C] font-bold'
-                        : 'text-zinc-200 hover:bg-zinc-900 hover:text-[#9AC31C]'
+                        ? 'bg-brand-soft text-ink font-bold'
+                        : 'text-ink-2 hover:bg-surface-2 hover:text-ink'
                     }`}
                   >
                     <span>{adv}</span>
-                    {isSelected && <Check className="w-3.5 h-3.5 text-[#9AC31C] shrink-0" />}
+                    {isSelected && <Check className="w-3.5 h-3.5 text-brand-dark shrink-0" />}
                   </button>
                 );
               })
             ) : (
-              <div className="px-3 py-2.5 text-[11px] text-amber-400 flex items-center gap-1.5 font-sans">
+              <div className="px-3 py-2.5 text-xs text-amber-700 flex items-center gap-1.5 font-sans">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                 <span>No coincide con ningún asesor de la lista oficial</span>
               </div>
@@ -277,7 +277,7 @@ export default function StrictAdvisorSelect({
       </div>
 
       {invalidMsg && (
-        <div className="flex items-center gap-1 text-[10px] text-red-400 font-medium pt-0.5">
+        <div className="flex items-center gap-1 text-xs text-red-600 font-medium pt-0.5">
           <AlertCircle className="w-3 h-3 shrink-0" />
           <span>{invalidMsg}</span>
         </div>

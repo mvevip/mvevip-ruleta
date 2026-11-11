@@ -5,8 +5,6 @@ import {
   Trash2,
   Copy,
   Check,
-  ToggleLeft,
-  ToggleRight,
   Sparkles,
   Phone,
   Mail,
@@ -157,99 +155,97 @@ export default function TestUsersManager({ apiUrl, getAdminHeaders, onNotificati
 
   return (
     <div className="space-y-4">
-      {/* Banner Informativo */}
-      <div className="bg-gradient-to-r from-purple-950/70 via-zinc-900 to-zinc-900 border border-purple-500/40 p-4 rounded-2xl shadow-lg">
+      {/* Banner informativo */}
+      <div className="notice-info">
         <div className="flex items-start gap-3">
-          <div className="w-9 h-9 rounded-xl bg-purple-600/30 border border-purple-500/50 flex items-center justify-center text-purple-300 shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-white border border-line flex items-center justify-center text-sky-700 shrink-0">
             <FlaskConical className="w-5 h-5" />
           </div>
           <div className="space-y-1">
-            <h3 className="font-racing font-bold text-sm text-white uppercase tracking-wider flex items-center gap-2">
-              <span>Usuarios de Prueba (Modo Demo)</span>
-              <span className="text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/40 px-2 py-0.5 rounded-full font-mono">
-                {testUsers.length} Activos
-              </span>
+            <h3 className="panel-title flex items-center gap-2 flex-wrap">
+              <span>Usuarios demo</span>
+              <span className="badge-sky">{testUsers.filter((u) => u.active).length} activos</span>
             </h3>
-            <p className="text-xs text-zinc-300 leading-relaxed font-sans">
-              Los celulares y correos registrados aquí <strong>pueden jugar infinitas veces</strong>. Cada vez que ingresen sus datos en el móvil, la ruleta girará y entregará premio como si fuera un usuario nuevo, <strong>sin descontar stock real</strong> de premios ni distorsionar las métricas de la feria.
+            <p className="text-xs text-ink-2 leading-relaxed">
+              Los usuarios demo juegan sin descontar stock y salen marcados como DEMO. Pueden girar la ruleta las veces que quieras, con el celular o correo registrado aquí, y no afectan las métricas de la feria.
             </p>
           </div>
         </div>
       </div>
 
       {/* Formulario para agregar usuario demo */}
-      <div className="brushed-metal p-4 rounded-2xl border border-zinc-800 space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="font-racing text-xs text-white uppercase font-bold flex items-center gap-1.5">
-            <Plus className="w-4 h-4 text-[#9AC31C]" />
-            Agregar Usuario de Prueba
+      <div className="card card-pad space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <span className="panel-title flex items-center gap-1.5">
+            <Plus className="w-4 h-4 text-brand-dark" />
+            Agregar usuario demo
           </span>
           <button
             type="button"
             onClick={handleAutoCompleteNext}
-            className="text-[11px] text-[#9AC31C] hover:underline flex items-center gap-1 font-mono cursor-pointer"
-            title="Genera datos secuenciales para prueba rápida"
+            className="btn-ghost btn-sm"
+            title="Rellena el formulario con datos de ejemplo"
           >
             <Sparkles className="w-3.5 h-3.5" />
-            <span>⚡ Sugerir Siguiente</span>
+            <span>Sugerir siguiente</span>
           </button>
         </div>
 
-        <form onSubmit={handleCreate} className="space-y-2.5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <form onSubmit={handleCreate} className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-[10px] text-zinc-400 uppercase font-racing">Nombre / Asesor</label>
+              <label className="label">Nombre del asesor</label>
               <div className="relative">
-                <User className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-2.5" />
+                <User className="w-3.5 h-3.5 text-ink-muted absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Ej: Asesor Juan Stand"
-                  className="w-full pl-8 pr-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-[#9AC31C]"
+                  className="input pl-9"
                 />
               </div>
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] text-zinc-400 uppercase font-racing">Celular Ecuador (10 dígitos)</label>
+              <label className="label">Celular (10 dígitos)</label>
               <div className="relative">
-                <Phone className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-2.5" />
+                <Phone className="w-3.5 h-3.5 text-ink-muted absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="0990000001"
                   maxLength={10}
-                  className="w-full pl-8 pr-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white font-mono placeholder-zinc-600 focus:outline-none focus:border-[#9AC31C]"
+                  className="input pl-9 font-mono"
                 />
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-[10px] text-zinc-400 uppercase font-racing">Email de Prueba</label>
+              <label className="label">Correo de prueba</label>
               <div className="relative">
-                <Mail className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-2.5" />
+                <Mail className="w-3.5 h-3.5 text-ink-muted absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="demo1@mvevip.com"
-                  className="w-full pl-8 pr-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white font-mono placeholder-zinc-600 focus:outline-none focus:border-[#9AC31C]"
+                  className="input pl-9 font-mono"
                 />
               </div>
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] text-zinc-400 uppercase font-racing">Notas (Opcional)</label>
+              <label className="label">Notas (opcional)</label>
               <input
                 type="text"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Ej: Demostraciones Stand A"
-                className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-[#9AC31C]"
+                className="input"
               />
             </div>
           </div>
@@ -257,23 +253,23 @@ export default function TestUsersManager({ apiUrl, getAdminHeaders, onNotificati
           <button
             type="submit"
             disabled={isSubmitting || !phone.trim()}
-            className="w-full py-2.5 bg-gradient-to-r from-[#84A816] to-[#9AC31C] hover:brightness-110 active:scale-95 text-black font-racing font-bold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer shadow-lg disabled:opacity-50 flex items-center justify-center gap-1.5"
+            className="btn-primary w-full disabled:opacity-50"
           >
             <Plus className="w-4 h-4" />
-            <span>{isSubmitting ? 'Guardando...' : 'Registrar Usuario Demo'}</span>
+            <span>{isSubmitting ? 'Guardando...' : 'Registrar usuario demo'}</span>
           </button>
         </form>
       </div>
 
-      {/* Lista de Usuarios Demo */}
+      {/* Lista de usuarios demo */}
       <div className="space-y-2.5">
         <div className="flex items-center justify-between px-1">
-          <span className="font-racing text-xs text-zinc-400 uppercase font-bold">
-            Usuarios Configurados ({testUsers.length})
+          <span className="section-label">
+            Usuarios configurados ({testUsers.length})
           </span>
           <button
             onClick={loadTestUsers}
-            className="text-[11px] text-zinc-400 hover:text-white flex items-center gap-1 cursor-pointer"
+            className="btn-ghost btn-sm"
             title="Recargar lista"
           >
             <RotateCcw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
@@ -282,12 +278,13 @@ export default function TestUsersManager({ apiUrl, getAdminHeaders, onNotificati
         </div>
 
         {testUsers.length === 0 ? (
-          <div className="bg-zinc-900/60 border border-zinc-800 p-8 rounded-2xl text-center space-y-2">
-            <FlaskConical className="w-8 h-8 text-zinc-600 mx-auto" />
-            <p className="text-xs text-zinc-400">No hay usuarios de prueba registrados.</p>
+          <div className="card card-pad text-center space-y-2 py-8">
+            <FlaskConical className="w-8 h-8 text-ink-muted mx-auto" />
+            <p className="text-sm text-ink-2">Todavía no hay usuarios demo.</p>
+            <p className="help">Crea uno para probar la ruleta sin gastar premios reales.</p>
             <button
               onClick={handleAutoCompleteNext}
-              className="text-xs text-[#9AC31C] underline font-bold"
+              className="btn-soft btn-sm"
             >
               Crear el primer usuario demo
             </button>
@@ -300,65 +297,63 @@ export default function TestUsersManager({ apiUrl, getAdminHeaders, onNotificati
             return (
               <div
                 key={u.id}
-                className={`p-3.5 rounded-2xl border transition-all space-y-2 ${
-                  u.active
-                    ? 'bg-zinc-900/90 border-zinc-800 hover:border-purple-500/50'
-                    : 'bg-zinc-950/60 border-zinc-900 opacity-60'
+                className={`card card-pad space-y-2 transition-all ${
+                  u.active ? '' : 'opacity-70'
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
-                    <span className="font-bold text-sm text-white uppercase">{u.name}</span>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                    <span className="font-bold text-sm text-ink uppercase">{u.name}</span>
+                    <span className="badge-navy">DEMO</span>
                     {u.notes && (
-                      <span className="text-[10px] text-zinc-400 font-sans italic">
+                      <span className="text-xs text-ink-muted italic">
                         ({u.notes})
                       </span>
                     )}
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono text-purple-300 bg-purple-950/80 border border-purple-500/40 px-2 py-0.5 rounded-full">
+                    <span className="badge-slate">
                       {u.spins_count || 0} giros demo
                     </span>
+                    <span className="text-xs text-ink-muted">{u.active ? 'Activo' : 'Inactivo'}</span>
                     <button
+                      type="button"
+                      role="switch"
+                      aria-checked={!!u.active}
                       onClick={() => handleToggleActive(u)}
-                      className="text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                      className="switch"
                       title={u.active ? 'Desactivar usuario de prueba' : 'Activar usuario de prueba'}
                     >
-                      {u.active ? (
-                        <ToggleRight className="w-6 h-6 text-[#9AC31C]" />
-                      ) : (
-                        <ToggleLeft className="w-6 h-6 text-zinc-600" />
-                      )}
+                      <span className="switch-dot" />
                     </button>
                     <button
                       onClick={() => handleDelete(u.id, u.name)}
-                      className="text-zinc-500 hover:text-red-400 transition-colors p-1 cursor-pointer"
+                      className="btn-icon text-red-600 hover:bg-red-50"
                       title="Eliminar usuario de prueba"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-zinc-800/60">
-                  {/* Botón copiar Celular */}
-                  <div className="flex items-center justify-between bg-zinc-950 px-3 py-1.5 rounded-xl border border-zinc-800">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-line">
+                  {/* Copiar celular */}
+                  <div className="flex items-center justify-between bg-surface-2 border border-line rounded-xl px-3 py-1.5">
                     <div className="flex items-center gap-2 text-xs">
-                      <Phone className="w-3 h-3 text-zinc-400" />
-                      <span className="font-mono text-zinc-200">{u.phone}</span>
+                      <Phone className="w-3 h-3 text-ink-muted" />
+                      <span className="font-mono text-ink-2">{u.phone}</span>
                     </div>
                     <button
                       type="button"
                       onClick={() => handleCopy(u.phone, `phone_${u.id}`)}
-                      className="text-[10px] text-[#9AC31C] hover:underline flex items-center gap-1 font-mono cursor-pointer ml-2"
+                      className="text-xs text-brand-dark hover:underline flex items-center gap-1 cursor-pointer ml-2"
                       title="Copiar teléfono al portapapeles"
                     >
                       {isPhoneCopied ? (
                         <>
-                          <Check className="w-3 h-3 text-emerald-400" />
-                          <span className="text-emerald-400 font-bold">¡Copiado!</span>
+                          <Check className="w-3 h-3 text-emerald-700" />
+                          <span className="text-emerald-700 font-bold">¡Copiado!</span>
                         </>
                       ) : (
                         <>
@@ -369,23 +364,23 @@ export default function TestUsersManager({ apiUrl, getAdminHeaders, onNotificati
                     </button>
                   </div>
 
-                  {/* Botón copiar Email */}
+                  {/* Copiar correo */}
                   {u.email && (
-                    <div className="flex items-center justify-between bg-zinc-950 px-3 py-1.5 rounded-xl border border-zinc-800">
+                    <div className="flex items-center justify-between bg-surface-2 border border-line rounded-xl px-3 py-1.5">
                       <div className="flex items-center gap-2 text-xs truncate mr-2">
-                        <Mail className="w-3 h-3 text-zinc-400 shrink-0" />
-                        <span className="font-mono text-zinc-200 truncate">{u.email}</span>
+                        <Mail className="w-3 h-3 text-ink-muted shrink-0" />
+                        <span className="font-mono text-ink-2 truncate">{u.email}</span>
                       </div>
                       <button
                         type="button"
                         onClick={() => handleCopy(u.email, `email_${u.id}`)}
-                        className="text-[10px] text-[#9AC31C] hover:underline flex items-center gap-1 font-mono cursor-pointer shrink-0"
+                        className="text-xs text-brand-dark hover:underline flex items-center gap-1 cursor-pointer shrink-0"
                         title="Copiar correo al portapapeles"
                       >
                         {isEmailCopied ? (
                           <>
-                            <Check className="w-3 h-3 text-emerald-400" />
-                            <span className="text-emerald-400 font-bold">¡Copiado!</span>
+                            <Check className="w-3 h-3 text-emerald-700" />
+                            <span className="text-emerald-700 font-bold">¡Copiado!</span>
                           </>
                         ) : (
                           <>

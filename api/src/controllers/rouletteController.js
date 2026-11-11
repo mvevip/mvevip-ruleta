@@ -24,6 +24,7 @@ const { getNextAppointment } = require('../services/appointment');
 const { getEventInfo, isEventClosed, publicEventInfo } = require('../config/events');
 const { normalizePrizeIcon } = require('../config/prizeIcons');
 const { getChannelSettings } = require('../services/channelSettings');
+const pushService = require('../services/pushService');
 const { normalizeEmailParam, isMailLinkAuthorized, findCrmClient, evaluateClient, findPreviousMailPlay } = require('../services/mailLookup');
 
 // Stand 'autos' = comportamiento histórico; 'ford' = Formulario2/Pantalla2
@@ -496,6 +497,8 @@ async function processSpin(req, res) {
     // 11b. CANAL CORREO: cada cliente gira en su propio dispositivo -> sin cola, sin sockets, sin pantalla del stand
     if (isMail) {
       await connection.commit();
+      // Aviso push a los dispositivos del Admin (nunca falla ni retrasa más de unos segundos)
+      await pushService.notifyNewLead({ stand, leadName: name.trim(), prizeName: winningPrize.name, isTest: isTestUser });
 
       const whatsappUrl = buildWhatsappUrl({
         stand, name: name.trim(), ticketCode, prizeName: winningPrize.name, destination: finalDestination, alreadyPlayed: false,
@@ -570,6 +573,7 @@ async function processSpin(req, res) {
       queuePosition = posRow ? posRow.pos : 1;
 
       await connection.commit();
+      await pushService.notifyNewLead({ stand, leadName: name.trim(), prizeName: winningPrize.name, isTest: isTestUser });
 
       // Construir WhatsApp URL
       const whatsappUrl = buildWhatsappUrl({
@@ -613,6 +617,7 @@ async function processSpin(req, res) {
       const queueId = insertQueue.insertId;
 
       await connection.commit();
+      await pushService.notifyNewLead({ stand, leadName: name.trim(), prizeName: winningPrize.name, isTest: isTestUser });
 
       // Construir WhatsApp URL
       const whatsappUrl = buildWhatsappUrl({
