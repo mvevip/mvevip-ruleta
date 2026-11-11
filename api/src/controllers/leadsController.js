@@ -9,7 +9,7 @@ const {
   isMailStand,
   screenIdsOfEvent
 } = require('../config/stands');
-const { isFairEvent, getEventInfo } = require('../config/events');
+const { isFairEvent, isCampaignEvent, getEventInfo, getCampaignInfo } = require('../config/events');
 
 function deriveLeadStand(screenId) {
   const mapped = standFromScreenId(screenId);
@@ -61,7 +61,7 @@ async function getLeads(req, res) {
 
     // ?event=riobamba|ambato: todos los frentes de la ciudad (pantalla, kiosco y correo)
     const requestedEvent = (req.query && req.query.event) ? String(req.query.event).toLowerCase() : '';
-    const filterByEvent = isFairEvent(requestedEvent) ? requestedEvent : null;
+    const filterByEvent = (isFairEvent(requestedEvent) || isCampaignEvent(requestedEvent)) ? requestedEvent : null;
 
     let whereSql = '';
     let params = [];
@@ -116,7 +116,7 @@ async function getLeads(req, res) {
         stand_label: STANDS[st]?.label || 'Autos',
         // Evento (ciudad) y frente por el que entró el lead; derivados del screen_id (ver config/stands.js)
         event: STANDS[st]?.event || 'autos',
-        event_label: (getEventInfo(STANDS[st]?.event) || {}).city || null,
+        event_label: (getEventInfo(STANDS[st]?.event) || getCampaignInfo(STANDS[st]?.event) || {}).city || (getCampaignInfo(STANDS[st]?.event) || {}).label || null,
         front: STANDS[st]?.front || 'stand'
       };
     });
@@ -185,7 +185,7 @@ async function getMetrics(req, res) {
     const nonAutosScreens = nonAutosScreenIds();
 
     const requestedEvent = (req.query && req.query.event) ? String(req.query.event).toLowerCase() : '';
-    const filterByEvent = isFairEvent(requestedEvent) ? requestedEvent : null;
+    const filterByEvent = (isFairEvent(requestedEvent) || isCampaignEvent(requestedEvent)) ? requestedEvent : null;
 
     let leadStandClause = '';
     let spinStandClause = '';

@@ -10,7 +10,7 @@ import TestUsersManager from '../components/TestUsersManager';
 import { API_URL } from '../context/AdminContext';
 
 const SECTIONS = [
-  { key: 'feria', label: 'Datos de la feria', icon: MapPin, sub: 'Lugar, fechas, stand, cierre y enlaces de Riobamba y Ambato.' },
+  { key: 'feria', label: 'Datos de la feria', icon: MapPin, sub: 'Lugar, fechas, stand, cierre y enlaces de Riobamba y Ambato, y cierre de la campaña general.' },
   { key: 'notificaciones', label: 'Notificaciones', icon: Bell, sub: 'Un aviso por cada lead nuevo, en este dispositivo.' },
   { key: 'canales', label: 'Canales de acceso', icon: SlidersHorizontal, sub: 'Qué accesos están abiertos y a dónde va quien entra sin parámetros.' },
   { key: 'demo', label: 'Usuarios demo', icon: FlaskConical, sub: 'Personas de prueba que juegan sin gastar stock.' },

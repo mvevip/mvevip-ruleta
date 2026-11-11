@@ -3,7 +3,7 @@
  * Lo guardado se aplica en pocos segundos a los 3 frentes de la ciudad (correo, celular, kiosco y ticket impreso).
  */
 const { pool } = require('../config/db');
-const { EVENTS, getEventInfo, isEventClosed, isFairEvent } = require('../config/events');
+const { EVENTS, CAMPAIGNS, getEventInfo, getCampaignInfo, isEventClosed, isFairEvent, isCampaignEvent } = require('../config/events');
 const { screenIdsOfEvent } = require('../config/stands');
 const eventSettings = require('../services/eventSettings');
 
@@ -34,14 +34,58 @@ function describe(event) {
   };
 }
 
+/** Campañas de correo sin feria (general): solo vigencia y apertura. */
+function describeCampaign(event) {
+  const info = getCampaignInfo(event);
+  return {
+    event,
+    kind: 'campaign',
+    city: info.label,
+    closesAt: info.closesAt,
+    isOpen: info.isOpen !== false,
+    closed: isEventClosed(event),
+    defaults: { closesAt: CAMPAIGNS[event].closesAt },
+    screenIds: screenIdsOfEvent(event)
+  };
+}
+
 async function getAdminEvents(req, res) {
   await eventSettings.refresh({ force: true });
   res.set('Cache-Control', 'no-store');
   return res.json({
     success: true,
     missingTable: eventSettings.isMissingTable(),
-    data: Object.keys(EVENTS).map(describe)
+    data: [...Object.keys(EVENTS).map((e) => ({ kind: 'fair', ...describe(e) })), ...Object.keys(CAMPAIGNS).map(describeCampaign)]
   });
+}
+
+/** Cierre / apertura de una campaña de correo (general). */
+async function updateCampaign(req, res, event) {
+  const body = req.body || {};
+  const current = getCampaignInfo(event);
+  try {
+    const closesAt = String(body.closesAt !== undefined ? body.closesAt : current.closesAt || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?[+-]\d{2}:\d{2}$/.test(closesAt) || Number.isNaN(Date.parse(closesAt))) {
+      throw new Error('La hora de cierre no es válida.');
+    }
+    const isOpen = body.isOpen === undefined ? current.isOpen !== false : Boolean(body.isOpen);
+    await pool.query(
+      `INSERT INTO event_settings (event, closes_at, is_open) VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE closes_at = VALUES(closes_at), is_open = VALUES(is_open)`,
+      [event, closesAt, isOpen ? 1 : 0]
+    );
+    await eventSettings.refresh({ force: true });
+    return res.json({ success: true, message: 'Campaña actualizada.', data: describeCampaign(event) });
+  } catch (error) {
+    if (error.code === 'ER_NO_SUCH_TABLE') {
+      return res.status(503).json({ success: false, code: 'MISSING_TABLE', message: 'Falta ejecutar la migración 010 (tabla event_settings).' });
+    }
+    if (error.code) {
+      console.error('[Events] Error guardando la campaña:', error);
+      return res.status(500).json({ success: false, message: 'No se pudieron guardar los datos de la campaña.' });
+    }
+    return res.status(400).json({ success: false, message: error.message });
+  }
 }
 
 function cleanText(value, max, label) {
@@ -53,6 +97,7 @@ function cleanText(value, max, label) {
 
 async function updateEvent(req, res) {
   const event = String(req.params.event || '').toLowerCase();
+  if (isCampaignEvent(event)) return updateCampaign(req, res, event);
   if (!isFairEvent(event)) return res.status(404).json({ success: false, message: 'Evento no encontrado.' });
   const body = req.body || {};
   const current = getEventInfo(event);

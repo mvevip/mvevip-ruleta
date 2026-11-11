@@ -27,7 +27,7 @@ export default function EventSettingsPanel() {
   const [error, setError] = useState('');
   const [missingTable, setMissingTable] = useState(false);
   const [events, setEvents] = useState([]);
-  const [eventKey, setEventKey] = useState(group.fair ? group.key : 'riobamba');
+  const [eventKey, setEventKey] = useState(group.fair || group.campaign ? group.key : 'riobamba');
   const [form, setForm] = useState(null);
   const [copied, setCopied] = useState('');
 
@@ -42,20 +42,26 @@ export default function EventSettingsPanel() {
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const current = useMemo(() => events.find((e) => e.event === eventKey), [events, eventKey]);
+  // Campaña de correo (general): sin lugar ni fechas; solo vigencia y apertura
+  const isCampaign = Boolean(current && current.kind === 'campaign');
   useEffect(() => {
     if (!current) return;
     setError('');
+    if (current.kind === 'campaign') {
+      setForm({ closesAt: isoToQuitoInput(current.closesAt), isOpen: current.isOpen });
+      return;
+    }
     setForm({
       fairName: current.fairName, venue: current.venue, mapsUrl: current.mapsUrl, datesText: current.datesText,
       standText: current.standText, closesAt: isoToQuitoInput(current.closesAt), isOpen: current.isOpen
     });
   }, [current]);
 
-  const dirty = Boolean(current && form) && (
-    form.fairName !== current.fairName || form.venue !== current.venue || form.mapsUrl !== current.mapsUrl ||
-    form.datesText !== current.datesText || form.standText !== current.standText ||
-    quitoInputToIso(form.closesAt) !== current.closesAt || form.isOpen !== current.isOpen
-  );
+  const dirty = Boolean(current && form) && (isCampaign
+    ? (form.closesAt !== isoToQuitoInput(current.closesAt) || form.isOpen !== current.isOpen)
+    : (form.fairName !== current.fairName || form.venue !== current.venue || form.mapsUrl !== current.mapsUrl ||
+       form.datesText !== current.datesText || form.standText !== current.standText ||
+       form.closesAt !== isoToQuitoInput(current.closesAt) || form.isOpen !== current.isOpen));
   const setField = (name, value) => setForm((p) => ({ ...p, [name]: value }));
 
   const save = async () => {
@@ -66,10 +72,12 @@ export default function EventSettingsPanel() {
     try {
       const res = await apiFetch(`/api/admin/events/${eventKey}`, {
         method: 'PUT',
-        body: JSON.stringify({ fairName: form.fairName, venue: form.venue, mapsUrl: form.mapsUrl, datesText: form.datesText, standText: form.standText, closesAt, isOpen: form.isOpen })
+        body: JSON.stringify(isCampaign
+          ? { closesAt, isOpen: form.isOpen }
+          : { fairName: form.fairName, venue: form.venue, mapsUrl: form.mapsUrl, datesText: form.datesText, standText: form.standText, closesAt, isOpen: form.isOpen })
       });
       const json = await res.json();
-      if (json.success) { toast(`Datos de ${current.city} guardados. Se aplican en unos segundos.`); await load(); refreshEvents(); }
+      if (json.success) { toast(isCampaign ? 'Campaña actualizada. Se aplica en unos segundos.' : `Datos de ${current.city} guardados. Se aplican en unos segundos.`); await load(); refreshEvents(); }
       else setError(json.message || 'No se pudo guardar.');
     } catch (_) { /* sesión */ } finally { setSaving(false); }
   };
@@ -81,7 +89,9 @@ export default function EventSettingsPanel() {
 
   const prefix = PREFIX[eventKey] || 'RIO';
   const base = PUBLIC_ORIGIN;
-  const links = [
+  const links = isCampaign ? [
+    { key: 'mail', label: 'Correo (enlace para Brevo)', url: `${base}/?view=mail&ev=${eventKey}&correo={{ contact.EMAIL }}&c=campana_${eventKey}` }
+  ] : [
     { key: 'screen', label: 'Pantalla gigante', url: `${base}/pantalla/?screen=${prefix}_STAND` },
     { key: 'qr', label: 'Celular (QR de la pantalla gigante)', url: `${base}/?screen=${prefix}_STAND` },
     { key: 'kt', label: 'Kiosco · pantalla de ARRIBA', url: `${base}/pantalla/?screen=${prefix}_KIOSK` },
@@ -93,7 +103,7 @@ export default function EventSettingsPanel() {
   return (
     <div className="space-y-5">
       <div className="seg" role="tablist" aria-label="Ciudad">
-        {[['riobamba', '🌄 Riobamba'], ['ambato', '🏔️ Ambato']].map(([key, label]) => (
+        {[['riobamba', '🌄 Riobamba'], ['ambato', '🏔️ Ambato'], ['general', '📬 General']].map(([key, label]) => (
           <button key={key} type="button" role="tab" aria-selected={eventKey === key} onClick={() => setEventKey(key)} className={`seg-item ${eventKey === key ? 'seg-item-active' : ''}`}>{label}</button>
         ))}
       </div>
@@ -106,6 +116,14 @@ export default function EventSettingsPanel() {
 
       {form && current && (
         <div className="grid xl:grid-cols-5 gap-5">
+          {isCampaign && (
+            <section className="card card-pad space-y-3 xl:col-span-3">
+              <h3 className="panel-title flex items-center gap-2"><MapPin className="w-4 h-4" /> Campaña de correo general</h3>
+              <p className="text-sm text-ink-2 leading-relaxed">Es la campaña para clientes normales (no cuotas ni ferias). El cliente juega desde su celular y, al ganar, ve su premio con un botón de WhatsApp para coordinar la entrega. No tiene lugar, fechas ni cita.</p>
+              <p className="help">Tiene su propio catálogo de premios, sus propios leads y métricas (evento GENERAL del selector superior). Cierra sola el 31 de diciembre de 2026, o antes si usas el botón de cerrar.</p>
+            </section>
+          )}
+          {!isCampaign && (
           <section className="card card-pad space-y-4 xl:col-span-3">
             <h3 className="panel-title flex items-center gap-2"><MapPin className="w-4 h-4" /> Datos que ve el público</h3>
             <div>
@@ -135,13 +153,14 @@ export default function EventSettingsPanel() {
             </div>
             <p className="help">El texto del stand sale en el pase del premio, en el ticket impreso y en el mensaje de WhatsApp.</p>
           </section>
+          )}
 
           <section className="card card-pad space-y-4 xl:col-span-2 self-start">
             <h3 className="panel-title">Apertura y cierre</h3>
             <div>
               <label className="label" htmlFor="ev-close">Cierre automático (hora de Quito)</label>
               <input id="ev-close" type="datetime-local" className="input" value={form.closesAt} onChange={(e) => setField('closesAt', e.target.value)} />
-              <p className="help">Después de esa hora nadie nuevo puede jugar en {current.city}. Quien ya jugó sigue viendo su premio.</p>
+              <p className="help">Después de esa hora nadie nuevo puede jugar en {isCampaign ? 'la campaña general' : current.city}. Quien ya jugó sigue viendo su premio.</p>
             </div>
             <button type="button" onClick={() => setField('isOpen', !form.isOpen)} className={`w-full rounded-2xl border-2 p-4 flex items-center gap-3 text-left transition-all cursor-pointer ${form.isOpen ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50'}`}>
               <span className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${form.isOpen ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{form.isOpen ? <Unlock className="w-5 h-5" /> : <Lock className="w-5 h-5" />}</span>
@@ -150,7 +169,7 @@ export default function EventSettingsPanel() {
                 <span className="block text-xs text-ink-muted">{form.isOpen ? 'Toca para cerrar ahora mismo' : 'Toca para volver a abrir'}</span>
               </span>
             </button>
-            {current.closed && <div className="notice-danger text-sm"><Lock className="w-4 h-4 shrink-0 mt-0.5" /><span>{current.isOpen ? 'La hora de cierre ya pasó: la feria está cerrada.' : 'La feria está cerrada manualmente.'}</span></div>}
+            {current.closed && <div className="notice-danger text-sm"><Lock className="w-4 h-4 shrink-0 mt-0.5" /><span>{current.isOpen ? `La hora de cierre ya pasó: la ${isCampaign ? 'campaña' : 'feria'} está cerrada.` : `La ${isCampaign ? 'campaña' : 'feria'} está cerrada manualmente.`}</span></div>}
           </section>
 
           <div className="xl:col-span-5 flex flex-col sm:flex-row sm:items-center gap-3">
@@ -160,7 +179,7 @@ export default function EventSettingsPanel() {
           </div>
 
           <section className="card card-pad space-y-3 xl:col-span-5">
-            <h3 className="panel-title flex items-center gap-2"><Link2 className="w-4 h-4" /> Enlaces de {current.city}</h3>
+            <h3 className="panel-title flex items-center gap-2"><Link2 className="w-4 h-4" /> Enlaces de {isCampaign ? 'la campaña general' : current.city}</h3>
             <div className="grid md:grid-cols-2 gap-3">
               {links.map((l) => (
                 <div key={l.key} className="rounded-xl bg-surface-2 border border-line p-3">

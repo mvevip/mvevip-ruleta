@@ -7,7 +7,8 @@ const ACTIVE = {
   lime: 'bg-brand text-ink shadow-sm',
   amber: 'bg-amber-400 text-ink shadow-sm',
   sky: 'bg-sky-500 text-white shadow-sm',
-  rose: 'bg-rose-500 text-white shadow-sm'
+  rose: 'bg-rose-500 text-white shadow-sm',
+  teal: 'bg-teal-500 text-white shadow-sm'
 };
 
 /**
@@ -35,7 +36,7 @@ export default function EventSwitcher() {
               aria-pressed={selected}
             >
               <span>{g.label}</span>
-              {g.fair && closed(g.key) && <Lock className="w-3 h-3 opacity-80" aria-label="Feria cerrada" />}
+              {(g.fair || g.campaign) && closed(g.key) && <Lock className="w-3 h-3 opacity-80" aria-label="Feria cerrada" />}
             </button>
           );
         })}

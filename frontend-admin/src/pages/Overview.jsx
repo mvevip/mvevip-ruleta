@@ -9,11 +9,12 @@ const CITY_CARDS = [
   { key: 'riobamba', title: 'Riobamba', emoji: '🌄', tone: 'sky', fronts: ['rio_stand', 'rio_kiosk', 'rio_mail'], fair: true },
   { key: 'ambato', title: 'Ambato', emoji: '🏔️', tone: 'rose', fronts: ['amb_stand', 'amb_kiosk', 'amb_mail'], fair: true },
   { key: 'cuotas', title: 'Cuotas (correo)', emoji: '📧', tone: 'amber', fronts: ['mail'] },
+  { key: 'general', title: 'General (correo)', emoji: '📬', tone: 'teal', fronts: ['gen_mail'], campaign: true },
   { key: 'autos', title: 'Feria Autos', emoji: '🏎️', tone: 'lime', fronts: ['autos', 'ford', 'kiosk'] }
 ];
 const FRONT_NAME = { stand: 'Pantalla', kiosk: 'Kiosco', mail: 'Correo' };
-const BAR = { sky: 'bg-sky-500', rose: 'bg-rose-500', amber: 'bg-amber-400', lime: 'bg-brand' };
-const SOFT = { sky: 'bg-sky-50 text-sky-700', rose: 'bg-rose-50 text-rose-700', amber: 'bg-amber-50 text-amber-700', lime: 'bg-brand-soft text-brand-dark' };
+const BAR = { sky: 'bg-sky-500', rose: 'bg-rose-500', amber: 'bg-amber-400', lime: 'bg-brand', teal: 'bg-teal-500' };
+const SOFT = { sky: 'bg-sky-50 text-sky-700', rose: 'bg-rose-50 text-rose-700', amber: 'bg-amber-50 text-amber-700', lime: 'bg-brand-soft text-brand-dark', teal: 'bg-teal-50 text-teal-700' };
 
 /** Pantalla de inicio: cifras de hoy, estado de cada feria, últimos registros en vivo y alertas de stock. */
 export default function Overview() {
@@ -95,7 +96,7 @@ export default function Overview() {
           <h2 className="panel-title">Estado de cada evento</h2>
           <div className="grid md:grid-cols-2 gap-3 sm:gap-4">
             {CITY_CARDS.map((c) => {
-              const info = c.fair ? eventInfo(c.key) : null;
+              const info = (c.fair || c.campaign) ? eventInfo(c.key) : null;
               const totalEvent = totals && totals.events ? (c.key === 'autos'
                 ? (totals.events.autos || 0) + (totals.events.ford || 0) + (totals.events.kiosk || 0)
                 : totals.events[c.key] || 0) : 0;

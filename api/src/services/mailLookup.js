@@ -9,7 +9,7 @@ const { pool } = require('../config/db');
 const config = require('../config/env');
 const { validateAndFormatEcuadorPhone, validateEmail } = require('./rouletteLogic');
 const { screenIdsOfEvent } = require('../config/stands');
-const { isFairEvent, CUOTAS_EVENT, LEGACY_LINK_EVENT } = require('../config/events');
+const { isFairEvent, isCampaignEvent, CUOTAS_EVENT, GENERAL_EVENT, LEGACY_LINK_EVENT } = require('../config/events');
 
 const TOKEN_LENGTH = 16; // 16 hex = 64 bits de la firma HMAC-SHA256
 
@@ -29,7 +29,9 @@ const FAIR_KEY_UNTIL = '2026-11-15T22:00:00-05:00';
 const DEFAULT_CAMPAIGN_KEYS = [
   { key: 'campana_cuotas', until: '2026-12-31T23:59:59-05:00', events: [CUOTAS_EVENT, 'riobamba'], defaultEvent: LEGACY_LINK_EVENT },
   { key: 'feria_riobamba', until: FAIR_KEY_UNTIL, events: ['riobamba'], defaultEvent: 'riobamba' },
-  { key: 'feria_ambato', until: FAIR_KEY_UNTIL, events: ['ambato'], defaultEvent: 'ambato' }
+  { key: 'feria_ambato', until: FAIR_KEY_UNTIL, events: ['ambato'], defaultEvent: 'ambato' },
+  // Campaña de correo general (clientes normales): vigente hasta el 31-dic-2026; el cierre real lo controla el Admin
+  { key: 'campana_general', until: '2026-12-31T23:59:59-05:00', events: [GENERAL_EVENT], defaultEvent: GENERAL_EVENT }
 ];
 
 function loadCampaignKeys() {
@@ -78,7 +80,7 @@ function isCampaignKeyValid(candidate, now = new Date(), event = null) {
  */
 function resolveMailEvent(evParam, campaignKey) {
   const ev = typeof evParam === 'string' ? evParam.trim().toLowerCase() : '';
-  if (ev === CUOTAS_EVENT || isFairEvent(ev)) return ev;
+  if (ev === CUOTAS_EVENT || isFairEvent(ev) || isCampaignEvent(ev)) return ev;
   const record = findCampaignKey(typeof campaignKey === 'string' ? campaignKey.trim() : '');
   return record ? record.defaultEvent : CUOTAS_EVENT;
 }

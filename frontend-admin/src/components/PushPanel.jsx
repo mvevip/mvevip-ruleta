@@ -9,6 +9,7 @@ const EVENT_OPTIONS = [
   { key: 'riobamba', label: '🌄 Riobamba' },
   { key: 'ambato', label: '🏔️ Ambato' },
   { key: 'cuotas', label: '📧 Cuotas (correo)' },
+  { key: 'general', label: '📬 General (correo)' },
   { key: 'autos', label: '🏎️ Autos' },
   { key: 'ford', label: '🚘 Ford' },
   { key: 'kiosk', label: '🖥️ Kiosco histórico' }

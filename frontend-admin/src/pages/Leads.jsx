@@ -7,7 +7,7 @@ import StrictAdvisorSelect, { DEFAULT_ADVISORS } from '../components/StrictAdvis
 import usePolling from '../lib/usePolling';
 
 const PAGE_SIZE = 40;
-const BADGE_TONE = { lime: 'badge-lime', ford: 'badge-navy', amber: 'badge-amber', fuchsia: 'badge-fuchsia', sky: 'badge-sky', rose: 'badge-rose' };
+const BADGE_TONE = { lime: 'badge-lime', ford: 'badge-navy', amber: 'badge-amber', fuchsia: 'badge-fuchsia', sky: 'badge-sky', rose: 'badge-rose', teal: 'badge-teal' };
 
 function csvEscape(value) {
   const text = String(value == null ? '' : value);

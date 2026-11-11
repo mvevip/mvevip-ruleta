@@ -60,9 +60,11 @@ function fairScreenFromUrl() {
 const MAIL_EVENTS = {
   cuotas: { screenId: 'MAIL_01', stand: 'mail', label: 'Cuotas' },
   riobamba: { screenId: 'RIO_MAIL', stand: 'rio_mail', label: 'Riobamba' },
-  ambato: { screenId: 'AMB_MAIL', stand: 'amb_mail', label: 'Ambato' }
+  ambato: { screenId: 'AMB_MAIL', stand: 'amb_mail', label: 'Ambato' },
+  // Campaña de correo general (clientes normales): sin feria, sin cita; el premio se coordina por WhatsApp
+  general: { screenId: 'GEN_MAIL', stand: 'gen_mail', label: 'General' }
 };
-const KEY_DEFAULT_EVENT = { campana_cuotas: 'riobamba', feria_riobamba: 'riobamba', feria_ambato: 'ambato' };
+const KEY_DEFAULT_EVENT = { campana_cuotas: 'riobamba', feria_riobamba: 'riobamba', feria_ambato: 'ambato', campana_general: 'general' };
 let cachedMailEvent = null;
 
 export function resolveMailEvent() {
@@ -161,10 +163,11 @@ export function getMobileBrandConfig() {
   } else {
     screenId = rawScreen || (isProduction ? 'STAND_01' : 'STAND_LOCAL');
   }
-  const fairEvent = isMail ? (resolveMailEvent() !== 'cuotas' ? resolveMailEvent() : null) : (fair ? fair.event : null);
+  const mailFairEvent = isMail && ['riobamba', 'ambato'].includes(resolveMailEvent()) ? resolveMailEvent() : null;
+  const fairEvent = isMail ? mailFairEvent : (fair ? fair.event : null);
   const fairCity = fairEvent === 'riobamba' ? 'Riobamba' : fairEvent === 'ambato' ? 'Ambato' : null;
 
-  const mailEvent = isMail ? resolveMailEvent() : null; // 'cuotas' | 'riobamba' | 'ambato'
+  const mailEvent = isMail ? resolveMailEvent() : null; // 'cuotas' | 'riobamba' | 'ambato' | 'general'
 
   return {
     key: isKiosk ? 'kiosk' : isMail ? 'mail' : brand,
@@ -172,10 +175,11 @@ export function getMobileBrandConfig() {
     isKiosk,
     isMail,
     mailEvent,
-    isFair: Boolean(mailEvent) && mailEvent !== 'cuotas', // correo de la feria de Riobamba / Ambato (no cuotas)
+    isFair: Boolean(mailFairEvent), // correo de la feria de Riobamba / Ambato (no cuotas ni general)
+    isGeneral: mailEvent === 'general', // campaña de correo general (clientes normales)
     fairEvent, // 'riobamba' | 'ambato' | null (cualquier frente de la feria)
     fairCity,
-    mailStand: isMail ? MAIL_EVENTS[mailEvent].stand : null, // stand del API: 'mail' | 'rio_mail' | 'amb_mail'
+    mailStand: isMail ? MAIL_EVENTS[mailEvent].stand : null, // stand del API: 'mail' | 'rio_mail' | 'amb_mail' | 'gen_mail'
     screenId,
     logoSrc: isFord ? '/logo_ford.jpeg' : '/logotipo.png',
     logoAlt: isFord ? 'Ford | Quito Motors' : 'Marketing VIP',

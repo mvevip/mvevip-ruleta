@@ -69,6 +69,7 @@ body {
   .badge-rose { @apply badge bg-rose-50 text-rose-700 border-rose-200; }
   .badge-amber { @apply badge bg-amber-50 text-amber-800 border-amber-200; }
   .badge-fuchsia { @apply badge bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200; }
+  .badge-teal { @apply badge bg-teal-50 text-teal-700 border-teal-200; }
   .badge-green { @apply badge bg-emerald-50 text-emerald-700 border-emerald-200; }
   .badge-red { @apply badge bg-red-50 text-red-700 border-red-200; }
   .badge-navy { @apply badge bg-navy-soft text-navy border-[#C9D8E8]; }
