@@ -12,9 +12,16 @@ const {
   standFromScreenId,
   normalizeScreenId,
   screenIdsOf,
-  nonAutosScreenIds
+  screenIdsOfEvent,
+  nonAutosScreenIds,
+  prizePoolOf,
+  standsOfPrizePool,
+  eventOf,
+  isMailStand,
+  STANDS
 } = require('../config/stands');
 const { getNextAppointment } = require('../services/appointment');
+const { getEventInfo, isEventClosed, publicEventInfo } = require('../config/events');
 const { normalizePrizeIcon } = require('../config/prizeIcons');
 const { getChannelSettings } = require('../services/channelSettings');
 const { normalizeEmailParam, isMailLinkAuthorized, findCrmClient, evaluateClient, findPreviousMailPlay } = require('../services/mailLookup');
@@ -22,13 +29,20 @@ const { normalizeEmailParam, isMailLinkAuthorized, findCrmClient, evaluateClient
 // Stand 'autos' = comportamiento histórico; 'ford' = Formulario2/Pantalla2
 const DEFAULT_SCREEN_ID = process.env.NODE_ENV === 'production' ? 'STAND_01' : 'STAND_LOCAL';
 
+// Avisa a las pantallas de TODOS los stands que comparten el catálogo (en las ferias: pantalla, kiosco y correo de la ciudad)
+async function notifyPrizePool(action, io, prizePool) {
+  for (const standKey of standsOfPrizePool(prizePool)) {
+    await touchSystemSync(action, io, standKey);
+  }
+}
+
 // Obtener lista de premios activos para la ruleta visual (del stand solicitado)
 async function getPrizes(req, res) {
   try {
     const stand = resolveStand(req);
     const [rows] = await pool.query(
       'SELECT id, name, description, category, color_hex, text_color, icon, weight, stock, max_daily_wins, active FROM prizes WHERE active = 1 AND stand = ? ORDER BY id ASC',
-      [stand]
+      [prizePoolOf(stand)]
     );
     res.json({ success: true, stand, data: rows });
   } catch (error) {
@@ -43,7 +57,7 @@ async function getAdminPrizes(req, res) {
     const stand = resolveStand(req);
     const [rows] = await pool.query(
       'SELECT id, name, description, category, color_hex, text_color, icon, weight, stock, max_daily_wins, active, created_at FROM prizes WHERE stand = ? ORDER BY id ASC',
-      [stand]
+      [prizePoolOf(stand)]
     );
 
     // Calcular suma total de pesos de premios activos con stock
@@ -85,9 +99,9 @@ async function createPrize(req, res) {
     const [result] = await pool.query(
       `INSERT INTO prizes (name, description, category, color_hex, text_color, icon, weight, stock, max_daily_wins, active, stand)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
-      [name, description || '', category, color_hex, text_color, icon, Number(weight), Number(stock), Number(max_daily_wins), stand]
+      [name, description || '', category, color_hex, text_color, icon, Number(weight), Number(stock), Number(max_daily_wins), prizePoolOf(stand)]
     );
-    await touchSystemSync('PRIZES_UPDATED', req.io, stand);
+    await notifyPrizePool('PRIZES_UPDATED', req.io, prizePoolOf(stand));
     res.json({ success: true, message: 'Premio creado exitosamente', id: result.insertId });
   } catch (error) {
     console.error('Error creando premio:', error);
@@ -129,7 +143,7 @@ async function updatePrize(req, res) {
     }
 
     const [[prizeRow]] = await pool.query('SELECT stand FROM prizes WHERE id = ?', [id]);
-    await touchSystemSync('PRIZES_UPDATED', req.io, prizeRow ? prizeRow.stand : 'autos');
+    await notifyPrizePool('PRIZES_UPDATED', req.io, prizeRow ? prizeRow.stand : 'autos');
     res.json({ success: true, message: 'Premio actualizado exitosamente' });
   } catch (error) {
     console.error('Error actualizando premio:', error);
@@ -139,10 +153,24 @@ async function updatePrize(req, res) {
 
 
 // Mensaje de WhatsApp según stand (Ford no usa destino de viaje)
-function buildWhatsappUrl({ stand, name, ticketCode, prizeName, destination, alreadyPlayed, appointmentText }) {
+function buildWhatsappUrl({ stand, name, ticketCode, prizeName, destination, alreadyPlayed, appointmentText, eventInfo }) {
   const rawWaNumber = config.COMPANY.whatsapp.replace(/[^0-9]/g, '');
   let text;
-  if (stand === 'mail') {
+  if (eventInfo) {
+    // Ferias (Riobamba / Ambato): sin cita; el cliente se acerca al stand durante la feria
+    const where = `${eventInfo.fairName} (${eventInfo.venue})`;
+    text = alreadyPlayed
+      ? `¡Hola ${config.COMPANY.name}! Ya participé en la ruleta de la ${where} 🎰\n\n` +
+        `👤 Nombre: ${name}\n` +
+        `🎟️ Código: ${ticketCode}\n` +
+        `🎁 Premio: ${prizeName}\n\n` +
+        `¡Quiero consultar cómo canjear mi premio en el stand!`
+      : `¡Hola ${config.COMPANY.name}! Acabo de ganar *${prizeName}* en la ruleta de la ${where} 🎰\n\n` +
+        `👤 Mi Nombre: ${name}\n` +
+        `🎟️ Código: ${ticketCode}\n` +
+        `📅 ${eventInfo.datesText}\n\n` +
+        `¡Quiero reclamar mi premio en el stand de ${config.COMPANY.name}!`;
+  } else if (stand === 'mail') {
     text = alreadyPlayed
       ? `¡Hola ${config.COMPANY.name}! Ya participé en la ruleta 🎰\n\n` +
         `👤 Nombre: ${name}\n` +
@@ -197,20 +225,23 @@ async function processSpin(req, res) {
   // screen_id validado contra lista blanca; el stand (autos/ford) se deriva siempre en servidor
   const screen_id = normalizeScreenId(rawScreenId, DEFAULT_SCREEN_ID);
   const stand = standFromScreenId(screen_id) || 'autos';
+  const standEvent = eventOf(stand); // 'autos' | 'ford' | 'cuotas' | 'kiosk' | 'riobamba' | 'ambato'
+  const eventInfo = getEventInfo(standEvent); // datos de la feria (null en los stands históricos y en cuotas)
+  const prizePool = prizePoolOf(stand); // catálogo del que descuenta (compartido por ciudad en las ferias)
 
   // Canal Correo con enlace de Brevo: vínculo con el cliente del CRM (clave de campaña vigente o token válido)
   let crmEmail = null;
   let crmMatch = null;
-  if (stand === 'mail' && req.body.crm_email) {
+  if (isMailStand(stand) && req.body.crm_email) {
     const candidate = normalizeEmailParam(String(req.body.crm_email));
-    if (candidate && isMailLinkAuthorized(candidate, { c: req.body.c, t: req.body.t })) {
+    if (candidate && isMailLinkAuthorized(candidate, { c: req.body.c, t: req.body.t, event: standEvent })) {
       crmEmail = candidate;
 
       // Si este cliente ya jugó, se usan SUS datos guardados (aunque ahora envíe otros): así recibe su premio previo
       // y no puede participar dos veces cambiando el celular o el correo en el formulario.
       let previous = null;
       try {
-        previous = await findPreviousMailPlay(candidate);
+        previous = await findPreviousMailPlay(candidate, standEvent);
       } catch (previousError) {
         console.error('[Spin] Error buscando participación previa:', previousError.code || previousError.message);
       }
@@ -274,11 +305,12 @@ async function processSpin(req, res) {
   }
   const cleanEmail = emailValidation.email;
 
-  const isMail = stand === 'mail';
-  const appointment = isMail ? getNextAppointment() : null;
+  const isMail = isMailStand(stand);
+  // Cuotas: cita el próximo sábado 10:00. Ferias: sin cita (el cliente se acerca al stand durante la feria).
+  const appointment = isMail && !eventInfo ? getNextAppointment() : null;
 
   const connection = await pool.getConnection();
-  const mailLockName = isMail ? `mail_spin_${cleanPhone}` : null;
+  const mailLockName = isMail ? `mail_spin_${standEvent}_${cleanPhone}` : null;
   let mailLockAcquired = false;
 
   try {
@@ -311,7 +343,8 @@ async function processSpin(req, res) {
          JOIN prizes p ON s.prize_id = p.id
          WHERE (l.phone = ? OR l.email = ?) AND l.screen_id ${stand === 'autos' ? 'NOT IN' : 'IN'} (?)
          ORDER BY s.id DESC LIMIT 1`,
-        [cleanPhone, cleanEmail, stand === 'autos' ? nonAutosScreenIds() : screenIdsOf(stand)]
+        // Una participación por EVENTO: en las ferias cuentan los 3 frentes de la ciudad (pantalla, kiosco y correo)
+        [cleanPhone, cleanEmail, stand === 'autos' ? nonAutosScreenIds() : screenIdsOfEvent(standEvent)]
       );
 
       if (existingSpins.length > 0) {
@@ -321,7 +354,7 @@ async function processSpin(req, res) {
         // Construir mensaje de WhatsApp para el premio existente
         const whatsappUrl = buildWhatsappUrl({
           stand, name: prev.lead_name, ticketCode: prev.ticket_code, prizeName: prev.prize_name, destination: prev.dream_destination, alreadyPlayed: true,
-          appointmentText: appointment && appointment.text
+          appointmentText: appointment && appointment.text, eventInfo
         });
 
         return res.json({
@@ -344,6 +377,7 @@ async function processSpin(req, res) {
             },
             whatsappUrl,
             appointment,
+            event: publicEventInfo(standEvent),
             redeemed: Boolean(prev.redeemed)
           }
         });
@@ -365,6 +399,18 @@ async function processSpin(req, res) {
       }
     }
 
+    // 4c. FERIA CERRADA (domingo 15-nov 22:00 hora Ecuador): no se aceptan participaciones NUEVAS en ninguno de los 3
+    // frentes de la ciudad (quien ya jugó sigue viendo su premio arriba; los usuarios de prueba pueden seguir probando).
+    if (!isTestUser && isEventClosed(standEvent)) {
+      await connection.rollback();
+      return res.status(403).json({
+        success: false,
+        code: 'EVENT_CLOSED',
+        event: publicEventInfo(standEvent),
+        message: 'La feria ya terminó. ¡Gracias por participar!'
+      });
+    }
+
     // 5. Verificar cuántos leads se han registrado con este mismo device_id (Auditoría)
     const [[deviceCheck]] = await connection.query(
       'SELECT COUNT(*) AS count_device FROM leads WHERE device_id = ? AND device_id != "unknown"',
@@ -377,8 +423,8 @@ async function processSpin(req, res) {
 
     // 6. Obtener premios activos y verificar cuántos premios se han entregado hoy (para límite diario)
     const [prizes] = await connection.query(
-      `SELECT id, name, description, category, color_hex, text_color, icon, weight, stock, max_daily_wins, active FROM prizes WHERE active = 1 AND stand = ? ORDER BY id ASC${isMail ? ' FOR UPDATE' : ''}`,
-      [stand]
+      `SELECT id, name, description, category, color_hex, text_color, icon, weight, stock, max_daily_wins, active FROM prizes WHERE active = 1 AND stand = ? ORDER BY id ASC${isMail || eventInfo ? ' FOR UPDATE' : ''}`,
+      [prizePool]
     );
 
     if (prizes.length === 0) {
@@ -403,7 +449,7 @@ async function processSpin(req, res) {
     let finalDestination = (dream_destination && dream_destination.trim()) ? dream_destination.trim() : null;
     if (isMail) {
       // La campaña por correo no usa destino soñado
-      finalDestination = 'Campaña Correo';
+      finalDestination = eventInfo ? `Feria ${eventInfo.city}` : 'Campaña Correo';
     } else if (!finalDestination) {
       try {
         const [defRows] = await connection.query('SELECT name FROM destinations WHERE is_default = 1 AND active = 1 LIMIT 1');
@@ -453,7 +499,7 @@ async function processSpin(req, res) {
 
       const whatsappUrl = buildWhatsappUrl({
         stand, name: name.trim(), ticketCode, prizeName: winningPrize.name, destination: finalDestination, alreadyPlayed: false,
-        appointmentText: appointment.text
+        appointmentText: appointment && appointment.text, eventInfo
       });
 
       return res.json({
@@ -479,7 +525,8 @@ async function processSpin(req, res) {
             dream_destination: finalDestination
           },
           whatsappUrl,
-          appointment
+          appointment,
+          event: publicEventInfo(standEvent)
         }
       });
     }
@@ -758,7 +805,7 @@ async function nextInQueue(req, res) {
     // Obtener premios activos para conocer sliceIndex
     const [allPrizes] = await connection.query(
       'SELECT id FROM prizes WHERE active = 1 AND stand = ? ORDER BY id ASC',
-      [standFromScreenId(screen_id) || 'autos']
+      [prizePoolOf(standFromScreenId(screen_id) || 'autos')]
     );
     const sliceIndex = allPrizes.findIndex(p => p.id === nextParticipant.prize_id);
 

@@ -1,19 +1,26 @@
 import React from 'react';
-import { MousePointerClick, Gift, CalendarCheck, ChevronsUp } from 'lucide-react';
+import { MousePointerClick, Gift, CalendarCheck, MapPin, ChevronsUp } from 'lucide-react';
 
 const STEPS = [
   { n: 1, Icon: MousePointerClick, text: 'Gira la ruleta.' },
   { n: 2, Icon: Gift, text: 'Descubre tu premio y tu código de canje.' },
   { n: 3, Icon: CalendarCheck, text: 'Agenda tu cita para canjear tu premio.' }
 ];
+// Ferias: sin cita; el cliente se acerca al stand durante la feria
+const FAIR_STEPS = [
+  STEPS[0],
+  STEPS[1],
+  { n: 3, Icon: MapPin, text: 'Acércate al stand de Marketing VIP en la feria.' }
+];
 
 /** Panel "3 pasos" + mensaje inferior del diseño de campaña. */
-export default function MailSteps({ hint }) {
+export default function MailSteps({ hint, fair = false }) {
+  const steps = fair ? FAIR_STEPS : STEPS;
   // `hint` es opcional: sin texto no se dibuja la pastilla inferior
   return (
     <div className="w-full">
       <div className="bg-[#0B2A4A]/95 rounded-2xl px-2 py-2 flex items-start justify-between gap-1 shadow-xl border border-white/10">
-        {STEPS.map(({ n, Icon, text }, i) => (
+        {steps.map(({ n, Icon, text }, i) => (
           <React.Fragment key={n}>
             <div className="flex-1 flex flex-col items-center text-center gap-1.5 min-w-0">
               <div className="relative w-10 h-10 rounded-full border-2 border-white/80 flex items-center justify-center text-white">
@@ -24,7 +31,7 @@ export default function MailSteps({ hint }) {
               </div>
               <span className="text-[10px] leading-tight text-white font-semibold px-0.5">{text}</span>
             </div>
-            {i < STEPS.length - 1 && (
+            {i < steps.length - 1 && (
               <span className="text-white/70 text-lg font-light self-center pb-3 shrink-0">›</span>
             )}
           </React.Fragment>

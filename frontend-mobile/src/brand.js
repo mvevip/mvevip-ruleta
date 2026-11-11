@@ -28,6 +28,39 @@ export function detectMobileBrand() {
 }
 
 /**
+ * Evento del canal Correo. Misma regla que el servidor (api/src/services/mailLookup.js, resolveMailEvent):
+ *  - ?ev=riobamba | ambato | cuotas manda;
+ *  - sin ev, la clave del enlace decide: campana_cuotas (el enlace ya enviado a los clientes de Riobamba) y
+ *    feria_riobamba -> Riobamba, feria_ambato -> Ambato;
+ *  - sin clave -> cuotas (enlace "pelado" /?view=mail).
+ * Se calcula UNA sola vez al abrir la página: después la app quita `c` de la URL (y fija `ev`), y recalcularlo
+ * cambiaría el evento a mitad de la sesión.
+ */
+const MAIL_EVENTS = {
+  cuotas: { screenId: 'MAIL_01', stand: 'mail', label: 'Cuotas' },
+  riobamba: { screenId: 'RIO_MAIL', stand: 'rio_mail', label: 'Riobamba' },
+  ambato: { screenId: 'AMB_MAIL', stand: 'amb_mail', label: 'Ambato' }
+};
+const KEY_DEFAULT_EVENT = { campana_cuotas: 'riobamba', feria_riobamba: 'riobamba', feria_ambato: 'ambato' };
+let cachedMailEvent = null;
+
+export function resolveMailEvent() {
+  if (cachedMailEvent) return cachedMailEvent;
+  let event = 'cuotas';
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const ev = (params.get('ev') || '').trim().toLowerCase();
+    const key = (params.get('c') || '').trim();
+    if (MAIL_EVENTS[ev]) event = ev;
+    else if (KEY_DEFAULT_EVENT[key]) event = KEY_DEFAULT_EVENT[key];
+  } catch (e) {
+    event = 'cuotas';
+  }
+  cachedMailEvent = event;
+  return event;
+}
+
+/**
  * Canal que pide la URL actual, para decidir si se puede entrar o hay que ir al canal por defecto:
  *  - 'mail'  -> ?view=mail
  *  - 'ford'  -> /formulario2, ?screen=STAND_02 / STAND_LOCAL_2, ?stand=ford
@@ -42,7 +75,8 @@ export function detectRequestedChannel() {
   const screenParam = (params.get('screen') || '').toUpperCase();
   const stand = (params.get('stand') || params.get('brand') || '').toLowerCase();
 
-  if (view === 'mail') return 'mail';
+  // Correo: cuotas es el canal 'mail' (se puede habilitar/deshabilitar en el admin); las ferias tienen el suyo
+  if (view === 'mail') return MAIL_EVENTS[resolveMailEvent()].stand;
   if (screenParam === 'KIOSK_01' || stand === 'kiosk') return 'kiosk';
   if (path.startsWith('/formulario2') || screenParam === 'STAND_02' || screenParam === 'STAND_LOCAL_2' || stand === 'ford') return 'ford';
   if (screenParam === 'STAND_01' || screenParam === 'STAND_LOCAL' || stand === 'autos') return 'autos';
@@ -92,7 +126,7 @@ export function getMobileBrandConfig() {
   if (isKiosk) {
     screenId = 'KIOSK_01';
   } else if (isMail) {
-    screenId = 'MAIL_01';
+    screenId = MAIL_EVENTS[resolveMailEvent()].screenId;
   } else if (isFord) {
     screenId = (rawScreen === 'STAND_02' || rawScreen === 'STAND_LOCAL_2')
       ? rawScreen
@@ -101,11 +135,16 @@ export function getMobileBrandConfig() {
     screenId = rawScreen || (isProduction ? 'STAND_01' : 'STAND_LOCAL');
   }
 
+  const mailEvent = isMail ? resolveMailEvent() : null; // 'cuotas' | 'riobamba' | 'ambato'
+
   return {
     key: isKiosk ? 'kiosk' : isMail ? 'mail' : brand,
     isFord,
     isKiosk,
     isMail,
+    mailEvent,
+    isFair: Boolean(mailEvent) && mailEvent !== 'cuotas', // feria de Riobamba / Ambato (no cuotas)
+    mailStand: isMail ? MAIL_EVENTS[mailEvent].stand : null, // stand del API: 'mail' | 'rio_mail' | 'amb_mail'
     screenId,
     logoSrc: isFord ? '/logo_ford.jpeg' : '/logotipo.png',
     logoAlt: isFord ? 'Ford | Quito Motors' : 'Marketing VIP',

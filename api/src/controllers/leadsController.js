@@ -5,7 +5,8 @@ const {
   screenIdsOf,
   nonAutosScreenIds,
   STANDS,
-  isValidStand
+  isValidStand,
+  isMailStand
 } = require('../config/stands');
 
 function deriveLeadStand(screenId) {
@@ -22,7 +23,7 @@ const CRM_ID_COLUMN = /^[A-Za-z_][A-Za-z0-9_]*$/.test(process.env.CRM_ID_COLUMN 
  * Nunca interrumpe el listado: si la consulta falla (columna distinta, sin permisos), los leads salen sin ID.
  */
 async function attachCrmClientIds(rows) {
-  const mailRows = rows.filter((r) => r.screen_id === 'MAIL_01');
+  const mailRows = rows.filter((r) => isMailStand(deriveLeadStand(r.screen_id)));
   if (mailRows.length === 0) return;
 
   const emailOf = (r) => String(r.crm_email || r.email || '').trim().toLowerCase();
@@ -86,7 +87,8 @@ async function getLeads(req, res) {
 
     // Totales reales por canal (no dependen del filtro ni del tope de filas)
     const [countRows] = await pool.query('SELECT screen_id, COUNT(*) AS n FROM leads GROUP BY screen_id');
-    const totals = { autos: 0, ford: 0, mail: 0, kiosk: 0, all: 0 };
+    const totals = { all: 0 };
+    Object.keys(STANDS).forEach((key) => { totals[key] = 0; });
     countRows.forEach((r) => {
       const st = deriveLeadStand(r.screen_id);
       totals[st] = (totals[st] || 0) + Number(r.n);
@@ -100,7 +102,10 @@ async function getLeads(req, res) {
       return {
         ...r,
         stand: st,
-        stand_label: STANDS[st]?.label || 'Autos'
+        stand_label: STANDS[st]?.label || 'Autos',
+        // Evento (ciudad) y frente por el que entró el lead; derivados del screen_id (ver config/stands.js)
+        event: STANDS[st]?.event || 'autos',
+        front: STANDS[st]?.front || 'stand'
       };
     });
 
@@ -263,6 +268,21 @@ async function getMetrics(req, res) {
       [screenIdsOf('kiosk')]
     );
 
+    // Ferias (Riobamba / Ambato): desglose por frente
+    const fairStands = Object.values(STANDS).filter((st) => st.prizePool);
+    const fairBreakdown = {};
+    for (const st of fairStands) {
+      const [[fl]] = await pool.query(
+        'SELECT COUNT(*) AS count FROM leads WHERE (is_test = 0 OR is_test IS NULL) AND screen_id IN (?)',
+        [st.screenIds]
+      );
+      const [[fs]] = await pool.query(
+        'SELECT COUNT(*) AS count FROM spins WHERE (is_test = 0 OR is_test IS NULL) AND screen_id IN (?)',
+        [st.screenIds]
+      );
+      fairBreakdown[st.key] = { leads: fl.count, spins: fs.count };
+    }
+
     res.json({
       success: true,
       stand: filterByStand || 'all',
@@ -291,7 +311,8 @@ async function getMetrics(req, res) {
           kiosk: {
             leads: kioskLeadsRow.count,
             spins: kioskSpinsRow.count
-          }
+          },
+          ...fairBreakdown
         }
       }
     });

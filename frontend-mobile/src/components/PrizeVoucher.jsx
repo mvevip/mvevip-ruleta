@@ -34,8 +34,10 @@ export default function PrizeVoucher({ result }) {
     }
   }, [brand.isFord]);
 
-  const { winner, lead, ticketCode, whatsappUrl, appointment } = result;
+  const { winner, lead, ticketCode, whatsappUrl, appointment, event } = result;
   const isMail = brand.isMail;
+  // Ferias (Riobamba / Ambato): en lugar de la cita del sábado se muestra dónde y cuándo es la feria y el stand
+  const isFair = isMail && Boolean(event);
   const PrizeIcon = isMail ? getPrizeIcon(winner.icon) : null;
 
   return (
@@ -136,6 +138,29 @@ export default function PrizeVoucher({ result }) {
           </div>
         )}
 
+        {/* Feria (Riobamba / Ambato): ubicación, fechas y stand */}
+        {isFair && (
+          <div className="rounded-2xl border-2 border-[#9AC31C] bg-[#9AC31C]/10 p-3 text-center">
+            <div className="flex items-center justify-center gap-1.5 text-[11px] [@media(max-height:600px)]:text-[10px] font-racing font-black text-[#5f7d0c] uppercase tracking-widest [@media(max-height:600px)]:tracking-wide">
+              <MapPin className="w-4 h-4 shrink-0" />
+              <span>Reclama tu premio en la feria</span>
+            </div>
+            <p className="text-sm font-bold text-zinc-900 mt-1 leading-tight">{event.fairName}</p>
+            <p className="text-xs font-semibold text-zinc-700 leading-tight">{event.venue}</p>
+            <p className="text-xs text-zinc-600 mt-0.5 leading-tight">{event.datesText}</p>
+            <p className="text-[13px] font-racing font-black text-zinc-900 mt-1 leading-tight">{event.standText}</p>
+            <a
+              href={event.mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-flex items-center justify-center gap-1.5 px-4 py-1.5 rounded-full bg-[#0B2A4A] text-white text-[12px] font-bold shadow active:scale-95 transition-transform"
+            >
+              <MapPin className="w-3.5 h-3.5 text-[#C6F03A]" />
+              Cómo llegar
+            </a>
+          </div>
+        )}
+
         {/* Validez de Urgencia */}
         {!isMail && (
           <div className="flex items-center justify-center gap-1.5 text-xs text-zinc-600 font-medium">
@@ -157,11 +182,13 @@ export default function PrizeVoucher({ result }) {
         className={`ford-primary-btn w-full max-w-sm ${isMail ? 'py-3 [@media(max-height:600px)]:py-2' : 'py-4'} px-6 rounded-2xl bg-gradient-to-r from-[#84A816] via-[#9AC31C] to-[#84A816] hover:opacity-95 text-black font-racing font-black text-base uppercase tracking-wider shadow-xl flex items-center justify-center gap-3 transition-transform active:scale-95 text-center group`}
       >
         <MessageCircle className="w-6 h-6 text-black group-hover:scale-110 transition-transform" />
-        <span>{isMail ? 'Confirmar mi cita por WhatsApp' : '¡Reclama tu premio!'}</span>
+        <span>{isFair ? 'Consultar por WhatsApp' : isMail ? 'Confirmar mi cita por WhatsApp' : '¡Reclama tu premio!'}</span>
       </a>
 
       <p className={`text-center max-w-xs font-medium ${isMail ? 'text-[11px] mt-2 text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.7)] [@media(max-height:640px)]:hidden' : 'text-xs mt-3 text-zinc-600'}`}>
-        {isMail
+        {isFair
+          ? 'Presiona el botón para abrir WhatsApp y consultar tu premio con nuestro asistente.'
+          : isMail
           ? 'Presiona el botón para abrir WhatsApp y confirmar tu cita y tu premio con nuestro asistente.'
           : 'Presiona el botón para abrir WhatsApp y validar tu premio con nuestros asesores.'}
       </p>
