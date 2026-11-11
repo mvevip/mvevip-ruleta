@@ -7,6 +7,7 @@ const displaysController = require('../controllers/displaysController');
 const testUsersController = require('../controllers/testUsersController');
 const mailController = require('../controllers/mailController');
 const channelsController = require('../controllers/channelsController');
+const eventsController = require('../controllers/eventsController');
 const kioskController = require('../controllers/kioskController');
 const { spinLimiter, adminLimiter, lookupLimiter } = require('../middlewares/rateLimiter');
 const { requireAdminAuth } = require('../middlewares/authMiddleware');
@@ -49,6 +50,9 @@ router.put('/admin/prizes/:id', adminLimiter, requireAdminAuth, rouletteControll
 
 // Rutas Administrativas de Canales de acceso (habilitar/deshabilitar y canal por defecto)
 router.get('/admin/channels', adminLimiter, requireAdminAuth, channelsController.getAdminChannels);
+// Datos de las ferias (Riobamba / Ambato) editables desde el Admin
+router.get('/admin/events', adminLimiter, requireAdminAuth, eventsController.getAdminEvents);
+router.put('/admin/events/:event', adminLimiter, requireAdminAuth, eventsController.updateEvent);
 router.put('/admin/channels', adminLimiter, requireAdminAuth, channelsController.updateChannels);
 
 // Rutas Administrativas de Destinos Soñados

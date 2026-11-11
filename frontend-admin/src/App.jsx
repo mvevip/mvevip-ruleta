@@ -22,13 +22,16 @@ import {
   Star,
   Tv,
   FlaskConical,
-  SlidersHorizontal
+  SlidersHorizontal,
+  MapPin
 } from 'lucide-react';
 import DisplaysManager from './components/DisplaysManager';
 import TestUsersManager from './components/TestUsersManager';
 import StrictAdvisorSelect, { DEFAULT_ADVISORS } from './components/StrictAdvisorSelect';
 import PrizeIconPicker from './components/PrizeIconPicker';
 import ChannelsModal from './components/ChannelsModal';
+import EventSettingsModal from './components/EventSettingsModal';
+import { STAND_META, EVENT_GROUPS, FRONT_LABEL, TONE, isKnownStand, groupOfStand } from './utils/stands';
 
 const isProduction = typeof window !== 'undefined' && (
   window.location.hostname === 'autos.mvevip.com' ||
@@ -58,21 +61,27 @@ export default function App() {
   const [activeStand, setActiveStand] = useState(() => {
     try {
       const saved = localStorage.getItem('vip_admin_stand');
-      return saved === 'ford' || saved === 'mail' || saved === 'kiosk' ? saved : 'autos';
+      return isKnownStand(saved) ? saved : 'autos';
     } catch (_) {
       return 'autos';
     }
   });
-  // Filtro de la pestaña Leads: arranca en el canal activo del selector superior y lo sigue ('all' | 'autos' | 'ford' | 'mail' | 'kiosk')
+  // Filtro de la pestaña Leads: arranca en el canal activo del selector superior y lo sigue.
+  // Valores: 'all' | clave de stand ('autos', 'ford', 'mail', 'kiosk', 'rio_kiosk'...) | 'event:riobamba' | 'event:ambato' (toda la ciudad)
+  const leadFilterFor = (standKey) => {
+    const meta = STAND_META[standKey];
+    return meta && meta.isFair ? `event:${meta.event}` : standKey;
+  };
   const [leadStandFilter, setLeadStandFilter] = useState(() => {
     try {
       const saved = localStorage.getItem('vip_admin_stand');
-      return saved === 'ford' || saved === 'mail' || saved === 'kiosk' ? saved : 'autos';
+      return leadFilterFor(isKnownStand(saved) ? saved : 'autos');
     } catch (_) {
       return 'autos';
     }
   });
-  const [leadTotals, setLeadTotals] = useState({ autos: 0, ford: 0, mail: 0, kiosk: 0, all: 0 });
+  const [leadTotals, setLeadTotals] = useState({ autos: 0, ford: 0, mail: 0, kiosk: 0, all: 0, events: {} });
+  const [showEventSettings, setShowEventSettings] = useState(false); // modal Datos de la feria
   const [showChannels, setShowChannels] = useState(false); // modal Canales de acceso (habilitar / por defecto)
   const [activeTab, setActiveTab] = useState('prizes'); // 'prizes' | 'leads' | 'destinations' | 'displays' | 'redeem' | 'metrics'
   const [leadsSubTab, setLeadsSubTab] = useState('captured'); // 'captured' | 'test_users'
@@ -116,10 +125,11 @@ export default function App() {
   }, [isAuthenticated, leadStandFilter]);
 
   const handleSelectStand = (stand) => {
+    if (!isKnownStand(stand)) return;
     setActiveStand(stand);
-    setLeadStandFilter(stand); // la pestaña Leads sigue al canal elegido arriba
-    // El canal Correo no tiene pantallas físicas
-    if (stand === 'mail' && activeTab === 'displays') setActiveTab('prizes');
+    setLeadStandFilter(leadFilterFor(stand)); // la pestaña Leads sigue al canal elegido arriba (en las ferias, toda la ciudad)
+    // El frente Correo no tiene pantallas físicas
+    if (STAND_META[stand].front === 'mail' && activeTab === 'displays') setActiveTab('prizes');
     try {
       localStorage.setItem('vip_admin_stand', stand);
     } catch (_) {}
@@ -156,10 +166,14 @@ export default function App() {
     setLoading(true);
     try {
       const headers = getAdminHeaders();
-      const standParam = encodeURIComponent(standOverride || activeStand || 'autos');
+      const standKey = standOverride || activeStand || 'autos';
+      const standParam = encodeURIComponent(standKey);
+      // Ferias: las métricas son de toda la ciudad (pantalla + kiosco + correo)
+      const metaOfStand = STAND_META[standKey];
+      const metricsQuery = metaOfStand && metaOfStand.isFair ? `event=${metaOfStand.event}` : `stand=${standParam}`;
       const [resP, resM, resD] = await Promise.all([
         fetch(`${API_URL}/api/admin/prizes?stand=${standParam}`, { headers }),
-        fetch(`${API_URL}/api/metrics?stand=${standParam}`, { headers }),
+        fetch(`${API_URL}/api/metrics?${metricsQuery}`, { headers }),
         fetch(`${API_URL}/api/admin/destinations`, { headers })
       ]);
 
@@ -188,7 +202,10 @@ export default function App() {
   // Leads del canal elegido (el servidor filtra; 'all' trae todos los canales)
   const loadLeads = async (standFilter = leadStandFilter) => {
     try {
-      const res = await fetch(`${API_URL}/api/leads?stand=${encodeURIComponent(standFilter || 'all')}`, { headers: getAdminHeaders() });
+      const filterQuery = String(standFilter || '').startsWith('event:')
+        ? `event=${encodeURIComponent(String(standFilter).slice(6))}`
+        : `stand=${encodeURIComponent(standFilter || 'all')}`;
+      const res = await fetch(`${API_URL}/api/leads?${filterQuery}`, { headers: getAdminHeaders() });
       if (res.status === 401) {
         handleLogout();
         alert('Sesión expirada o PIN inválido. Por favor ingresa nuevamente.');
@@ -438,10 +455,11 @@ export default function App() {
 
   // Filtrado de leads para búsqueda en móvil y filtro por Stand (Todos / Autos / Ford)
   const filteredLeads = leads.filter(l => {
-    if (leadStandFilter === 'autos' && l.stand !== 'autos') return false;
-    if (leadStandFilter === 'ford' && l.stand !== 'ford') return false;
-    if (leadStandFilter === 'mail' && l.stand !== 'mail') return false;
-    if (leadStandFilter === 'kiosk' && l.stand !== 'kiosk') return false;
+    if (String(leadStandFilter).startsWith('event:')) {
+      if (l.event !== String(leadStandFilter).slice(6)) return false;
+    } else if (leadStandFilter !== 'all' && l.stand !== leadStandFilter) {
+      return false;
+    }
     const q = searchQuery.toLowerCase();
     if (!q) return true;
     return (
@@ -454,9 +472,15 @@ export default function App() {
     );
   });
 
-  const isFordStand = activeStand === 'ford';
-  const isMailStand = activeStand === 'mail';
-  const isKioskStand = activeStand === 'kiosk';
+  const meta = STAND_META[activeStand] || STAND_META.autos;
+  const activeGroup = groupOfStand(activeStand);
+  const isFordStand = Boolean(meta.isFord);
+  const isMailStand = meta.front === 'mail'; // correo (cuotas o feria): sin pantallas físicas, ruleta con íconos y ID de cliente
+  const isKioskStand = meta.front === 'kiosk';
+  const isFairStand = Boolean(meta.isFair); // feria de Riobamba / Ambato
+  const fairCity = isFairStand ? activeGroup.city : null;
+  const usesPrizeIcons = isMailStand || isFairStand; // la ruleta del celular de la feria dibuja íconos
+  const standShort = (key) => (STAND_META[key] ? `${STAND_META[key].emoji} ${STAND_META[key].short}` : key);
 
   return (
     <div className="min-h-screen carbon-bg text-white flex flex-col justify-between pb-20 select-none">
@@ -472,12 +496,12 @@ export default function App() {
             <div>
               <h1 className="font-racing font-bold text-sm text-white tracking-wider leading-none">
                 ADMIN <span className={isFordStand ? 'text-blue-400' : 'text-[#9AC31C]'}>
-                  {isFordStand ? 'FORD (PANTALLA 2)' : isMailStand ? 'CORREO (CAMPAÑA)' : isKioskStand ? 'KIOSCO (2 PANTALLAS)' : 'AUTOS (PANTALLA 1)'}
+                  {meta.title}
                 </span>
               </h1>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className="text-[10px] text-zinc-400 font-sans">
-                  {isFordStand ? 'Ford | Quito Motors' : 'Marketing VIP Móvil'}
+                  {isFordStand ? 'Ford | Quito Motors' : isFairStand ? `Feria ${fairCity} · Marketing VIP` : 'Marketing VIP Móvil'}
                 </span>
                 {!isProduction && (
                   <span className="text-yellow-400 font-bold bg-yellow-400/20 px-1 py-0.2 rounded text-[8px] tracking-wide border border-yellow-400/30">
@@ -499,6 +523,13 @@ export default function App() {
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               </button>
               <button
+                onClick={() => setShowEventSettings(true)}
+                className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-sky-400 active:scale-95"
+                title="Datos de la feria (lugar, fechas, stand, cierre y enlaces de Riobamba y Ambato)"
+              >
+                <MapPin className="w-4 h-4" />
+              </button>
+              <button
                 onClick={() => setShowChannels(true)}
                 className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-amber-400 active:scale-95"
                 title="Canales de acceso (habilitar y canal por defecto)"
@@ -516,56 +547,63 @@ export default function App() {
           )}
         </div>
 
-        {/* Selector Global de Stand (AUTOS vs FORD) */}
+        {/* Selector de evento (fila 1) y de frente dentro del evento (fila 2) */}
         {isAuthenticated && (
-          <div className="max-w-md w-full mx-auto grid grid-cols-4 gap-1.5 p-1 bg-zinc-900 rounded-2xl border border-zinc-800">
-            <button
-              type="button"
-              onClick={() => handleSelectStand('autos')}
-              className={`py-2 px-2 rounded-xl font-racing font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                !isFordStand && !isMailStand && !isKioskStand
-                  ? 'bg-[#9AC31C] text-black shadow-[0_0_15px_rgba(154,195,28,0.4)]'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              <span>🏎️ 1: AUTOS</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSelectStand('ford')}
-              className={`py-2 px-2 rounded-xl font-racing font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                isFordStand
-                  ? 'bg-[#212650] text-white border border-blue-400/50 shadow-[0_0_15px_rgba(33,38,80,0.7)]'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              <span>🚘 2: FORD</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSelectStand('mail')}
-              className={`py-2 px-2 rounded-xl font-racing font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                isMailStand
-                  ? 'bg-amber-500 text-black shadow-[0_0_15px_rgba(245,158,11,0.5)]'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              <span>📧 CORREO</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSelectStand('kiosk')}
-              className={`py-2 px-2 rounded-xl font-racing font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                isKioskStand
-                  ? 'bg-fuchsia-500 text-black shadow-[0_0_15px_rgba(217,70,239,0.5)]'
-                  : 'text-zinc-400 hover:text-white'
-              }`}
-            >
-              <span>🖥️ KIOSCO</span>
-            </button>
+          <div className="max-w-md w-full mx-auto space-y-1.5">
+            <div className="grid grid-cols-4 gap-1.5 p-1 bg-zinc-900 rounded-2xl border border-zinc-800">
+              {EVENT_GROUPS.map((group) => {
+                const selected = activeGroup.key === group.key;
+                return (
+                  <button
+                    key={group.key}
+                    type="button"
+                    onClick={() => handleSelectStand(selected ? activeStand : group.fronts[0])}
+                    className={`py-2 px-1 rounded-xl font-racing font-bold text-[10px] uppercase tracking-wider transition-all flex items-center justify-center cursor-pointer ${
+                      selected ? TONE[group.tone].active : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    <span>{group.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {activeGroup.fronts.length > 1 && (
+              <div className={`grid gap-1.5 p-1 bg-zinc-900/80 rounded-xl border border-zinc-800 ${activeGroup.fronts.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                {activeGroup.fronts.map((standKey) => {
+                  const m = STAND_META[standKey];
+                  const selected = activeStand === standKey;
+                  return (
+                    <button
+                      key={standKey}
+                      type="button"
+                      onClick={() => handleSelectStand(standKey)}
+                      className={`py-1.5 px-1 rounded-lg font-racing font-bold text-[10px] uppercase tracking-wider transition-all cursor-pointer ${
+                        selected ? TONE[m.tone].chip : 'text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      {m.isFair ? FRONT_LABEL[m.front] : m.isFord ? '🚘 FORD' : `${m.emoji} ${m.short}`}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </header>
+
+      {showEventSettings && (
+        <EventSettingsModal
+          apiUrl={API_URL}
+          getAdminHeaders={getAdminHeaders}
+          initialEvent={isFairStand ? meta.event : 'riobamba'}
+          linksBase={isProduction ? window.location.origin : 'https://autos.mvevip.com'}
+          onClose={() => setShowEventSettings(false)}
+          onNotification={(msg) => {
+            setSavedMsg(msg);
+            setTimeout(() => setSavedMsg(''), 3000);
+          }}
+        />
+      )}
 
       {showChannels && (
         <ChannelsModal
@@ -634,11 +672,11 @@ export default function App() {
             <div className="flex items-center gap-2">
               <span className={`w-2.5 h-2.5 rounded-full animate-pulse ${isFordStand ? 'bg-white' : 'bg-[#9AC31C]'}`} />
               <span className="font-racing font-bold uppercase tracking-wider">
-                {isFordStand ? 'Editando Stand 2: FORD (/pantalla2)' : isMailStand ? 'Editando Canal CORREO (campaña Brevo)' : isKioskStand ? 'Editando KIOSCO (ruleta arriba + botón abajo)' : 'Editando Stand 1: AUTOS (/pantalla)'}
+                {meta.banner}
               </span>
             </div>
             <span className="text-[10px] font-mono opacity-85">
-              {isFordStand ? 'Form: /formulario2' : isMailStand ? 'Form: /?view=mail' : isKioskStand ? 'Form: /?screen=KIOSK_01' : 'Form: /'}
+              {`Form: ${meta.formPath}`}
             </span>
           </div>
 
@@ -649,7 +687,15 @@ export default function App() {
               <div className="bg-zinc-900/90 border border-[#9AC31C]/40 p-3 rounded-2xl flex items-start gap-2.5">
                 <Percent className="w-4 h-4 text-[#9AC31C] shrink-0 mt-0.5" />
                 <p className="text-[11px] text-zinc-300">
-                  <strong className="text-[#9AC31C]">Premios de {isFordStand ? 'Ford (Pantalla 2)' : isMailStand ? 'Correo (campaña)' : isKioskStand ? 'Kiosco' : 'Autos (Pantalla 1)'}:</strong> Cada stand/canal tiene su propio inventario y probabilidades independientes.
+                  {isFairStand ? (
+                    <>
+                      <strong className="text-[#9AC31C]">Catálogo de {fairCity}:</strong> la pantalla gigante, el kiosco y el correo de {fairCity} comparten estos premios y su stock (lo que se descuenta en un frente baja en los tres). Los cambios aplican a los tres frentes.
+                    </>
+                  ) : (
+                    <>
+                      <strong className="text-[#9AC31C]">Premios de {meta.title}:</strong> Cada stand/canal tiene su propio inventario y probabilidades independientes.
+                    </>
+                  )}
                 </p>
               </div>
 
@@ -718,7 +764,7 @@ export default function App() {
                   </div>
 
                   {/* Ícono de viaje en la ruleta del canal Correo */}
-                  {isMailStand && (
+                  {usesPrizeIcons && (
                     <PrizeIconPicker
                       value={p.icon || ''}
                       onChange={(key) => handlePrizeChange(p.id, 'icon', key)}
@@ -791,7 +837,33 @@ export default function App() {
                 />
               ) : (
                 <div className="space-y-3">
-                  {/* Filtro rápido de Leads por Stand (Todos / Autos / Ford) */}
+                  {/* Ferias (Riobamba / Ambato): toda la ciudad o un frente (pantalla, kiosco, correo) */}
+                  {isFairStand ? (
+                    <div className="grid grid-cols-4 gap-1.5 p-1 bg-zinc-900 rounded-xl border border-zinc-800 text-[10px] font-racing font-bold">
+                      <button
+                        type="button"
+                        onClick={() => setLeadStandFilter(`event:${meta.event}`)}
+                        className={`py-1.5 rounded-lg uppercase transition-all cursor-pointer ${
+                          leadStandFilter === `event:${meta.event}` ? TONE[meta.tone].chip : 'text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        {fairCity} ({(leadTotals.events && leadTotals.events[meta.event]) || 0})
+                      </button>
+                      {activeGroup.fronts.map((standKey) => (
+                        <button
+                          key={standKey}
+                          type="button"
+                          onClick={() => setLeadStandFilter(standKey)}
+                          className={`py-1.5 rounded-lg uppercase transition-all cursor-pointer ${
+                            leadStandFilter === standKey ? TONE[meta.tone].chip : 'text-zinc-400 hover:text-white'
+                          }`}
+                        >
+                          {FRONT_LABEL[STAND_META[standKey].front]} ({leadTotals[standKey] || 0})
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                  <>
                   <div className="grid grid-cols-5 gap-1.5 p-1 bg-zinc-900 rounded-xl border border-zinc-800 text-[10px] font-racing font-bold">
                     <button
                       type="button"
@@ -840,6 +912,9 @@ export default function App() {
                     </button>
                   </div>
 
+                  </>
+                  )}
+
                   {/* Buscador de leads */}
                   <div className="relative">
                     <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-3.5" />
@@ -854,8 +929,14 @@ export default function App() {
 
                   <div className="text-[11px] text-zinc-400 font-mono px-1">
                     Mostrando {filteredLeads.length}
-                    {leadStandFilter !== 'all' && leadTotals[leadStandFilter] > leads.length ? ` de ${leadTotals[leadStandFilter]}` : ''} leads captados
+                    {(() => {
+                      const total = String(leadStandFilter).startsWith('event:')
+                        ? (leadTotals.events || {})[String(leadStandFilter).slice(6)]
+                        : leadTotals[leadStandFilter];
+                      return leadStandFilter !== 'all' && total > leads.length ? ` de ${total}` : '';
+                    })()} leads captados
                     {leadStandFilter === 'all' ? ' (todos los canales)' : ''}
+                    {String(leadStandFilter).startsWith('event:') ? ` (toda la feria de ${fairCity || ''})` : ''}
                   </div>
 
                   {/* Tarjetas de leads */}
@@ -864,16 +945,8 @@ export default function App() {
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5 flex-wrap min-w-0">
                           <span className="font-bold text-sm text-white uppercase truncate">{l.name}</span>
-                          <span className={`text-[9px] font-racing font-bold px-2 py-0.5 rounded-full uppercase ${
-                            l.stand === 'ford'
-                              ? 'bg-[#212650] text-white border border-blue-400/50'
-                              : l.stand === 'mail'
-                                ? 'bg-amber-500/20 text-amber-300 border border-amber-400/40'
-                                : l.stand === 'kiosk'
-                                  ? 'bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-400/40'
-                                  : 'bg-[#9AC31C]/20 text-[#9AC31C] border border-[#9AC31C]/40'
-                          }`}>
-                            {l.stand === 'ford' ? '🚘 FORD' : l.stand === 'mail' ? '📧 CORREO' : l.stand === 'kiosk' ? '🖥️ KIOSCO' : '🏎️ AUTOS'}
+                          <span className={`text-[9px] font-racing font-bold px-2 py-0.5 rounded-full uppercase ${(TONE[(STAND_META[l.stand] || STAND_META.autos).tone] || TONE.lime).badge}`}>
+                            {standShort(l.stand)}
                           </span>
                           {l.is_test ? (
                             <span className="text-[9px] font-mono text-purple-300 bg-purple-950/80 border border-purple-500/40 px-1.5 py-0.5 rounded font-bold">
@@ -892,7 +965,7 @@ export default function App() {
                         <span className="text-zinc-500">(Quito, UTC-5)</span>
                       </div>
 
-                      {l.stand === 'mail' && (
+                      {(STAND_META[l.stand] || {}).front === 'mail' && (
                         <div className="flex items-center gap-1.5 text-[11px] font-mono">
                           <span className="text-zinc-400">🆔 ID CLIENTE:</span>
                           {l.crm_client_id !== undefined && l.crm_client_id !== null ? (
@@ -919,7 +992,7 @@ export default function App() {
                         Premio: <strong className="text-[#9AC31C]">{l.prize_name || 'Pendiente'}</strong>
                       </div>
 
-                      {l.stand === 'kiosk' && l.ticket_code && (
+                      {(STAND_META[l.stand] || {}).front === 'kiosk' && l.ticket_code && (
                         <button
                           type="button"
                           onClick={() => handleReprintTicket(l.ticket_code)}
@@ -1033,7 +1106,7 @@ export default function App() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-zinc-900 p-4 rounded-2xl border border-zinc-800 text-center">
-                  <span className="text-[10px] text-zinc-400 font-racing uppercase">Leads ({isFordStand ? 'Ford' : isMailStand ? 'Correo' : isKioskStand ? 'Kiosco' : 'Autos'})</span>
+                  <span className="text-[10px] text-zinc-400 font-racing uppercase">Leads ({isFairStand ? `Feria ${fairCity}` : isFordStand ? 'Ford' : isMailStand ? 'Correo' : isKioskStand ? 'Kiosco' : 'Autos'})</span>
                   <p className="text-2xl font-racing font-black text-[#9AC31C] mt-1">{metrics.totalLeads}</p>
                 </div>
                 <div className="bg-zinc-900 p-4 rounded-2xl border border-zinc-800 text-center">
@@ -1066,9 +1139,33 @@ export default function App() {
                       <span className="font-mono font-bold text-white">{metrics.byStand.ford?.leads ?? metrics.byStand.ford ?? 0} leads</span>
                     </div>
                     <div className="bg-amber-950/40 p-3 rounded-xl border border-amber-400/40 flex justify-between items-center">
-                      <span className="text-amber-300 font-racing font-bold">📧 CORREO</span>
+                      <span className="text-amber-300 font-racing font-bold">📧 CORREO (CUOTAS)</span>
                       <span className="font-mono font-bold text-white">{metrics.byStand.mail?.leads ?? 0} leads</span>
                     </div>
+                    {metrics.byStand.kiosk && (
+                      <div className="bg-fuchsia-950/40 p-3 rounded-xl border border-fuchsia-400/40 flex justify-between items-center">
+                        <span className="text-fuchsia-300 font-racing font-bold">🖥️ KIOSCO</span>
+                        <span className="font-mono font-bold text-white">{metrics.byStand.kiosk?.leads ?? 0} leads</span>
+                      </div>
+                    )}
+                    {/* Ferias: desglose por ciudad y frente */}
+                    {EVENT_GROUPS.filter((g) => g.fair && g.fronts.some((k) => metrics.byStand[k])).map((g) => (
+                      <div key={g.key} className={`p-3 rounded-xl border space-y-1 ${g.key === 'riobamba' ? 'bg-sky-950/40 border-sky-400/40' : 'bg-rose-950/40 border-rose-400/40'}`}>
+                        <div className="flex justify-between items-center">
+                          <span className={`font-racing font-bold ${g.key === 'riobamba' ? 'text-sky-300' : 'text-rose-300'}`}>{g.label}</span>
+                          <span className="font-mono font-bold text-white">
+                            {g.fronts.reduce((sum, k) => sum + (metrics.byStand[k]?.leads ?? 0), 0)} leads · {g.fronts.reduce((sum, k) => sum + (metrics.byStand[k]?.spins ?? 0), 0)} giros
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-1 text-[10px] font-mono text-zinc-300">
+                          {g.fronts.map((k) => (
+                            <span key={k} className="bg-zinc-950/70 rounded-lg px-1.5 py-1 text-center">
+                              {FRONT_LABEL[STAND_META[k].front]}: <strong className="text-white">{metrics.byStand[k]?.leads ?? 0}</strong>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -1239,6 +1336,9 @@ export default function App() {
               apiUrl={API_URL}
               getAdminHeaders={getAdminHeaders}
               stand={activeStand}
+              standLabel={meta.title}
+              screenPath={meta.screenPath}
+              formPath={meta.formPath}
               onNotification={(msg) => {
                 setSavedMsg(msg);
                 setTimeout(() => setSavedMsg(''), 3000);

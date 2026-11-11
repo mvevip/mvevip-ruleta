@@ -44,14 +44,28 @@ function isFairEvent(event) {
   return typeof event === 'string' && Object.prototype.hasOwnProperty.call(EVENTS, event);
 }
 
-/** Datos de la feria (o null si el evento no es una feria). */
-function getEventInfo(event) {
-  return isFairEvent(event) ? EVENTS[event] : null;
+/**
+ * Datos editados desde el Admin (tabla `event_settings`, migración 010), por evento. Los carga
+ * services/eventSettings.js (con caché corta) y pisan a los valores por defecto de este archivo.
+ * Sin tabla o sin fila, rigen los valores por defecto.
+ */
+let overrides = {};
+function setEventOverrides(map) {
+  overrides = map && typeof map === 'object' ? map : {};
 }
 
+/** Datos de la feria (por defecto + lo editado en el Admin), o null si el evento no es una feria. */
+function getEventInfo(event) {
+  if (!isFairEvent(event)) return null;
+  return { ...EVENTS[event], ...(overrides[event] || {}) };
+}
+
+/** Feria cerrada: pasó la hora de cierre o el Admin la cerró manualmente (isOpen = false). */
 function isEventClosed(event, now = new Date()) {
   const info = getEventInfo(event);
-  return Boolean(info && info.closesAt && now > new Date(info.closesAt));
+  if (!info) return false;
+  if (info.isOpen === false) return true;
+  return Boolean(info.closesAt && now > new Date(info.closesAt));
 }
 
 /** Versión segura para enviar al navegador. */
@@ -77,5 +91,6 @@ module.exports = {
   isFairEvent,
   getEventInfo,
   isEventClosed,
-  publicEventInfo
+  publicEventInfo,
+  setEventOverrides
 };
