@@ -90,7 +90,7 @@ export default function App() {
   if (!isAuthenticated) return (<><Login /><Toasts /></>);
 
   return (
-    <div className="min-h-screen bg-canvas">
+    <div className="min-h-screen bg-canvas" style={{ minHeight: '100dvh' }}>
       <Sidebar onInstallHelp={() => setInstallHelp(true)} />
       <div className="lg:pl-[272px] min-h-screen flex flex-col">
         <Topbar />

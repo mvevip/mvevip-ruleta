@@ -13,6 +13,10 @@
 }
 
 html, body, #root { min-height: 100%; }
+/* Nunca debe haber scroll horizontal de la página: lo que se salga se recorta (clip no crea un contenedor de scroll) */
+html, body { overflow-x: hidden; overflow-x: clip; max-width: 100%; }
+/* Los hijos directos de una cuadrícula pueden encogerse (si no, un texto largo ensancha la columna y la página se sale) */
+.grid > * { min-width: 0; }
 body {
   background: #F4F7FB;
   color: #0F172A;
@@ -129,3 +133,11 @@ body {
 /* Utilidad: ocultar barra de desplazamiento en carruseles horizontales */
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Barra inferior móvil: capa de composición propia (evita que Safari/Chrome no la pinten hasta hacer scroll) */
+.bottom-nav {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  transform: translate3d(0, 0, 0); -webkit-transform: translate3d(0, 0, 0);
+  will-change: transform;
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+}

@@ -938,7 +938,7 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
                 <select
                   value={displayConfigs.qr?.orientation || 'auto'}
                   onChange={(e) => handleUpdateOrientation('qr', e.target.value)}
-                  className="input !w-auto"
+                  className="input !w-auto min-w-0 max-w-[62%] sm:max-w-none"
                 >
                   <option value="auto">Automática (Auto)</option>
                   <option value="landscape">Horizontal (Landscape)</option>
@@ -1001,7 +1001,7 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
                 <select
                   value={displayConfigs.slider?.orientation || 'auto'}
                   onChange={(e) => handleUpdateOrientation('slider', e.target.value)}
-                  className="input !w-auto"
+                  className="input !w-auto min-w-0 max-w-[62%] sm:max-w-none"
                 >
                   <option value="auto">Automática (Auto)</option>
                   <option value="landscape">Horizontal (Landscape)</option>
@@ -1032,7 +1032,7 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
                 <select
                   value={displayConfigs.combo?.orientation || 'auto'}
                   onChange={(e) => handleUpdateOrientation('combo', e.target.value)}
-                  className="input !w-auto"
+                  className="input !w-auto min-w-0 max-w-[62%] sm:max-w-none"
                 >
                   <option value="auto">Automática (Auto)</option>
                   <option value="landscape">Horizontal (Landscape)</option>

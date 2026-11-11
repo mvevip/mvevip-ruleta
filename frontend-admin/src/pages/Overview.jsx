@@ -91,7 +91,7 @@ export default function Overview() {
 
       <div className="grid xl:grid-cols-3 gap-5">
         {/* Estado por evento */}
-        <section className="xl:col-span-2 space-y-3" aria-label="Estado por evento">
+        <section className="xl:col-span-2 min-w-0 space-y-3" aria-label="Estado por evento">
           <h2 className="panel-title">Estado de cada evento</h2>
           <div className="grid md:grid-cols-2 gap-3 sm:gap-4">
             {CITY_CARDS.map((c) => {
@@ -154,7 +154,7 @@ export default function Overview() {
         </section>
 
         {/* Últimos registros */}
-        <section className="space-y-3" aria-label="Últimos registros">
+        <section className="min-w-0 space-y-3" aria-label="Últimos registros">
           <div className="flex items-center justify-between">
             <h2 className="panel-title flex items-center gap-2"><span className="live-dot" aria-hidden="true" /> Últimos registros</h2>
             <button type="button" onClick={() => navigate('leads')} className="text-xs font-bold text-brand-dark hover:underline cursor-pointer">Ver todos</button>

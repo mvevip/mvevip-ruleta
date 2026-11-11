@@ -18,7 +18,7 @@ export default function BottomNav({ onInstallHelp }) {
 
   return (
     <>
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur border-t border-line pb-safe" aria-label="Menú principal">
+      <nav className="bottom-nav lg:hidden z-40 bg-white border-t border-line shadow-[0_-4px_16px_rgba(15,23,42,0.06)]" aria-label="Menú principal">
         <ul className="grid grid-cols-5 px-1 pt-1.5">
           {main.map((item) => {
             const Icon = item.icon;
