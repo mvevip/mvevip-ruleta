@@ -8,6 +8,8 @@ const crypto = require('crypto');
 const { pool } = require('../config/db');
 const config = require('../config/env');
 const { validateAndFormatEcuadorPhone, validateEmail } = require('./rouletteLogic');
+const { screenIdsOfEvent } = require('../config/stands');
+const { isFairEvent, CUOTAS_EVENT, LEGACY_LINK_EVENT } = require('../config/events');
 
 const TOKEN_LENGTH = 16; // 16 hex = 64 bits de la firma HMAC-SHA256
 
@@ -16,7 +18,19 @@ const TOKEN_LENGTH = 16; // 16 hex = 64 bits de la firma HMAC-SHA256
  * Brevo puede reutilizar copiando la campaña, sin generar nada por contacto. Cada clave vence en una fecha.
  * Se pueden redefinir sin tocar el código con la variable MAIL_CAMPAIGN_KEYS ("clave:AAAA-MM-DD,clave2:AAAA-MM-DD").
  */
-const DEFAULT_CAMPAIGN_KEYS = [{ key: 'campana_cuotas', until: '2026-12-31T23:59:59-05:00' }];
+/**
+ * Cada clave autoriza uno o más eventos (`events`) y tiene un evento por defecto (`defaultEvent`) para los enlaces
+ * SIN parámetro `ev`:
+ *  - campana_cuotas: enlace histórico. Sin `ev` (el correo ya enviado a Riobamba) -> feria de Riobamba; con ev=cuotas
+ *    -> campaña de cuotas (campañas nuevas de cuotas); con ev=riobamba también vale.
+ *  - feria_riobamba / feria_ambato: una por ciudad, solo para su evento; vencen el domingo 15-nov 22:00 (Ecuador).
+ */
+const FAIR_KEY_UNTIL = '2026-11-15T22:00:00-05:00';
+const DEFAULT_CAMPAIGN_KEYS = [
+  { key: 'campana_cuotas', until: '2026-12-31T23:59:59-05:00', events: [CUOTAS_EVENT, 'riobamba'], defaultEvent: LEGACY_LINK_EVENT },
+  { key: 'feria_riobamba', until: FAIR_KEY_UNTIL, events: ['riobamba'], defaultEvent: 'riobamba' },
+  { key: 'feria_ambato', until: FAIR_KEY_UNTIL, events: ['ambato'], defaultEvent: 'ambato' }
+];
 
 function loadCampaignKeys() {
   const raw = process.env.MAIL_CAMPAIGN_KEYS;
@@ -25,7 +39,18 @@ function loadCampaignKeys() {
     const [key, day] = item.split(':').map((v) => (v || '').trim());
     return key && /^\d{4}-\d{2}-\d{2}$/.test(day || '') ? { key, until: `${day}T23:59:59-05:00` } : null;
   }).filter(Boolean);
-  return parsed.length > 0 ? parsed : DEFAULT_CAMPAIGN_KEYS;
+  if (parsed.length === 0) return DEFAULT_CAMPAIGN_KEYS;
+  // La variable solo redefine el vencimiento de claves conocidas; una clave desconocida vale para la campaña de cuotas
+  const merged = DEFAULT_CAMPAIGN_KEYS.map((def) => {
+    const override = parsed.find((p) => p.key === def.key);
+    return override ? { ...def, until: override.until } : def;
+  });
+  parsed.forEach((p) => {
+    if (!merged.some((m) => m.key === p.key)) {
+      merged.push({ key: p.key, until: p.until, events: [CUOTAS_EVENT], defaultEvent: CUOTAS_EVENT });
+    }
+  });
+  return merged;
 }
 
 function safeEqual(a, b) {
@@ -34,14 +59,33 @@ function safeEqual(a, b) {
   return crypto.timingSafeEqual(ha, hb);
 }
 
-function isCampaignKeyValid(candidate, now = new Date()) {
-  if (typeof candidate !== 'string' || candidate.length === 0 || candidate.length > 64) return false;
-  return loadCampaignKeys().some(({ key, until }) => safeEqual(candidate, key) && now <= new Date(until));
+function findCampaignKey(candidate) {
+  if (typeof candidate !== 'string' || candidate.length === 0 || candidate.length > 64) return null;
+  return loadCampaignKeys().find(({ key }) => safeEqual(candidate, key)) || null;
+}
+
+/** ¿La clave existe, está vigente y (si se indica evento) autoriza ese evento? */
+function isCampaignKeyValid(candidate, now = new Date(), event = null) {
+  const record = findCampaignKey(candidate);
+  if (!record || now > new Date(record.until)) return false;
+  return event ? record.events.includes(event) : true;
+}
+
+/**
+ * Evento de un enlace de correo. `ev` explícito y válido manda; sin `ev` se usa el evento por defecto de la clave
+ * (campana_cuotas -> Riobamba); sin clave conocida -> cuotas (enlace "pelado" /?view=mail).
+ * La misma regla está replicada en frontend-mobile/src/brand.js (resolveMailEvent).
+ */
+function resolveMailEvent(evParam, campaignKey) {
+  const ev = typeof evParam === 'string' ? evParam.trim().toLowerCase() : '';
+  if (ev === CUOTAS_EVENT || isFairEvent(ev)) return ev;
+  const record = findCampaignKey(typeof campaignKey === 'string' ? campaignKey.trim() : '');
+  return record ? record.defaultEvent : CUOTAS_EVENT;
 }
 
 /** El enlace es válido si trae una clave de campaña vigente O el token firmado del correo. */
-function isMailLinkAuthorized(email, { c, t } = {}) {
-  return isCampaignKeyValid(typeof c === 'string' ? c.trim() : '') ||
+function isMailLinkAuthorized(email, { c, t, event } = {}) {
+  return isCampaignKeyValid(typeof c === 'string' ? c.trim() : '', new Date(), event || null) ||
     verifyToken(email, typeof t === 'string' ? t.trim() : '');
 }
 
@@ -138,7 +182,7 @@ function evaluateClient(row, fallbackEmail) {
 }
 
 /** ¿Ya participó en el canal Correo (por celular o correo)? Los usuarios de prueba activos nunca cuentan. */
-async function hasPlayedMail({ phone, email }) {
+async function hasPlayedMail({ phone, email, event = CUOTAS_EVENT }) {
   const [testRows] = await pool.query(
     'SELECT 1 FROM test_users WHERE active = TRUE AND (phone = ? OR email = ?) LIMIT 1',
     [phone || '', email]
@@ -147,9 +191,9 @@ async function hasPlayedMail({ phone, email }) {
 
   const [rows] = await pool.query(
     `SELECT 1 FROM leads l JOIN spins s ON s.lead_id = l.id
-     WHERE (l.phone = ? OR l.email = ?) AND l.screen_id = 'MAIL_01' AND (l.is_test = 0 OR l.is_test IS NULL)
+     WHERE (l.phone = ? OR l.email = ?) AND l.screen_id IN (?) AND (l.is_test = 0 OR l.is_test IS NULL)
      LIMIT 1`,
-    [phone || '', email]
+    [phone || '', email, screenIdsOfEvent(event)]
   );
   return rows.length > 0;
 }
@@ -159,7 +203,7 @@ async function hasPlayedMail({ phone, email }) {
  * (leads.crm_email). Sirve para que quien ya jugó y corrigió sus datos no vuelva a ver el formulario, aunque el
  * CRM siga con el dato antiguo. Devuelve los datos GUARDADOS en el lead (los corregidos) o null.
  */
-async function findPreviousMailPlay(email) {
+async function findPreviousMailPlay(email, event = CUOTAS_EVENT) {
   const [testRows] = await pool.query('SELECT 1 FROM test_users WHERE active = TRUE AND email = ? LIMIT 1', [email]);
   if (testRows.length > 0) return null; // los usuarios de prueba pueden jugar varias veces
 
@@ -167,9 +211,9 @@ async function findPreviousMailPlay(email) {
     const [rows] = await pool.query(
       `SELECT l.name, l.phone, l.email
        FROM leads l JOIN spins s ON s.lead_id = l.id
-       WHERE l.crm_email = ? AND l.screen_id = 'MAIL_01' AND (l.is_test = 0 OR l.is_test IS NULL)
+       WHERE l.crm_email = ? AND l.screen_id IN (?) AND (l.is_test = 0 OR l.is_test IS NULL)
        ORDER BY l.id DESC LIMIT 1`,
-      [email]
+      [email, screenIdsOfEvent(event)]
     );
     return rows.length > 0 ? rows[0] : null;
   } catch (error) {
@@ -185,6 +229,7 @@ module.exports = {
   verifyToken,
   isMailLinkAuthorized,
   isCampaignKeyValid,
+  resolveMailEvent,
   maskPhone,
   composeName,
   findCrmClient,

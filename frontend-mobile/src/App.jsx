@@ -57,9 +57,11 @@ function readCrmParams() {
 }
 
 // Se quita el correo/token de la barra de direcciones para que no se compartan ni viajen en capturas o referers
-function stripCrmParamsFromUrl() {
+function stripCrmParamsFromUrl(eventKey) {
   try {
     const url = new URL(window.location.href);
+    // Se fija el evento resuelto: sin `c` en la URL, una recarga lo recalcularía mal (campana_cuotas sin ev = Riobamba)
+    if (eventKey) url.searchParams.set('ev', eventKey);
     ['correo', 'email', 't', 'c'].forEach((k) => url.searchParams.delete(k));
     window.history.replaceState({}, '', url.pathname + url.search + url.hash);
   } catch (e) {
@@ -100,6 +102,9 @@ export default function App() {
   const [crmFlow, setCrmFlow] = useState(null); // 'direct' (pasó directo) | 'corrected' (corrigió datos) | null (enlace abierto)
   const crmCtxRef = useRef(null); // { email, token, campaignKey, flow }
   const [crmPhoneHint, setCrmPhoneHint] = useState(''); // celular enmascarado del CRM (nunca el completo)
+  // Ferias: datos de la feria (del servidor) y cierre (domingo 15-nov 22:00): ya no se aceptan participaciones nuevas
+  const [eventInfo, setEventInfo] = useState(null);
+  const [eventClosed, setEventClosed] = useState(false);
   const lookupStartedRef = useRef(false);
 
   // Canal Correo: ruleta propia en el celular
@@ -118,7 +123,7 @@ export default function App() {
     if (!brand.isMail) return;
     const fetchMailPrizes = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/prizes?stand=mail`);
+        const res = await fetch(`${API_URL}/api/prizes?stand=${brand.mailStand || 'mail'}`);
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) setMailPrizes(json.data);
       } catch (e) {
@@ -394,6 +399,13 @@ export default function App() {
           window.location.replace(channelUrl(json.default));
           return;
         }
+        // La feria ya terminó: no se aceptan participaciones nuevas
+        if (json.code === 'EVENT_CLOSED') {
+          if (json.event) setEventInfo(json.event);
+          setEventClosed(true);
+          setIsSubmitting(false);
+          return;
+        }
         // Los datos del CRM cambiaron o ya no están completos: se pide al cliente que los confirme en el formulario
         if (json.code === 'CRM_INCOMPLETE' && crmCtxRef.current) {
           crmCtxRef.current.flow = 'corrected';
@@ -464,7 +476,7 @@ export default function App() {
     if (!brand.isMail || !crmParamsRef.current.email || lookupStartedRef.current) return;
     lookupStartedRef.current = true;
     const { email, token, campaignKey } = crmParamsRef.current;
-    stripCrmParamsFromUrl();
+    stripCrmParamsFromUrl(brand.mailEvent);
 
     // El correo del enlace se prellena siempre (ya lo tiene el navegador, no revela nada)
     const urlEmailOk = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email);
@@ -474,9 +486,13 @@ export default function App() {
 
     (async () => {
       try {
-        const qs = `correo=${encodeURIComponent(email)}&c=${encodeURIComponent(campaignKey)}&t=${encodeURIComponent(token)}`;
+        const qs = `correo=${encodeURIComponent(email)}&c=${encodeURIComponent(campaignKey)}&t=${encodeURIComponent(token)}&ev=${encodeURIComponent(brand.mailEvent || '')}`;
         const res = await fetch(`${API_URL}/api/mail/lookup?${qs}`);
         const json = await res.json();
+
+        if (json.eventInfo) setEventInfo(json.eventInfo);
+        // Feria cerrada: se muestra el aviso, salvo que ya haya participado (verá su premio)
+        if (json.closed && !json.alreadyPlayed) setEventClosed(true);
 
         // No encontrado o enlace sin credencial válida: formulario normal con el correo prellenado
         if (!json.success || !json.found) {
@@ -513,6 +529,9 @@ export default function App() {
     })();
   }, []);
 
+  // Feria cerrada: se reemplaza el formulario/ruleta por el aviso (quien ya participó sigue viendo su premio)
+  const showClosed = brand.isMail && eventClosed && gameState !== 'WON';
+
   // Canal Correo, paso de la ruleta: toda la pantalla cabe en el alto del dispositivo (sin scroll)
   const isMailPlay = brand.isMail && (gameState === 'READY_TO_SPIN' || gameState === 'SPINNING');
 
@@ -526,7 +545,7 @@ export default function App() {
       {brand.isMail && (gameState === 'FORM' || gameState === 'READY_TO_SPIN' || gameState === 'SPINNING') && (
         <img
           src="/mail-hero.jpg"
-          alt="Marketing VIP · Viajes Internacionales Premium. Gira la ruleta, completa tu saldo y gana"
+          alt="Marketing VIP · Viajes Internacionales Premium. Gira la ruleta y gana"
           className={`mail-hero mx-auto block select-none w-full max-w-md ${isMailPlay ? 'shrink-0 object-cover object-bottom' : ''}`}
           style={isMailPlay ? { aspectRatio: '900 / 452', maxHeight: '26dvh' } : undefined}
           draggable={false}
@@ -545,6 +564,15 @@ export default function App() {
           <div className="flex flex-col items-center justify-center gap-3 py-14 text-white drop-shadow">
             <div className="w-10 h-10 rounded-full border-4 border-white/30 border-t-white animate-spin" />
             <p className="text-sm font-semibold">Preparando tu ruleta…</p>
+          </div>
+        ) : showClosed ? (
+          <div className="bg-white/95 border-2 border-[#9AC31C] rounded-3xl p-6 shadow-xl text-center">
+            <Info className="w-10 h-10 text-[#7A9E14] mx-auto mb-3" />
+            <h2 className="font-racing font-black text-xl uppercase text-zinc-900">La feria ya terminó</h2>
+            <p className="text-sm text-zinc-700 mt-2 font-medium">
+              {eventInfo ? `${eventInfo.fairName} finalizó el ${eventInfo.datesText.split(' al ')[1] || 'domingo 15 de noviembre'}.` : 'La feria ya finalizó.'}
+            </p>
+            <p className="text-sm text-zinc-600 mt-2">¡Gracias por acompañarnos! Pronto tendremos nuevas sorpresas.</p>
           </div>
         ) : (
         <>
@@ -635,7 +663,7 @@ export default function App() {
             </div>
 
             <div className="w-full shrink-0 pt-1.5">
-              <MailSteps />
+              <MailSteps fair={brand.isFair} />
               <div className="flex items-center justify-center gap-2 text-[11px] text-white font-medium drop-shadow pt-1.5 pb-1">
                 <span className="truncate">Participante: <strong className="font-bold">{formData.name}</strong></span>
                 {gameState === 'READY_TO_SPIN' && (
@@ -740,7 +768,9 @@ export default function App() {
                 <Info className="w-4 h-4 text-amber-600 shrink-0" />
                 <span>
                   {brand.isMail
-                    ? '¡Ya participaste con este contacto! Aquí tienes tu premio y tu cita.'
+                    ? (brand.isFair
+                      ? '¡Ya participaste con este contacto! Aquí tienes tu premio y dónde canjearlo.'
+                      : '¡Ya participaste con este contacto! Aquí tienes tu premio y tu cita.')
                     : '¡Ya registraste tu tiro con este contacto! Aquí tienes tu pase para canjear en el stand.'}
                 </span>
               </div>
