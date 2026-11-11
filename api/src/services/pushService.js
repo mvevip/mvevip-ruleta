@@ -35,7 +35,7 @@ function publicKey() { return config.PUSH.publicKey; }
 function hashEndpoint(endpoint) { return crypto.createHash('sha256').update(String(endpoint)).digest('hex'); }
 
 /** Normaliza los filtros recibidos del Admin (listas de eventos y frentes conocidos). */
-const KNOWN_EVENTS = ['autos', 'ford', 'cuotas', 'kiosk', 'riobamba', 'ambato'];
+const KNOWN_EVENTS = ['autos', 'ford', 'cuotas', 'general', 'kiosk', 'riobamba', 'ambato'];
 const KNOWN_FRONTS = ['stand', 'kiosk', 'mail'];
 function cleanFilters(raw) {
   const f = raw && typeof raw === 'object' ? raw : {};

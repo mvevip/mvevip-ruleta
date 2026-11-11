@@ -1,5 +1,5 @@
 import React from 'react';
-import { MousePointerClick, Gift, CalendarCheck, MapPin, ChevronsUp } from 'lucide-react';
+import { MousePointerClick, Gift, CalendarCheck, MapPin, MessageCircle, ChevronsUp } from 'lucide-react';
 
 const STEPS = [
   { n: 1, Icon: MousePointerClick, text: 'Gira la ruleta.' },
@@ -14,8 +14,15 @@ const FAIR_STEPS = [
 ];
 
 /** Panel "3 pasos" + mensaje inferior del diseño de campaña. */
-export default function MailSteps({ hint, fair = false }) {
-  const steps = fair ? FAIR_STEPS : STEPS;
+// Campaña general: sin cita ni feria; la entrega se coordina por WhatsApp
+const GENERAL_STEPS = [
+  STEPS[0],
+  STEPS[1],
+  { n: 3, Icon: MessageCircle, text: 'Coordina la entrega de tu premio por WhatsApp.' }
+];
+
+export default function MailSteps({ hint, fair = false, general = false }) {
+  const steps = general ? GENERAL_STEPS : fair ? FAIR_STEPS : STEPS;
   // `hint` es opcional: sin texto no se dibuja la pastilla inferior
   return (
     <div className="w-full">

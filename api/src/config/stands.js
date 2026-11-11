@@ -5,6 +5,7 @@
  *  - mail:  Campaña por correo `/?view=mail` (screen_id MAIL_01). Sin pantalla física, sin cola ni sockets.
  *  - kiosk: Kiosco de 2 pantallas (screen_id KIOSK_01): arriba ruleta (`/pantalla/?screen=KIOSK_01`), abajo botón (`?view=kiosk-button`),
  *           celular `/?screen=KIOSK_01`. El giro lo dispara el botón del kiosco, no el celular.
+ *  - general: campaña de correo para clientes normales (`/?view=mail&ev=general`, screen_id GEN_MAIL, pool de premios `gen`).
  *  - Ferias (Riobamba / Ambato, 13-15 nov 2026): cada ciudad tiene 3 frentes (pantalla gigante, kiosco, correo) que
  *    COMPARTEN un mismo catálogo de premios (`prizePool`) y una sola participación por persona (`event`).
  *      rio_stand / rio_kiosk / rio_mail  -> screen_id RIO_STAND / RIO_KIOSK / RIO_MAIL (pool `rio`)
@@ -28,7 +29,8 @@ const SCREEN_TO_STAND = {
   RIO_MAIL: 'rio_mail',
   AMB_STAND: 'amb_stand',
   AMB_KIOSK: 'amb_kiosk',
-  AMB_MAIL: 'amb_mail'
+  AMB_MAIL: 'amb_mail',
+  GEN_MAIL: 'gen_mail'
 };
 
 const STANDS = {
@@ -68,6 +70,18 @@ const STANDS = {
     displayPrefix: 'kiosk_',
     syncKey: 'displays_kiosk'
   }
+};
+
+// Campaña de correo GENERAL (clientes normales): solo frente de correo, catálogo propio (pool 'gen'), sin pantalla ni kiosco.
+STANDS.gen_mail = {
+  key: 'gen_mail',
+  event: 'general',
+  front: 'mail',
+  prizePool: 'gen',
+  label: 'General · Correo',
+  screenIds: ['GEN_MAIL'],
+  displayPrefix: 'gen_mail_',
+  syncKey: 'displays_gen_mail'
 };
 
 // Ferias: 3 frentes por ciudad. prizePool = catálogo compartido por ciudad; event = una participación por ciudad.

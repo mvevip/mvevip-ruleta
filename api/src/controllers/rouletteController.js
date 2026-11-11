@@ -154,7 +154,7 @@ async function updatePrize(req, res) {
 
 
 // Mensaje de WhatsApp según stand (Ford no usa destino de viaje)
-function buildWhatsappUrl({ stand, name, ticketCode, prizeName, destination, alreadyPlayed, appointmentText, eventInfo }) {
+function buildWhatsappUrl({ stand, name, ticketCode, prizeName, destination, alreadyPlayed, appointmentText, eventInfo, campaign }) {
   const rawWaNumber = config.COMPANY.whatsapp.replace(/[^0-9]/g, '');
   let text;
   if (eventInfo) {
@@ -171,6 +171,18 @@ function buildWhatsappUrl({ stand, name, ticketCode, prizeName, destination, alr
         `🎟️ Código: ${ticketCode}\n` +
         `📅 ${eventInfo.datesText}\n\n` +
         `¡Quiero reclamar mi premio en el stand de ${config.COMPANY.name}!`;
+  } else if (campaign === 'general') {
+    // Campaña de correo general: sin cita; se coordina la entrega del premio por WhatsApp
+    text = alreadyPlayed
+      ? `¡Hola ${config.COMPANY.name}! Ya participé en la ruleta 🎰\n\n` +
+        `👤 Nombre: ${name}\n` +
+        `🎟️ Código: ${ticketCode}\n` +
+        `🎁 Premio: ${prizeName}\n\n` +
+        `¡Quiero coordinar la entrega de mi premio!`
+      : `¡Hola ${config.COMPANY.name}! Acabo de ganar *${prizeName}* en la ruleta 🎰\n\n` +
+        `👤 Mi Nombre: ${name}\n` +
+        `🎟️ Código: ${ticketCode}\n\n` +
+        `¡Quiero coordinar la entrega de mi premio!`;
   } else if (stand === 'mail') {
     text = alreadyPlayed
       ? `¡Hola ${config.COMPANY.name}! Ya participé en la ruleta 🎰\n\n` +
@@ -307,8 +319,8 @@ async function processSpin(req, res) {
   const cleanEmail = emailValidation.email;
 
   const isMail = isMailStand(stand);
-  // Cuotas: cita el próximo sábado 10:00. Ferias: sin cita (el cliente se acerca al stand durante la feria).
-  const appointment = isMail && !eventInfo ? getNextAppointment() : null;
+  // Cuotas: cita el próximo sábado 10:00. Ferias y campaña general: sin cita.
+  const appointment = isMail && standEvent === 'cuotas' ? getNextAppointment() : null;
 
   const connection = await pool.getConnection();
   const mailLockName = isMail ? `mail_spin_${standEvent}_${cleanPhone}` : null;
@@ -355,7 +367,7 @@ async function processSpin(req, res) {
         // Construir mensaje de WhatsApp para el premio existente
         const whatsappUrl = buildWhatsappUrl({
           stand, name: prev.lead_name, ticketCode: prev.ticket_code, prizeName: prev.prize_name, destination: prev.dream_destination, alreadyPlayed: true,
-          appointmentText: appointment && appointment.text, eventInfo
+          appointmentText: appointment && appointment.text, eventInfo, campaign: standEvent === 'general' ? 'general' : null
         });
 
         return res.json({
@@ -450,7 +462,7 @@ async function processSpin(req, res) {
     let finalDestination = (dream_destination && dream_destination.trim()) ? dream_destination.trim() : null;
     if (isMail) {
       // La campaña por correo no usa destino soñado
-      finalDestination = eventInfo ? `Feria ${eventInfo.city}` : 'Campaña Correo';
+      finalDestination = eventInfo ? `Feria ${eventInfo.city}` : standEvent === 'general' ? 'Campaña General' : 'Campaña Correo';
     } else if (!finalDestination) {
       try {
         const [defRows] = await connection.query('SELECT name FROM destinations WHERE is_default = 1 AND active = 1 LIMIT 1');
@@ -502,7 +514,7 @@ async function processSpin(req, res) {
 
       const whatsappUrl = buildWhatsappUrl({
         stand, name: name.trim(), ticketCode, prizeName: winningPrize.name, destination: finalDestination, alreadyPlayed: false,
-        appointmentText: appointment && appointment.text, eventInfo
+        appointmentText: appointment && appointment.text, eventInfo, campaign: standEvent === 'general' ? 'general' : null
       });
 
       return res.json({

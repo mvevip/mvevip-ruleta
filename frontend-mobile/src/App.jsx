@@ -568,11 +568,13 @@ export default function App() {
         ) : showClosed ? (
           <div className="bg-white/95 border-2 border-[#9AC31C] rounded-3xl p-6 shadow-xl text-center">
             <Info className="w-10 h-10 text-[#7A9E14] mx-auto mb-3" />
-            <h2 className="font-racing font-black text-xl uppercase text-zinc-900">La feria ya terminó</h2>
+            <h2 className="font-racing font-black text-xl uppercase text-zinc-900">{brand.isGeneral ? 'La campaña ya terminó' : 'La feria ya terminó'}</h2>
             <p className="text-sm text-zinc-700 mt-2 font-medium">
-              {eventInfo ? `${eventInfo.fairName} finalizó el ${eventInfo.datesText.split(' al ')[1] || 'domingo 15 de noviembre'}.` : 'La feria ya finalizó.'}
+              {brand.isGeneral
+                ? 'La campaña ya finalizó y no se aceptan nuevas participaciones.'
+                : eventInfo ? `${eventInfo.fairName} finalizó el ${eventInfo.datesText.split(' al ')[1] || 'domingo 15 de noviembre'}.` : 'La feria ya finalizó.'}
             </p>
-            <p className="text-sm text-zinc-600 mt-2">¡Gracias por acompañarnos! Pronto tendremos nuevas sorpresas.</p>
+            <p className="text-sm text-zinc-600 mt-2">{brand.isGeneral ? '¡Gracias por participar! Pronto tendremos nuevas sorpresas.' : '¡Gracias por acompañarnos! Pronto tendremos nuevas sorpresas.'}</p>
           </div>
         ) : (
         <>
@@ -663,7 +665,7 @@ export default function App() {
             </div>
 
             <div className="w-full shrink-0 pt-1.5">
-              <MailSteps fair={brand.isFair} />
+              <MailSteps fair={brand.isFair} general={brand.isGeneral} />
               <div className="flex items-center justify-center gap-2 text-[11px] text-white font-medium drop-shadow pt-1.5 pb-1">
                 <span className="truncate">Participante: <strong className="font-bold">{formData.name}</strong></span>
                 {gameState === 'READY_TO_SPIN' && (
@@ -770,7 +772,9 @@ export default function App() {
                   {brand.isMail
                     ? (brand.isFair
                       ? '¡Ya participaste con este contacto! Aquí tienes tu premio y dónde canjearlo.'
-                      : '¡Ya participaste con este contacto! Aquí tienes tu premio y tu cita.')
+                      : brand.isGeneral
+                        ? '¡Ya participaste con este contacto! Aquí tienes tu premio.'
+                        : '¡Ya participaste con este contacto! Aquí tienes tu premio y tu cita.')
                     : '¡Ya registraste tu tiro con este contacto! Aquí tienes tu pase para canjear en el stand.'}
                 </span>
               </div>

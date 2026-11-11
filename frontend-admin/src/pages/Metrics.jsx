@@ -8,6 +8,7 @@ const COMPARE = [
   { key: 'riobamba', title: 'Riobamba', emoji: '🌄', tone: 'bg-sky-500', fronts: ['rio_stand', 'rio_kiosk', 'rio_mail'] },
   { key: 'ambato', title: 'Ambato', emoji: '🏔️', tone: 'bg-rose-500', fronts: ['amb_stand', 'amb_kiosk', 'amb_mail'] },
   { key: 'cuotas', title: 'Cuotas (correo)', emoji: '📧', tone: 'bg-amber-400', fronts: ['mail'] },
+  { key: 'general', title: 'General (correo)', emoji: '📬', tone: 'bg-teal-500', fronts: ['gen_mail'] },
   { key: 'autos', title: 'Autos', emoji: '🏎️', tone: 'bg-brand', fronts: ['autos'] },
   { key: 'ford', title: 'Ford', emoji: '🚘', tone: 'bg-navy', fronts: ['ford'] },
   { key: 'kiosk', title: 'Kiosco histórico', emoji: '🖥️', tone: 'bg-fuchsia-500', fronts: ['kiosk'] }

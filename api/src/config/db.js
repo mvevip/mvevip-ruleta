@@ -205,7 +205,7 @@ async function checkConnection() {
       `).catch(() => {});
 
       // 10. Soporte multi-stand (Autos / Ford). SOLO se auto-migra fuera de producción.
-      // En producción: ejecutar manualmente deploy/migrations/002_stand_support.sql, 003_mail_stand.sql, 004_prize_icons.sql, 005_leads_crm_link.sql, 006_channel_settings.sql, 007_kiosk.sql, 008_ferias_riobamba_ambato.sql, 009_ferias_pantallas.sql, 010_event_settings.sql y 011_push_subscriptions.sql
+      // En producción: ejecutar manualmente deploy/migrations/002_stand_support.sql, 003_mail_stand.sql, 004_prize_icons.sql, 005_leads_crm_link.sql, 006_channel_settings.sql, 007_kiosk.sql, 008_ferias_riobamba_ambato.sql, 009_ferias_pantallas.sql, 010_event_settings.sql, 011_push_subscriptions.sql y 012_campana_general.sql
       if (config.NODE_ENV !== 'production') {
         await connection.query(`ALTER TABLE prizes ADD COLUMN stand VARCHAR(20) NOT NULL DEFAULT 'autos'`).catch(() => {});
         await connection.query(`ALTER TABLE prizes ADD INDEX idx_prizes_stand (stand)`).catch(() => {});
@@ -359,7 +359,7 @@ async function checkConnection() {
 
         // Ferias Riobamba / Ambato: un catálogo por ciudad (stand 'rio' / 'amb'), compartido por sus 3 frentes.
         // En producción: deploy/migrations/008_ferias_riobamba_ambato.sql
-        for (const pool of ['rio', 'amb']) {
+        for (const pool of ['rio', 'amb', 'gen']) {
           const [[poolPrizes]] = await connection.query(`SELECT COUNT(*) AS count FROM prizes WHERE stand = ?`, [pool]);
           if (poolPrizes.count === 0) {
             await connection.query(`
@@ -379,7 +379,7 @@ async function checkConnection() {
             WHEN UPPER(name) LIKE '%KIT VIAJERO%' THEN 'backpack'
             WHEN UPPER(name) LIKE '%BONO%' THEN 'badge-dollar'
             ELSE NULL END
-          WHERE stand IN ('mail', 'rio', 'amb') AND icon IS NULL
+          WHERE stand IN ('mail', 'rio', 'amb', 'gen') AND icon IS NULL
         `).catch(() => {});
       }
     } catch (migErr) {

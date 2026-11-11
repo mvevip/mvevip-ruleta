@@ -5,7 +5,7 @@
  *  - Caché corta (10 s): un cambio en el Admin llega a todas las instancias del Lambda en pocos segundos.
  */
 const { pool } = require('../config/db');
-const { EVENTS, setEventOverrides } = require('../config/events');
+const { EVENTS, CAMPAIGNS, setEventOverrides } = require('../config/events');
 
 const CACHE_TTL_MS = 10 * 1000;
 let lastRefresh = 0;
@@ -31,7 +31,7 @@ async function refresh({ force = false } = {}) {
     try {
       const [rows] = await pool.query('SELECT event, fair_name, venue, maps_url, dates_text, stand_text, closes_at, is_open FROM event_settings');
       const map = {};
-      rows.forEach((r) => { if (EVENTS[r.event]) map[r.event] = rowToOverride(r); });
+      rows.forEach((r) => { if (EVENTS[r.event] || CAMPAIGNS[r.event]) map[r.event] = rowToOverride(r); });
       setEventOverrides(map);
       missingTable = false;
     } catch (error) {

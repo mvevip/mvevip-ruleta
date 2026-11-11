@@ -38,6 +38,7 @@ export default function PrizeVoucher({ result }) {
   const isMail = brand.isMail;
   // Ferias (Riobamba / Ambato): en lugar de la cita del sábado se muestra dónde y cuándo es la feria y el stand
   const isFair = isMail && Boolean(event);
+  const isGeneral = isMail && brand.isGeneral; // campaña general: sin cita ni feria
   // Cualquier frente de la feria (pantalla gigante, kiosco o correo): el pase muestra dónde, cuándo y el stand
   const hasEvent = Boolean(event);
   const PrizeIcon = isMail ? getPrizeIcon(winner.icon) : null;
@@ -184,12 +185,14 @@ export default function PrizeVoucher({ result }) {
         className={`ford-primary-btn w-full max-w-sm ${isMail ? 'py-3 [@media(max-height:600px)]:py-2' : 'py-4'} px-6 rounded-2xl bg-gradient-to-r from-[#84A816] via-[#9AC31C] to-[#84A816] hover:opacity-95 text-black font-racing font-black text-base uppercase tracking-wider shadow-xl flex items-center justify-center gap-3 transition-transform active:scale-95 text-center group`}
       >
         <MessageCircle className="w-6 h-6 text-black group-hover:scale-110 transition-transform" />
-        <span>{isFair ? 'Consultar por WhatsApp' : isMail ? 'Confirmar mi cita por WhatsApp' : '¡Reclama tu premio!'}</span>
+        <span>{isFair ? 'Consultar por WhatsApp' : isGeneral ? 'Coordinar mi premio por WhatsApp' : isMail ? 'Confirmar mi cita por WhatsApp' : '¡Reclama tu premio!'}</span>
       </a>
 
       <p className={`text-center max-w-xs font-medium ${isMail ? 'text-[11px] mt-2 text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.7)] [@media(max-height:640px)]:hidden' : 'text-xs mt-3 text-zinc-600'}`}>
         {isFair
           ? 'Presiona el botón para abrir WhatsApp y consultar tu premio con nuestro asistente.'
+          : isGeneral
+          ? 'Presiona el botón para abrir WhatsApp y coordinar la entrega de tu premio con nuestro asistente.'
           : isMail
           ? 'Presiona el botón para abrir WhatsApp y confirmar tu cita y tu premio con nuestro asistente.'
           : 'Presiona el botón para abrir WhatsApp y validar tu premio con nuestros asesores.'}

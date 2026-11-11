@@ -35,6 +35,24 @@ const EVENTS = {
 const CUOTAS_EVENT = 'cuotas';
 
 /**
+ * Campañas de correo SIN feria (sin lugar ni fechas): solo tienen vigencia (cierre automático) y apertura manual.
+ *  - general: clientes normales. El pase muestra el premio y un botón de WhatsApp (sin cita ni ubicación).
+ * El cierre y la apertura se editan desde el Admin (tabla event_settings) igual que las ferias.
+ */
+const CAMPAIGNS = {
+  general: {
+    key: 'general',
+    label: 'General',
+    closesAt: '2026-12-31T23:59:59-05:00'
+  }
+};
+const GENERAL_EVENT = 'general';
+
+function isCampaignEvent(event) {
+  return typeof event === 'string' && Object.prototype.hasOwnProperty.call(CAMPAIGNS, event);
+}
+
+/**
  * Evento que corresponde a un enlace de correo SIN parámetro `ev` y con la clave `campana_cuotas`:
  * el correo ya enviado a los clientes de Riobamba (equivocadamente con el enlace de cuotas) debe mostrar la feria de Riobamba.
  */
@@ -60,9 +78,15 @@ function getEventInfo(event) {
   return { ...EVENTS[event], ...(overrides[event] || {}) };
 }
 
-/** Feria cerrada: pasó la hora de cierre o el Admin la cerró manualmente (isOpen = false). */
+/** Datos de una campaña de correo (por defecto + lo editado en el Admin), o null si no es una campaña. */
+function getCampaignInfo(event) {
+  if (!isCampaignEvent(event)) return null;
+  return { ...CAMPAIGNS[event], ...(overrides[event] || {}) };
+}
+
+/** Evento con cierre propio (feria o campaña): ¿pasó la hora de cierre o se cerró manualmente (isOpen = false)? */
 function isEventClosed(event, now = new Date()) {
-  const info = getEventInfo(event);
+  const info = getEventInfo(event) || getCampaignInfo(event);
   if (!info) return false;
   if (info.isOpen === false) return true;
   return Boolean(info.closesAt && now > new Date(info.closesAt));
@@ -86,6 +110,10 @@ function publicEventInfo(event) {
 
 module.exports = {
   EVENTS,
+  CAMPAIGNS,
+  GENERAL_EVENT,
+  isCampaignEvent,
+  getCampaignInfo,
   CUOTAS_EVENT,
   LEGACY_LINK_EVENT,
   isFairEvent,

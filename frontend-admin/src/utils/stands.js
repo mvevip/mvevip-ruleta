@@ -21,6 +21,10 @@ export const STAND_META = {
     key: 'mail', event: 'cuotas', front: 'mail', emoji: '📧', short: 'CORREO', title: 'CORREO (CUOTAS)',
     banner: 'Editando Canal CORREO (campaña de cuotas)', screenPath: null, formPath: '/?view=mail&ev=cuotas', tone: 'amber'
   },
+  gen_mail: {
+    key: 'gen_mail', event: 'general', front: 'mail', emoji: '📬', short: 'GENERAL · CORREO', title: 'GENERAL · CORREO',
+    banner: 'Editando campaña GENERAL · Correo (clientes normales)', screenPath: null, formPath: '/?view=mail&ev=general', tone: 'teal', isCampaign: true
+  },
   rio_stand: {
     key: 'rio_stand', event: 'riobamba', front: 'stand', emoji: '🌄', short: 'RIOBAMBA · PANTALLA', title: 'RIOBAMBA · PANTALLA GIGANTE',
     banner: 'Editando RIOBAMBA · Pantalla gigante', screenPath: '/pantalla/?screen=RIO_STAND', formPath: '/?screen=RIO_STAND', tone: 'sky', isFair: true
@@ -51,6 +55,7 @@ export const STAND_META = {
 export const EVENT_GROUPS = [
   { key: 'autos', label: '🏎️ AUTOS', fronts: ['autos', 'ford', 'kiosk'], tone: 'lime' },
   { key: 'cuotas', label: '📧 CUOTAS', fronts: ['mail'], tone: 'amber' },
+  { key: 'general', label: '📬 GENERAL', fronts: ['gen_mail'], tone: 'teal', campaign: true },
   { key: 'riobamba', label: '🌄 RIOBAMBA', fronts: ['rio_stand', 'rio_kiosk', 'rio_mail'], tone: 'sky', city: 'Riobamba', fair: true },
   { key: 'ambato', label: '🏔️ AMBATO', fronts: ['amb_stand', 'amb_kiosk', 'amb_mail'], tone: 'rose', city: 'Ambato', fair: true }
 ];
@@ -73,13 +78,14 @@ export const TONE = {
   amber: { active: 'bg-amber-500 text-black shadow-[0_0_15px_rgba(245,158,11,0.5)]', badge: 'bg-amber-500/20 text-amber-300 border border-amber-400/40', chip: 'bg-amber-500 text-black' },
   fuchsia: { active: 'bg-fuchsia-500 text-black shadow-[0_0_15px_rgba(217,70,239,0.5)]', badge: 'bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-400/40', chip: 'bg-fuchsia-500 text-black' },
   sky: { active: 'bg-sky-500 text-black shadow-[0_0_15px_rgba(14,165,233,0.5)]', badge: 'bg-sky-500/20 text-sky-300 border border-sky-400/40', chip: 'bg-sky-500 text-black' },
-  rose: { active: 'bg-rose-500 text-black shadow-[0_0_15px_rgba(244,63,94,0.5)]', badge: 'bg-rose-500/20 text-rose-300 border border-rose-400/40', chip: 'bg-rose-500 text-black' }
+  rose: { active: 'bg-rose-500 text-black shadow-[0_0_15px_rgba(244,63,94,0.5)]', badge: 'bg-rose-500/20 text-rose-300 border border-rose-400/40', chip: 'bg-rose-500 text-black' },
+  teal: { active: 'bg-teal-500 text-white shadow-[0_0_15px_rgba(20,184,166,0.5)]', badge: 'bg-teal-500/20 text-teal-300 border border-teal-400/40', chip: 'bg-teal-500 text-white' }
 };
 
 // screen_id (como lo guarda la base de datos) -> stand del Admin
 const SCREEN_TO_STAND = {
   STAND_01: 'autos', STAND_LOCAL: 'autos', STAND_02: 'ford', STAND_LOCAL_2: 'ford', MAIL_01: 'mail', KIOSK_01: 'kiosk',
-  RIO_STAND: 'rio_stand', RIO_KIOSK: 'rio_kiosk', RIO_MAIL: 'rio_mail', AMB_STAND: 'amb_stand', AMB_KIOSK: 'amb_kiosk', AMB_MAIL: 'amb_mail'
+  RIO_STAND: 'rio_stand', RIO_KIOSK: 'rio_kiosk', RIO_MAIL: 'rio_mail', AMB_STAND: 'amb_stand', AMB_KIOSK: 'amb_kiosk', AMB_MAIL: 'amb_mail', GEN_MAIL: 'gen_mail'
 };
 export function standOfScreenId(screenId) {
   return STAND_META[SCREEN_TO_STAND[screenId]] || STAND_META.autos;
