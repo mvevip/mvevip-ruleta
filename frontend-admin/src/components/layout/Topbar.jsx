@@ -12,7 +12,7 @@ export default function Topbar({ onRefresh }) {
   const page = PAGES[route.page];
 
   return (
-    <header className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-line pt-safe">
+    <header className="sticky top-0 z-30 bg-white border-b border-line pt-safe">
       <div className="px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-3">
         <img src={`${import.meta.env.BASE_URL}logotipo.png`} alt="Marketing VIP" className={`lg:hidden h-9 w-auto object-contain shrink-0 ${page.stand ? 'hidden sm:block' : ''}`} />
         <div className="min-w-0 flex-1">
