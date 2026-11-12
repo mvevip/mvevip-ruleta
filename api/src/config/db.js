@@ -205,7 +205,7 @@ async function checkConnection() {
       `).catch(() => {});
 
       // 10. Soporte multi-stand (Autos / Ford). SOLO se auto-migra fuera de producción.
-      // En producción: ejecutar manualmente deploy/migrations/002_stand_support.sql, 003_mail_stand.sql, 004_prize_icons.sql, 005_leads_crm_link.sql, 006_channel_settings.sql, 007_kiosk.sql, 008_ferias_riobamba_ambato.sql, 009_ferias_pantallas.sql, 010_event_settings.sql, 011_push_subscriptions.sql, 012_campana_general.sql y 013_qr_dinamicos.sql
+      // En producción: ejecutar manualmente deploy/migrations/002_stand_support.sql, 003_mail_stand.sql, 004_prize_icons.sql, 005_leads_crm_link.sql, 006_channel_settings.sql, 007_kiosk.sql, 008_ferias_riobamba_ambato.sql, 009_ferias_pantallas.sql, 010_event_settings.sql, 011_push_subscriptions.sql, 012_campana_general.sql, 013_qr_dinamicos.sql y 014_correo_bienvenida_brevo.sql
       if (config.NODE_ENV !== 'production') {
         await connection.query(`ALTER TABLE prizes ADD COLUMN stand VARCHAR(20) NOT NULL DEFAULT 'autos'`).catch(() => {});
         await connection.query(`ALTER TABLE prizes ADD INDEX idx_prizes_stand (stand)`).catch(() => {});
@@ -292,6 +292,30 @@ async function checkConnection() {
         `).catch(() => {});
         await connection.query(`
           INSERT IGNORE INTO system_sync (sync_key, version_timestamp, action) VALUES ('displays_kiosk', ${Date.now()}, 'INITIAL')
+        `).catch(() => {});
+
+        // Correo de bienvenida por Brevo. En producción: deploy/migrations/014_correo_bienvenida_brevo.sql
+        await connection.query(`
+          CREATE TABLE IF NOT EXISTS email_templates (
+            stand VARCHAR(20) PRIMARY KEY,
+            template_id VARCHAR(10) NULL,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+          ) ENGINE=InnoDB
+        `).catch(() => {});
+        await connection.query(`
+          CREATE TABLE IF NOT EXISTS email_log (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            lead_id INT NOT NULL,
+            stand VARCHAR(20) NOT NULL,
+            template_id VARCHAR(10) NOT NULL,
+            to_email VARCHAR(150) NOT NULL,
+            status VARCHAR(10) NOT NULL DEFAULT 'pending',
+            message_id VARCHAR(120) NULL,
+            error VARCHAR(300) NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_email_lead (lead_id),
+            KEY idx_email_stand (stand, created_at)
+          ) ENGINE=InnoDB
         `).catch(() => {});
 
         // QR dinámicos (enlaces cortos redirigibles). En producción: deploy/migrations/013_qr_dinamicos.sql

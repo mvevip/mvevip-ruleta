@@ -1,16 +1,18 @@
 import React from 'react';
-import { Settings as SettingsIcon, MapPin, Bell, SlidersHorizontal, FlaskConical, Download } from 'lucide-react';
+import { Settings as SettingsIcon, MapPin, Mail, Bell, SlidersHorizontal, FlaskConical, Download } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { PageHeader } from '../components/ui';
 import EventSettingsPanel from '../components/EventSettingsPanel';
 import ChannelsPanel from '../components/ChannelsPanel';
 import PushPanel from '../components/PushPanel';
 import AppPanel from '../components/AppPanel';
+import WelcomeEmailPanel from '../components/WelcomeEmailPanel';
 import TestUsersManager from '../components/TestUsersManager';
 import { API_URL } from '../context/AdminContext';
 
 const SECTIONS = [
   { key: 'feria', label: 'Datos de la feria', icon: MapPin, sub: 'Lugar, fechas, stand, cierre y enlaces de Riobamba y Ambato, y cierre de la campaña general.' },
+  { key: 'correo', label: 'Correo de bienvenida', icon: Mail, sub: 'Plantilla de Brevo que recibe cada persona al registrarse, por frente.' },
   { key: 'notificaciones', label: 'Notificaciones', icon: Bell, sub: 'Un aviso por cada lead nuevo, en este dispositivo.' },
   { key: 'canales', label: 'Canales de acceso', icon: SlidersHorizontal, sub: 'Qué accesos están abiertos y a dónde va quien entra sin parámetros.' },
   { key: 'demo', label: 'Usuarios demo', icon: FlaskConical, sub: 'Personas de prueba que juegan sin gastar stock.' },
@@ -38,6 +40,7 @@ export default function Settings() {
       </div>
 
       {current.key === 'feria' && <EventSettingsPanel />}
+      {current.key === 'correo' && <WelcomeEmailPanel />}
       {current.key === 'notificaciones' && <PushPanel />}
       {current.key === 'canales' && <ChannelsPanel />}
       {current.key === 'demo' && (
