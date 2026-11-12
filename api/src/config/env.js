@@ -28,6 +28,13 @@ module.exports = {
     // Identifica al remitente ante los servicios de push (Google, Apple, Mozilla): una URL, no datos personales
     subject: (process.env.VAPID_SUBJECT || 'https://autos.mvevip.com').trim()
   },
+  // Correo de bienvenida por Brevo (Lambda mvevip-brevo detrás de API Gateway). Sin remitente, queda desactivado.
+  BREVO: {
+    apiUrl: (process.env.BREVO_API_URL || 'https://nd29o09h3i.execute-api.us-west-2.amazonaws.com/prod').trim().replace(/\/+$/, ''),
+    senderEmail: (process.env.BREVO_SENDER_EMAIL || '').trim(),
+    senderName: (process.env.BREVO_SENDER_NAME || 'Marketing VIP').trim(),
+    replyEmail: (process.env.BREVO_REPLY_EMAIL || '').trim()
+  },
   SECURITY: {
     adminPin: (process.env.ADMIN_PIN || 'VIP2026').trim().toUpperCase(),
     turnstileSecretKey: process.env.TURNSTILE_SECRET_KEY || '',

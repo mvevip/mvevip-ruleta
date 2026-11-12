@@ -31,6 +31,7 @@ const {
 const { STANDS, standFromScreenId, prizePoolOf, eventOf, screenIdsOfEvent } = require('../config/stands');
 const { getEventInfo, isEventClosed, publicEventInfo } = require('../config/events');
 const pushService = require('../services/pushService');
+const welcomeEmail = require('../services/welcomeEmail');
 
 const KIOSK_SCREEN_ID = 'KIOSK_01'; // kiosco histórico (valor por defecto cuando la petición no indica screen_id)
 const REGISTER_TTL_SEC = 120;   // el botón se bloquea de nuevo si no se pulsa en 2 minutos
@@ -288,7 +289,10 @@ async function registerParticipant(req, res) {
 
     // Lead nuevo (no un registro repetido): aviso push a los dispositivos del Admin
     if (existingLead.length === 0) {
-      await pushService.notifyNewLead({ stand: kiosk.stand, leadName: cleanName, prizeName: null, isTest: isTestUser });
+      await Promise.allSettled([
+        pushService.notifyNewLead({ stand: kiosk.stand, leadName: cleanName, prizeName: null, isTest: isTestUser }),
+        welcomeEmail.sendWelcome({ stand: kiosk.stand, leadId, name: cleanName, email: cleanEmail, isTest: isTestUser })
+      ]);
     }
 
     return res.json({

@@ -11,6 +11,7 @@ const eventsController = require('../controllers/eventsController');
 const pushController = require('../controllers/pushController');
 const kioskController = require('../controllers/kioskController');
 const qrController = require('../controllers/qrController');
+const emailController = require('../controllers/emailController');
 const { spinLimiter, adminLimiter, lookupLimiter } = require('../middlewares/rateLimiter');
 const { requireAdminAuth } = require('../middlewares/authMiddleware');
 const { verifyTurnstile } = require('../middlewares/turnstileMiddleware');
@@ -43,6 +44,11 @@ router.post('/admin/qr', adminLimiter, requireAdminAuth, qrController.create);
 router.put('/admin/qr/:id', adminLimiter, requireAdminAuth, qrController.update);
 router.delete('/admin/qr/:id', adminLimiter, requireAdminAuth, qrController.remove);
 router.get('/admin/qr/:id/stats', adminLimiter, requireAdminAuth, qrController.stats);
+
+// Correo de bienvenida por Brevo (plantilla por frente, prueba y registro de envíos)
+router.get('/admin/email', adminLimiter, requireAdminAuth, emailController.overview);
+router.put('/admin/email/:stand', adminLimiter, requireAdminAuth, emailController.save);
+router.post('/admin/email/:stand/test', adminLimiter, requireAdminAuth, emailController.test);
 
 // Canal Correo (Brevo): búsqueda del cliente en el CRM por correo + token firmado
 router.get('/mail/lookup', lookupLimiter, mailController.lookupMailClient);
