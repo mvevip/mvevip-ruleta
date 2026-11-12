@@ -26,6 +26,7 @@ export const PAGES = {
   premios: { label: 'Premios', stand: true },
   pantallas: { label: 'Pantallas y videos', stand: true },
   destinos: { label: 'Destinos', stand: false },
+  qr: { label: 'Códigos QR', stand: false },
   metricas: { label: 'Métricas', stand: true },
   ajustes: { label: 'Ajustes', stand: false }
 };

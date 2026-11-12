@@ -205,7 +205,7 @@ async function checkConnection() {
       `).catch(() => {});
 
       // 10. Soporte multi-stand (Autos / Ford). SOLO se auto-migra fuera de producción.
-      // En producción: ejecutar manualmente deploy/migrations/002_stand_support.sql, 003_mail_stand.sql, 004_prize_icons.sql, 005_leads_crm_link.sql, 006_channel_settings.sql, 007_kiosk.sql, 008_ferias_riobamba_ambato.sql, 009_ferias_pantallas.sql, 010_event_settings.sql, 011_push_subscriptions.sql y 012_campana_general.sql
+      // En producción: ejecutar manualmente deploy/migrations/002_stand_support.sql, 003_mail_stand.sql, 004_prize_icons.sql, 005_leads_crm_link.sql, 006_channel_settings.sql, 007_kiosk.sql, 008_ferias_riobamba_ambato.sql, 009_ferias_pantallas.sql, 010_event_settings.sql, 011_push_subscriptions.sql, 012_campana_general.sql y 013_qr_dinamicos.sql
       if (config.NODE_ENV !== 'production') {
         await connection.query(`ALTER TABLE prizes ADD COLUMN stand VARCHAR(20) NOT NULL DEFAULT 'autos'`).catch(() => {});
         await connection.query(`ALTER TABLE prizes ADD INDEX idx_prizes_stand (stand)`).catch(() => {});
@@ -292,6 +292,28 @@ async function checkConnection() {
         `).catch(() => {});
         await connection.query(`
           INSERT IGNORE INTO system_sync (sync_key, version_timestamp, action) VALUES ('displays_kiosk', ${Date.now()}, 'INITIAL')
+        `).catch(() => {});
+
+        // QR dinámicos (enlaces cortos redirigibles). En producción: deploy/migrations/013_qr_dinamicos.sql
+        await connection.query(`
+          CREATE TABLE IF NOT EXISTS qr_links (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            slug VARCHAR(40) NOT NULL,
+            name VARCHAR(80) NOT NULL,
+            target_url VARCHAR(1000) NOT NULL,
+            active TINYINT(1) NOT NULL DEFAULT 1,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_qr_slug (slug)
+          ) ENGINE=InnoDB
+        `).catch(() => {});
+        await connection.query(`
+          CREATE TABLE IF NOT EXISTS qr_scans (
+            link_id INT NOT NULL,
+            day DATE NOT NULL,
+            total INT NOT NULL DEFAULT 0,
+            PRIMARY KEY (link_id, day)
+          ) ENGINE=InnoDB
         `).catch(() => {});
 
         // Notificaciones push del Admin. En producción: deploy/migrations/011_push_subscriptions.sql
