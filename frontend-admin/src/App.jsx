@@ -13,6 +13,7 @@ import Destinations from './pages/Destinations';
 import Metrics from './pages/Metrics';
 import Displays from './pages/Displays';
 import Settings from './pages/Settings';
+import QrCodes from './pages/QrCodes';
 
 const PAGE_VIEWS = {
   resumen: Overview,
@@ -20,6 +21,7 @@ const PAGE_VIEWS = {
   premios: Prizes,
   canje: Redeem,
   destinos: Destinations,
+  qr: QrCodes,
   metricas: Metrics,
   pantallas: Displays,
   ajustes: Settings
