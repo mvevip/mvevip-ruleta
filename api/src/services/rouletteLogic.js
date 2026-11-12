@@ -54,47 +54,55 @@ function validateEmail(email) {
   return { valid: true, email: clean };
 }
 
+// Sorteo ponderado entre una lista de premios (peso > 0). Si todos tienen peso 0, parejo.
+function weightedPick(list) {
+  const totalWeight = list.reduce((sum, p) => sum + Math.max(Number(p.weight) || 0, 0), 0);
+  if (totalWeight <= 0) return list[Math.floor(Math.random() * list.length)];
+  let randomValue = Math.random() * totalWeight;
+  for (const prize of list) {
+    const weight = Math.max(Number(prize.weight) || 0, 0);
+    if (randomValue < weight) return prize;
+    randomValue -= weight;
+  }
+  return list[list.length - 1];
+}
+
 // Selección de premio considerando stock, pesos ponderados y límites diarios
 function selectWeightedPrize(prizes, todayPrizesCountMap = {}) {
   if (!prizes || prizes.length === 0) {
     throw new Error('No hay premios disponibles configurados');
   }
 
-  // Filtrar premios que cumplan:
-  // 1. Activo (o no especificado pero procedente de consulta activa)
-  // 2. Stock > 0
-  // 3. Si tiene límite diario (max_daily_wins > 0), que no lo haya superado hoy
+  const hasStock = (p) => (p.active === undefined || p.active) && (p.stock === undefined || Number(p.stock) > 0);
+
+  // Premios elegibles: activos, con stock y que no hayan alcanzado su límite diario (max_daily_wins > 0)
   const eligiblePrizes = prizes.filter(p => {
-    if (p.active !== undefined && !p.active) return false;
-    if (p.stock !== undefined && Number(p.stock) <= 0) return false;
+    if (!hasStock(p)) return false;
     if (Number(p.max_daily_wins) > 0) {
-      const winsToday = todayPrizesCountMap[p.id] || 0;
-      if (winsToday >= Number(p.max_daily_wins)) {
-        return false; // Límite diario alcanzado: queda protegido temporalmente
-      }
+      const winsToday = Number(todayPrizesCountMap[p.id]) || 0;
+      if (winsToday >= Number(p.max_daily_wins)) return false; // límite diario alcanzado
     }
     return (Number(p.weight) || 0) > 0;
   });
+  if (eligiblePrizes.length > 0) return weightedPick(eligiblePrizes);
 
-  // Si por alguna razón todos los premios elegibles están bloqueados, fallback al primer premio activo con stock
-  if (eligiblePrizes.length === 0) {
-    const fallback = prizes.find(p => (p.active === undefined || p.active) && (p.stock === undefined || Number(p.stock) > 0)) || prizes[0];
-    return fallback;
-  }
+  // Todos alcanzaron su límite diario (o tienen peso 0): se sortea entre TODOS los que aún tienen stock respetando
+  // sus pesos. Antes se devolvía siempre el primero de la lista y, al agotarse los límites diarios, salía el mismo
+  // premio para todos los participantes del resto del día.
+  const withStock = prizes.filter(hasStock);
+  if (withStock.length > 0) return weightedPick(withStock);
 
-  // Sumar los pesos de los premios elegibles
-  const totalWeight = eligiblePrizes.reduce((sum, p) => sum + (Number(p.weight) || 1), 0);
-  let randomValue = Math.random() * totalWeight;
+  return prizes[0]; // sin stock en ningún premio: el llamador ya valida el stock real
+}
 
-  for (const prize of eligiblePrizes) {
-    const weight = Number(prize.weight) || 1;
-    if (randomValue < weight) {
-      return prize;
-    }
-    randomValue -= weight;
-  }
-
-  return eligiblePrizes[0];
+// Inicio del día de hoy en Ecuador (UTC-5, sin horario de verano) expresado en UTC ('YYYY-MM-DD HH:MM:SS'), que es
+// la hora en que MySQL/RDS guarda created_at. Sirve para contar los premios entregados "hoy" en hora de Quito.
+function quitoDayStartUtc(now = new Date()) {
+  const quito = new Date(now.getTime() - 5 * 3600 * 1000);
+  const y = quito.getUTCFullYear();
+  const m = quito.getUTCMonth();
+  const d = quito.getUTCDate();
+  return new Date(Date.UTC(y, m, d, 5, 0, 0)).toISOString().slice(0, 19).replace('T', ' ');
 }
 
 // Generador de código único de ticket
@@ -111,5 +119,6 @@ module.exports = {
   validateAndFormatEcuadorPhone,
   validateEmail,
   selectWeightedPrize,
+  quitoDayStartUtc,
   generateTicketCode
 };

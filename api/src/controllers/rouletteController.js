@@ -3,6 +3,7 @@ const {
   validateAndFormatEcuadorPhone,
   validateEmail,
   selectWeightedPrize,
+  quitoDayStartUtc,
   generateTicketCode
 } = require('../services/rouletteLogic');
 const config = require('../config/env');
@@ -448,7 +449,8 @@ async function processSpin(req, res) {
 
     // Mapeo de premios entregados hoy
     const [todaySpins] = await connection.query(
-      'SELECT prize_id, COUNT(*) AS count_today FROM spins WHERE DATE(created_at) = CURDATE() GROUP BY prize_id'
+      'SELECT prize_id, COUNT(*) AS count_today FROM spins WHERE created_at >= ? AND is_test = 0 GROUP BY prize_id',
+      [quitoDayStartUtc()]
     );
     const todayPrizesMap = {};
     todaySpins.forEach(row => {

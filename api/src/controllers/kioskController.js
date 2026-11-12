@@ -26,6 +26,7 @@ const {
   validateAndFormatEcuadorPhone,
   validateEmail,
   selectWeightedPrize,
+  quitoDayStartUtc,
   generateTicketCode
 } = require('../services/rouletteLogic');
 const { STANDS, standFromScreenId, prizePoolOf, eventOf, screenIdsOfEvent } = require('../config/stands');
@@ -413,7 +414,8 @@ async function startSpin(req, res) {
     }
 
     const [todaySpins] = await conn.query(
-      'SELECT prize_id, COUNT(*) AS count_today FROM spins WHERE DATE(created_at) = CURDATE() GROUP BY prize_id'
+      'SELECT prize_id, COUNT(*) AS count_today FROM spins WHERE created_at >= ? AND is_test = 0 GROUP BY prize_id',
+      [quitoDayStartUtc()]
     );
     const todayPrizesMap = {};
     todaySpins.forEach((row) => { todayPrizesMap[row.prize_id] = row.count_today; });
