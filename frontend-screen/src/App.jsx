@@ -509,6 +509,12 @@ export default function App() {
   const wheelScaleX = (displayConfig?.wheel_scale_x ? Number(displayConfig.wheel_scale_x) : 100) / 100;
   const wheelFontSize = displayConfig?.wheel_font_size ? Number(displayConfig.wheel_font_size) : 100;
 
+  // Tema claro/oscuro del kiosco (lo define el Admin; ?theme= en la URL tiene prioridad, para pruebas)
+  useEffect(() => {
+    if (!brand.isKiosk || new URLSearchParams(window.location.search).get('theme')) return;
+    document.documentElement.dataset.theme = displayConfig?.theme === 'light' ? 'light' : 'dark';
+  }, [displayConfig?.theme]);
+
   useEffect(() => {
     if (lastSyncTime) {
       fetchPrizes();

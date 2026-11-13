@@ -154,6 +154,7 @@ CREATE TABLE IF NOT EXISTS display_configs (
     video_logo_visible BOOLEAN NOT NULL DEFAULT FALSE,
     video_qr_scale INT NOT NULL DEFAULT 100,
     video_qr_position VARCHAR(50) NOT NULL DEFAULT 'top-center',
+    theme VARCHAR(10) NOT NULL DEFAULT 'dark',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
