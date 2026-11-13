@@ -161,7 +161,7 @@ export default function KioskButtonApp() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-b from-zinc-950 via-zinc-900 to-black text-white flex flex-col items-center justify-between px-6 py-8 select-none">
+    <div className="kiosk-bottom min-h-screen w-full bg-gradient-to-b from-zinc-950 via-zinc-900 to-black text-white flex flex-col items-center justify-between px-6 py-8 select-none">
       <div className="flex items-center gap-3">
         <img src="/pantalla/logotipo.png" onError={(e) => { e.currentTarget.src = '/logotipo.png'; }} alt="Marketing VIP" className="h-14 object-contain" />
       </div>

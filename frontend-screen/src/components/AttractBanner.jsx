@@ -92,7 +92,7 @@ export default function AttractBanner() {
       </div>
 
       {/* Franja Ticker de Destinos con fondo #9AC31C / grafito */}
-      <div className="w-full bg-gradient-to-r from-zinc-900 via-[#84A816] to-zinc-900 py-1 px-4 text-center text-xs font-racing font-bold tracking-widest uppercase text-white shadow-md">
+      <div className="kiosk-ticker w-full bg-gradient-to-r from-zinc-900 via-[#84A816] to-zinc-900 py-1 px-4 text-center text-xs font-racing font-bold tracking-widest uppercase text-white shadow-md">
         <span>🏎️ Gira la Ruleta • Gana Vuelos y Estadías • Cancún • Punta Cana • Europa • Orlando • Cruceros VIP ✈️</span>
       </div>
     </div>

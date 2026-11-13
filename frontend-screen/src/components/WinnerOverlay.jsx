@@ -122,7 +122,7 @@ export default function WinnerOverlay({ winnerData, onClose }) {
         </p>
 
         {/* Tarjeta del Premio Ganado */}
-        <div className={`border-2 rounded-2xl p-6 shadow-inner mb-6 relative ${
+        <div className={`kiosk-prize-box border-2 rounded-2xl p-6 shadow-inner mb-6 relative ${
           brand.isFord
             ? 'bg-[#212650] border-[#212650] text-white'
             : 'bg-gradient-to-r from-zinc-900 via-zinc-950 to-zinc-900 border-[#9AC31C]/80'

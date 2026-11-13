@@ -119,7 +119,7 @@ export default function Tachometer({ isSpinning = false, isTestMode = false, cur
   return (
     <div className="relative flex flex-col items-center select-none">
       {/* Contenedor del reloj con sombra y bisel */}
-      <div className="relative w-80 h-80 rounded-full p-2 bg-gradient-to-b from-zinc-700 via-zinc-800 to-zinc-950 shadow-[0_10px_35px_rgba(0,0,0,0.9)] border-4 border-zinc-600/80 flex items-center justify-center">
+      <div className="kiosk-dark-island relative w-80 h-80 rounded-full p-2 bg-gradient-to-b from-zinc-700 via-zinc-800 to-zinc-950 shadow-[0_10px_35px_rgba(0,0,0,0.9)] border-4 border-zinc-600/80 flex items-center justify-center">
         
         {/* Aro interior biselado */}
         <div className={`w-full h-full rounded-full border-2 relative flex items-center justify-center overflow-hidden shadow-inner ${
