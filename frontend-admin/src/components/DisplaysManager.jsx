@@ -23,6 +23,7 @@ import {
 
 export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotification, stand = 'autos', standLabel = '', screenPath = '', formPath = '' }) {
   const isFord = stand === 'ford';
+  const isKiosk = stand === 'kiosk' || stand.endsWith('_kiosk'); // kiosco de 2 pantallas (KIOSK_01, RIO_KIOSK, AMB_KIOSK)
   // Rutas del stand: Autos y Ford conservan las suyas; el kiosco y las ferias llegan desde el Admin (p. ej. /pantalla/?screen=RIO_STAND)
   const rawScreenPath = screenPath || (isFord ? '/pantalla2' : '/pantalla');
   const [screenBasePath, screenQs] = rawScreenPath.split('?'); // '/pantalla/' + 'screen=RIO_STAND'
@@ -601,6 +602,40 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
     ? `${window.location.protocol}//${window.location.hostname}:5503`
     : '';
 
+  // Tema claro/oscuro del kiosco (arriba y abajo). Claro = para sol directo.
+  const [isSavingTheme, setIsSavingTheme] = useState(false);
+  const kioskTheme = displayConfigs.roulette?.theme === 'light' ? 'light' : 'dark';
+  const handleUpdateTheme = async (newTheme) => {
+    if (newTheme === kioskTheme) return;
+    setIsSavingTheme(true);
+    try {
+      const current = displayConfigs['roulette'] || {};
+      const res = await fetch(`${apiUrl}/api/admin/displays/config`, {
+        method: 'PUT',
+        headers: getAdminHeaders(),
+        body: JSON.stringify({
+          stand,
+          screen_key: 'roulette',
+          orientation: current.orientation || 'auto',
+          slide_duration: current.slide_duration || 8,
+          layout_ratio: current.layout_ratio || 'default',
+          theme: newTheme
+        })
+      });
+      const json = await res.json();
+      if (json.success) {
+        setDisplayConfigs(prev => ({ ...prev, roulette: { ...prev.roulette, theme: newTheme } }));
+        onNotification(`Tema del kiosco: ${newTheme === 'light' ? 'CLARO ☀️' : 'OSCURO 🌙'} (se aplica en segundos en las dos pantallas)`);
+      } else {
+        alert(json.error || 'Error al guardar el tema');
+      }
+    } catch (err) {
+      alert('Error de red al guardar el tema: ' + err.message);
+    } finally {
+      setIsSavingTheme(false);
+    }
+  };
+
   const presetClass = (active) =>
     `px-2.5 py-1 text-[11px] rounded-full font-semibold border transition-all cursor-pointer ${
       active
@@ -709,6 +744,26 @@ export default function DisplaysManager({ apiUrl, getAdminHeaders, onNotificatio
                 Pega el enlace de YouTube o el ID. Se actualizará en la pantalla grande.
               </p>
             </div>
+
+            {/* Tema del kiosco: oscuro / claro (sol directo) */}
+            {isKiosk && (
+              <div className="bg-surface-2 border border-line rounded-xl p-3 space-y-2">
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <span className="text-ink-2 font-semibold flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-brand-dark" />
+                    Tema del kiosco (pantalla de arriba y de abajo)
+                  </span>
+                  <span className="badge-lime font-mono">{kioskTheme === 'light' ? 'CLARO ☀️' : 'OSCURO 🌙'}</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button type="button" disabled={isSavingTheme} onClick={() => handleUpdateTheme('dark')} className={presetClass(kioskTheme === 'dark')}>🌙 Oscuro</button>
+                  <button type="button" disabled={isSavingTheme} onClick={() => handleUpdateTheme('light')} className={presetClass(kioskTheme === 'light')}>☀️ Claro (sol directo)</button>
+                </div>
+                <p className="text-xs text-ink-muted leading-tight">
+                  Usa CLARO en kioscos al aire libre: fondo blanco y texto de alto contraste para que se vea con el sol. Aplica solo a este kiosco, en las dos pantallas, en pocos segundos y sin recargar.
+                </p>
+              </div>
+            )}
 
             {/* Ensanchamiento Horizontal de la Ruleta (Aspecto Ovalado) */}
             <div className="bg-surface-2 border border-line rounded-xl p-3 space-y-2">

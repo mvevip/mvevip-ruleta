@@ -4,11 +4,15 @@ import App from './App';
 import KioskButtonApp from './components/KioskButtonApp';
 import './index.css';
 import './brand-ford.css';
+import './kiosk-light.css';
 import { getScreenBrandConfig } from './brand';
 
 const brandConfig = getScreenBrandConfig();
 if (typeof document !== 'undefined') {
   document.documentElement.dataset.brand = brandConfig.brand;
+  // Tema claro de los kioscos (sol directo). ?theme=light|dark fuerza el tema para probar; luego lo gobierna el Admin.
+  const themeParam = new URLSearchParams(window.location.search).get('theme');
+  if (themeParam === 'light' || themeParam === 'dark') document.documentElement.dataset.theme = themeParam;
   if (brandConfig.isFord) {
     document.title = 'Ford | Quito Motors — Ruleta Oficial';
   }

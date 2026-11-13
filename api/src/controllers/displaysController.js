@@ -84,6 +84,7 @@ async function getDisplaysConfig(req, res) {
         video_logo_visible: Boolean(row.video_logo_visible),
         video_qr_scale: row.video_qr_scale ? Number(row.video_qr_scale) : 100,
         video_qr_position: row.video_qr_position || 'top-center',
+        theme: row.theme === 'light' ? 'light' : 'dark', // tema de los kioscos (sin la columna theme siempre es oscuro)
         updated_at: row.updated_at
       };
     });
@@ -104,7 +105,7 @@ async function getDisplaysConfig(req, res) {
  */
 async function updateDisplayConfig(req, res) {
   try {
-    const { screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent, wheel_scale_x, wheel_font_size, video_logo_scale, video_logo_visible, video_qr_scale, video_qr_position } = req.body;
+    const { screen_key, orientation, slide_duration, layout_ratio, video_url, qr_scale_percent, wheel_scale_x, wheel_font_size, video_logo_scale, video_logo_visible, video_qr_scale, video_qr_position, theme } = req.body;
     if (!screen_key) {
       return res.status(400).json({ success: false, error: 'screen_key es requerido' });
     }
@@ -185,6 +186,28 @@ async function updateDisplayConfig(req, res) {
       );
     }
 
+    // Tema claro/oscuro (kioscos al aire libre). Va aparte: si la columna `theme` aun no existe se crea al vuelo
+    // (migracion 015) y el resto de la configuracion se guarda igual.
+    let themeSaved;
+    if (theme === 'light' || theme === 'dark') {
+      const saveTheme = () => pool.query('UPDATE display_configs SET theme = ? WHERE screen_key = ?', [theme, dbKey]);
+      try {
+        await saveTheme();
+        themeSaved = theme;
+      } catch (themeErr) {
+        try {
+          await pool.query("ALTER TABLE display_configs ADD COLUMN theme VARCHAR(10) NOT NULL DEFAULT 'dark'");
+          await saveTheme();
+          themeSaved = theme;
+        } catch (e2) {
+          console.warn('[Displays] No se pudo guardar el tema (ejecuta la migracion 015):', e2.message);
+        }
+      }
+      if (!themeSaved) {
+        return res.status(500).json({ success: false, error: 'No se pudo guardar el tema: falta la columna theme en display_configs (migracion 015).' });
+      }
+    }
+
     const version = await touchSystemSync(`DISPLAY_CONFIG_${screen_key.toUpperCase()}`, req.io, stand);
 
     return res.json({
@@ -198,6 +221,7 @@ async function updateDisplayConfig(req, res) {
       video_logo_visible: cleanVideoLogoVisible !== null ? Boolean(cleanVideoLogoVisible) : undefined,
       video_qr_scale: cleanVideoQrScale,
       video_qr_position: cleanVideoQrPosition,
+      theme: themeSaved,
       version
     });
   } catch (error) {

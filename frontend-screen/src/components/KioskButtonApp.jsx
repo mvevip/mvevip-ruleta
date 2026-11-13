@@ -110,6 +110,24 @@ export default function KioskButtonApp() {
     return () => { alive = false; clearInterval(id); };
   }, [kioskKey, runPrint]);
 
+  // Tema claro/oscuro definido en el Admin (cada 15 s; ?theme= en la URL tiene prioridad, para pruebas)
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('theme')) return;
+    let alive = true;
+    const loadTheme = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/displays/config?stand=${encodeURIComponent(getScreenBrandConfig().stand)}`, { cache: 'no-store' });
+        const json = await res.json();
+        if (alive && json.success && json.configs && json.configs.roulette) {
+          document.documentElement.dataset.theme = json.configs.roulette.theme === 'light' ? 'light' : 'dark';
+        }
+      } catch (e) { /* conserva el tema actual */ }
+    };
+    loadTheme();
+    const id = setInterval(loadTheme, 15000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+
   // Estado de la impresora local
   useEffect(() => {
     let alive = true;
@@ -161,7 +179,7 @@ export default function KioskButtonApp() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-b from-zinc-950 via-zinc-900 to-black text-white flex flex-col items-center justify-between px-6 py-8 select-none">
+    <div className="kiosk-bottom min-h-screen w-full bg-gradient-to-b from-zinc-950 via-zinc-900 to-black text-white flex flex-col items-center justify-between px-6 py-8 select-none">
       <div className="flex items-center gap-3">
         <img src="/pantalla/logotipo.png" onError={(e) => { e.currentTarget.src = '/logotipo.png'; }} alt="Marketing VIP" className="h-14 object-contain" />
       </div>

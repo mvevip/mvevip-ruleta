@@ -1,0 +1,85 @@
+/* ==========================================================================
+   TEMA CLARO PARA KIOSCOS AL AIRE LIBRE (html[data-theme="light"])
+   Fondo blanco, texto marino #0B2A4A y acento lima oscurecido (#4D6A00 en texto) para
+   que se lea con el sol. Los elementos "isla oscura" (.kiosk-dark-island: el reloj) conservan su estilo.
+   Solo se activa cuando el Admin pone el kiosco en modo claro (o con ?theme=light para probar).
+   ========================================================================== */
+
+html[data-theme="light"],
+html[data-theme="light"] body { background-color: #ffffff; color: #0B2A4A; }
+
+html[data-theme="light"] .carbon-bg {
+  background-color: #ffffff;
+  background-image:
+    radial-gradient(rgba(154, 195, 28, 0.16) 15%, transparent 16%),
+    radial-gradient(rgba(11, 42, 74, 0.05) 15%, transparent 16%);
+  background-size: 18px 18px;
+  background-position: 0 0, 9px 9px;
+  color: #0B2A4A;
+}
+
+/* Tarjetas (QR, ganador) */
+html[data-theme="light"] .brushed-metal {
+  background: linear-gradient(135deg, #ffffff 0%, #f4f7ea 100%);
+  border: 3px solid #0B2A4A;
+  box-shadow: 0 10px 30px rgba(11, 42, 74, 0.18);
+}
+html[data-theme="light"] .glow-brand { box-shadow: 0 0 0 3px rgba(154, 195, 28, 0.55), 0 8px 24px rgba(11, 42, 74, 0.2); }
+html[data-theme="light"] .text-glow-brand { text-shadow: none; }
+
+/* Cabecera, banner y pie */
+html[data-theme="light"] header,
+html[data-theme="light"] footer {
+  background: #ffffff;
+  border-color: rgba(11, 42, 74, 0.25);
+  box-shadow: 0 2px 12px rgba(11, 42, 74, 0.1);
+}
+html[data-theme="light"] footer { background: #0B2A4A !important; color: #ffffff; }
+html[data-theme="light"] .kiosk-ticker { background: #9AC31C !important; color: #0B2A4A !important; }
+html[data-theme="light"] .kiosk-ticker span { color: #0B2A4A !important; }
+
+/* Superficies oscuras de Tailwind fuera de las islas */
+html[data-theme="light"] [class*="bg-zinc-9"]:not(.kiosk-dark-island *):not(.kiosk-dark-island),
+html[data-theme="light"] [class*="bg-zinc-8"]:not(.kiosk-dark-island *):not(.kiosk-dark-island),
+html[data-theme="light"] [class*="bg-black"]:not(.kiosk-dark-island *):not(.kiosk-dark-island):not(.kiosk-keep-dark) {
+  background-color: #ffffff;
+}
+html[data-theme="light"] [class*="border-zinc"]:not(.kiosk-dark-island *) { border-color: rgba(11, 42, 74, 0.3); }
+html[data-theme="light"] [class*="text-zinc-"]:not(.kiosk-dark-island *) { color: #1e3a56; }
+html[data-theme="light"] .text-white:not(.kiosk-dark-island *):not(.kiosk-keep-white *):not(.kiosk-keep-white) { color: #0B2A4A; }
+html[data-theme="light"] .font-racing.text-\[\#9AC31C\]:not(.kiosk-dark-island *),
+html[data-theme="light"] .text-\[\#9AC31C\]:not(.kiosk-dark-island *) { color: #4D6A00; }
+html[data-theme="light"] footer .text-\[\#9AC31C\] { color: #b6e03a; }
+html[data-theme="light"] footer [class*="text-zinc-"] { color: #e2e8f0; }
+html[data-theme="light"] .drop-shadow-\[0_0_12px_rgba\(154\,195\,28\,0\.8\)\] { filter: none; }
+
+/* Pie: marino con lima */
+html[data-theme="light"] footer span { color: inherit; }
+
+/* Pantalla de abajo (botón) */
+html[data-theme="light"] .kiosk-bottom {
+  background: #ffffff;
+  color: #0B2A4A;
+}
+html[data-theme="light"] .kiosk-glow { animation-name: kioskGlowLight; }
+@keyframes kioskGlowLight {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(154, 195, 28, 0.4), 0 10px 30px rgba(11, 42, 74, 0.25); }
+  50% { box-shadow: 0 0 0 14px rgba(154, 195, 28, 0.55), 0 10px 40px rgba(11, 42, 74, 0.35); }
+}
+
+/* Pie: texto siempre claro sobre marino */
+html[data-theme="light"] footer,
+html[data-theme="light"] footer * { color: #ffffff !important; }
+html[data-theme="light"] footer .text-\[\#9AC31C\] { color: #b6e03a !important; }
+
+/* Botón JUGAR AHORA deshabilitado: gris claro, sin borde marcado (debe verse claramente apagado) */
+html[data-theme="light"] .kiosk-bottom button[disabled] {
+  background: #E5E7EB !important;
+  color: #64748B !important;
+  border-color: #CBD5E1 !important;
+}
+
+/* Premio ganado: caja marino con texto claro (alto contraste) */
+html[data-theme="light"] .kiosk-prize-box { background: #0B2A4A !important; border-color: #9AC31C !important; }
+html[data-theme="light"] .kiosk-prize-box h3 { color: #c4ee3f !important; text-shadow: none; }
+html[data-theme="light"] .kiosk-prize-box p { color: #ffffff !important; }
