@@ -78,6 +78,13 @@ export function getScreenBrandConfig() {
     isFord,
     isKiosk,
     stand: fair ? fair.stand : isKiosk ? 'kiosk' : isFord ? 'ford' : 'autos',
+    // Fase de imágenes entre el video y la ruleta: pantallas gigantes de las ferias (RIO_STAND, AMB_STAND). ?images=1|0 fuerza (pruebas)
+    imageInterlude: (() => {
+      const q = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('images') : null;
+      if (q === '1') return true;
+      if (q === '0') return false;
+      return Boolean(fair && !fair.kiosk);
+    })(),
     fairEvent: fair ? fair.event : null, // 'riobamba' | 'ambato' | null
     fairCity: fair ? fair.city : null,
     fairName: fair ? fair.fairName : null,

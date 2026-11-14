@@ -4,7 +4,7 @@ import { Sparkles } from 'lucide-react';
 import useRemoteDisplaySync from '../hooks/useRemoteDisplaySync';
 import { getScreenBrandConfig } from '../brand';
 
-export default function DisplayComboView({ mobileUrl = '', screenId = '' }) {
+export default function DisplayComboView({ mobileUrl = '', screenId = '', onCycleEnd = null, imageWidthPct = null }) {
   const brand = getScreenBrandConfig();
   const { displayConfig, sliderImages } = useRemoteDisplaySync('combo');
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -87,6 +87,11 @@ export default function DisplayComboView({ mobileUrl = '', screenId = '' }) {
 
       if (elapsed >= slideDuration) {
         clearInterval(interval);
+        // Como intermedio del ciclo (video -> imágenes -> ruleta): al terminar la última imagen avisa y no da otra vuelta
+        if (onCycleEnd && (currentIndex % activeSlides.length) === activeSlides.length - 1) {
+          onCycleEnd();
+          return;
+        }
         setCurrentIndex((prev) => (prev + 1) % activeSlides.length);
       }
     }, 50);
@@ -188,7 +193,7 @@ export default function DisplayComboView({ mobileUrl = '', screenId = '' }) {
           : isLandscape 
           ? 'w-[52%] h-full border-r-4 border-[#9AC31C]/60 flex-shrink-0' 
           : 'h-[44%] lg:h-full w-full lg:w-[52%] lg:border-r-4 border-[#9AC31C]/60 flex-shrink-0'
-      }`}>
+      }`} style={!isPortrait && imageWidthPct ? { width: `${imageWidthPct}%` } : undefined}>
         {activeSlides.map((slide, idx) => {
           const isActive = idx === currentIndex % activeSlides.length;
           return (
@@ -202,7 +207,7 @@ export default function DisplayComboView({ mobileUrl = '', screenId = '' }) {
                 <img
                   src={slide.image_url}
                   alt={slide.title || `Slide ${idx + 1}`}
-                  className="w-full h-full object-cover object-center"
+                  className={`w-full h-full object-center ${imageWidthPct ? 'object-contain' : 'object-cover'}`}
                 />
               ) : (
                 <div className={`w-full h-full flex flex-col items-center justify-center text-center p-6 relative ${
@@ -263,7 +268,7 @@ export default function DisplayComboView({ mobileUrl = '', screenId = '' }) {
           : isLandscape 
           ? 'w-[48%] h-full px-3 py-2 sm:px-6 sm:py-3' 
           : 'flex-1 lg:h-full w-full lg:w-[48%] min-h-0 px-3 py-2 sm:px-6 sm:py-3'
-      }`}>
+      }`} style={!isPortrait && imageWidthPct ? { width: `${100 - imageWidthPct}%` } : undefined}>
         {!brand.isFord && (
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-[#9AC31C]/10 via-transparent to-transparent pointer-events-none" />
         )}

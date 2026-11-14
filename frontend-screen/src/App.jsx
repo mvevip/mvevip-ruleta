@@ -52,6 +52,7 @@ export default function App() {
   const [activePilot, setActivePilot] = useState(null);
   const [socketConnected, setSocketConnected] = useState(false);
   const [showVideo, setShowVideo] = useState(true);
+  const [showSlides, setShowSlides] = useState(false); // fase de imágenes (con QR) entre el video y la ruleta
 
   const [isTestSpinning, setIsTestSpinning] = useState(false);
 
@@ -108,6 +109,7 @@ export default function App() {
       // Solo regresar al video si nadie está girando, ni en prueba, ni con modal de ganador, ni hay turnos pendientes en cola
       if (!isSpinningRef.current && !isTestSpinningRef.current && !winnerRef.current && screenQueueRef.current.length === 0) {
         setShowVideo(true);
+        setShowSlides(false);
         setActivePilot(null);
       }
     }, delay);
@@ -119,9 +121,27 @@ export default function App() {
     startIdleTimer(ROULETTE_PAUSE_MS);
   };
 
+  // Al terminar el video: si el stand tiene imágenes activas, pasan una vez completas y luego la ruleta (20 s); si no, directo a la ruleta
+  const handleVideoEnded = () => {
+    if (BRAND_CONFIG.imageInterlude && interludeImagesRef.current > 0) {
+      setShowVideo(false);
+      setShowSlides(true);
+      if (idleTimerRef.current) { clearTimeout(idleTimerRef.current); idleTimerRef.current = null; }
+    } else {
+      handleVideoPauseToRoulette();
+    }
+  };
+
+  // Termina la pasada de imágenes -> ruleta 20 s -> vuelve el video
+  const handleSlidesDone = () => {
+    setShowSlides(false);
+    startIdleTimer(ROULETTE_PAUSE_MS);
+  };
+
   // Despertar pantalla cuando un usuario real interactúa en el móvil
   const dismissVideo = () => {
     setShowVideo(false);
+    setShowSlides(false);
     startIdleTimer(INACTIVITY_FALLBACK_MS);
   };
 
@@ -492,6 +512,7 @@ export default function App() {
       idleTimerRef.current = null;
     }
     setShowVideo(false);
+    setShowSlides(false);
 
     // Si la ruleta está actualmente girando, celebrando un ganador o en pausa intermedia:
     if (isSpinningRef.current || winnerRef.current || isProcessingQueueRef.current) {
@@ -506,6 +527,10 @@ export default function App() {
 
   // Sincronización remota para actualizar premios automáticamente cuando el admin los modifica
   const { displayConfig, isConfigLoaded, lastSyncTime } = useRemoteDisplaySync('roulette', socketRef.current);
+  // Imágenes activas del stand (las mismas del slider/combo del Admin) para saber si hay fase de imágenes
+  const { sliderImages: interludeImages } = useRemoteDisplaySync('combo');
+  const interludeImagesRef = useRef(0);
+  interludeImagesRef.current = interludeImages ? interludeImages.length : 0;
   const wheelScaleX = (displayConfig?.wheel_scale_x ? Number(displayConfig.wheel_scale_x) : 100) / 100;
   const wheelFontSize = displayConfig?.wheel_font_size ? Number(displayConfig.wheel_font_size) : 100;
 
@@ -595,7 +620,7 @@ export default function App() {
       <VideoAttractOverlay
         isVisible={showVideo && !isSpinning && !winner}
         onDismiss={handleVideoPauseToRoulette}
-        onVideoEnded={handleVideoPauseToRoulette}
+        onVideoEnded={handleVideoEnded}
         mobileUrl={MOBILE_BASE_URL}
         screenId={SCREEN_ID}
         videoId={displayConfig?.video_url || 'AzQlHkHx6HI'}
@@ -603,6 +628,13 @@ export default function App() {
         logoScale={displayConfig?.video_logo_scale ? Number(displayConfig.video_logo_scale) : 100}
         showLogo={Boolean(displayConfig?.video_logo_visible)}
       />
+
+      {/* Fase de imágenes: pasada completa con el QR a la derecha (vista combo); solo stands con la fase activa */}
+      {BRAND_CONFIG.imageInterlude && showSlides && !isSpinning && !winner && interludeImages && interludeImages.length > 0 && (
+        <div className="fixed inset-0 z-40">
+          <DisplayComboView mobileUrl={MOBILE_BASE_URL} screenId={SCREEN_ID} onCycleEnd={handleSlidesDone} imageWidthPct={69} />
+        </div>
+      )}
 
       {/* Botón Flotante Discreto de Modo Prueba (Giro de 1 Minuto) */}
       {!showVideo && !winner && (
